@@ -1,0 +1,18 @@
+@import "tailwindcss";
+
+html, body, #root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  background: #09090b;
+}
+
+/* Slightly chunkier range thumbs for the dark UI */
+input[type="range"] {
+  height: 4px;
+  border-radius: 9999px;
+  background: #27272a;
+}
