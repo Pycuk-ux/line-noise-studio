@@ -7,7 +7,8 @@ export const FONT_STACKS: { label: string; value: string }[] = [
 ];
 
 export const ASPECT_PRESETS: { label: string; width: number; height: number }[] = [
-  { label: "Landscape 1920×1080", width: 1920, height: 1080 },
+  { label: "Landscape 1920×1080 (1080p)", width: 1920, height: 1080 },
+  { label: "Landscape 1280×720 (720p)", width: 1280, height: 720 },
   { label: "Square 1080×1080", width: 1080, height: 1080 },
   { label: "Portrait 1080×1920", width: 1080, height: 1920 },
   { label: "Wide 2560×1080", width: 2560, height: 1080 },
@@ -31,8 +32,10 @@ export const DEFAULT_SETTINGS: Settings = {
   barOpacity: 0.9,
   alphaScale: 3.2,
 
-  textReveal: 1,
-  revealSpread: 120,
+  bubbleSize: 0.42,
+  bubbleShape: 0,
+  bubbleCurvature: 0.35,
+  bubbleSoftness: 0.6,
 
   grainScale: 0.9,
   grainOpacity: 0.14,
@@ -53,4 +56,6 @@ export const DEFAULT_SETTINGS: Settings = {
 
   loopDuration: 6,
   fps: 30,
+
+  exportRes: "canvas",
 };

@@ -9,7 +9,7 @@ import { exportPng, exportVideo, webCodecsSupported, type VideoFormat } from "./
 const REBAKE_KEYS: (keyof Settings)[] = [
   "text", "fontFamily", "fontSize", "textColor", "lineHeight", "letterSpacing",
   "align", "textPadding", "bgColor", "bgColor2", "bgGradient", "bgGradAngle",
-  "width", "height", "revealSpread",
+  "width", "height",
 ];
 
 export default function App() {
@@ -86,7 +86,7 @@ export default function App() {
 
   const doExportPng = async () => {
     if (!rendererRef.current) return;
-    await exportPng(rendererRef.current, timeRef.current);
+    await exportPng(rendererRef.current, settingsRef.current, timeRef.current);
     rendererRef.current.render(timeRef.current);
   };
 
@@ -110,7 +110,7 @@ export default function App() {
   };
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-zinc-950 text-zinc-200">
+    <div className="flex h-screen w-screen overflow-hidden bg-[var(--bg)] text-[var(--text)]">
       {/* Preview */}
       <main className="flex-1 flex flex-col min-w-0">
         <div className="flex-1 flex items-center justify-center p-6 min-h-0">
@@ -128,12 +128,22 @@ export default function App() {
         </div>
 
         {/* Transport */}
-        <div className="flex items-center gap-3 border-t border-zinc-800 bg-zinc-900 px-6 py-3">
+        <div className="flex items-center gap-3 border-t border-[var(--field-border)] bg-[var(--bg)] px-6 py-3">
           <button
             onClick={() => setPlaying((p) => !p)}
-            className="h-9 w-9 shrink-0 rounded-full bg-fuchsia-600 text-white hover:bg-fuchsia-500 flex items-center justify-center"
+            aria-label={playing ? "Pause" : "Play"}
+            className="h-9 w-9 shrink-0 rounded-full bg-[var(--ctrl-active)] text-white hover:brightness-110 flex items-center justify-center"
           >
-            {playing ? "❚❚" : "►"}
+            {playing ? (
+              <span className="flex gap-[4px]">
+                <span className="block w-[3px] h-[13px] rounded-[1px] bg-white" />
+                <span className="block w-[3px] h-[13px] rounded-[1px] bg-white" />
+              </span>
+            ) : (
+              <svg width="14" height="16" viewBox="0 0 14 16" style={{ transform: "translate(2px, 0)" }}>
+                <path d="M0 0 L14 8 L0 16 Z" fill="white" />
+              </svg>
+            )}
           </button>
           <input
             type="range"
@@ -145,16 +155,17 @@ export default function App() {
               setPlaying(false);
               scrub(parseFloat(e.target.value));
             }}
-            className="flex-1 accent-fuchsia-500 cursor-pointer"
+            className="flex-1 cursor-pointer"
+            style={{ background: `linear-gradient(to right, var(--ctrl-active) ${(time / settings.loopDuration) * 100}%, var(--ctrl-bg) ${(time / settings.loopDuration) * 100}%)` }}
           />
-          <span className="text-xs tabular-nums text-zinc-400 w-24 text-right">
+          <span className="text-xs tabular-nums text-[var(--subhead)] w-24 text-right">
             {time.toFixed(2)}s / {settings.loopDuration}s
           </span>
         </div>
       </main>
 
       {/* Controls */}
-      <aside className="w-80 shrink-0 border-l border-zinc-800 bg-zinc-950">
+      <aside className="w-80 shrink-0 border-l border-[var(--field-border)] bg-[var(--bg)]">
         <ControlPanel
           s={settings}
           update={update}

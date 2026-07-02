@@ -1,18 +1,78 @@
 @import "tailwindcss";
 
+:root {
+  --bg: #0a161c;          /* main app background */
+  --field-bg: #0f222a;    /* input / text-field background */
+  --field-border: #132d38;/* input / text-field border */
+  --label: #436271;       /* input / text-field labels */
+  --subhead: #8ea1a9;     /* section subheadings + field values */
+  --ctrl-bg: #065f46;     /* draggable control track (inactive) */
+  --ctrl-active: #10b981; /* active draggable control */
+  --text: #c3d2d8;        /* primary readable text in fields */
+}
+
 html, body, #root {
   height: 100%;
   margin: 0;
 }
 
 body {
-  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
-  background: #09090b;
+  font-family: "Inter Variable", system-ui, -apple-system, "Segoe UI", sans-serif;
+  letter-spacing: -0.03em;
+  background: var(--bg);
 }
 
-/* Slightly chunkier range thumbs for the dark UI */
+/* Range sliders: fully custom (no native track/border). Two-tone fill comes
+   from an inline linear-gradient background set per-slider from its value. */
 input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
   height: 4px;
+  border: none;
+  outline: none;
   border-radius: 9999px;
-  background: #27272a;
+  background: var(--ctrl-bg);
+  cursor: pointer;
 }
+input[type="range"]::-webkit-slider-runnable-track {
+  height: 4px;
+  border: none;
+  background: transparent;
+  border-radius: 9999px;
+}
+input[type="range"]::-moz-range-track {
+  height: 4px;
+  border: none;
+  background: transparent;
+  border-radius: 9999px;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  margin-top: -6px;
+  border: none;
+  border-radius: 9999px;
+  background: var(--ctrl-active);
+}
+input[type="range"]::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border: none;
+  border-radius: 9999px;
+  background: var(--ctrl-active);
+}
+
+/* Color swatch: no border, fill the element 100% with zero margin. */
+input[type="color"] {
+  -webkit-appearance: none;
+  appearance: none;
+  padding: 0;
+  border: none;
+  background: none;
+}
+input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+input[type="color"]::-webkit-color-swatch { border: none; border-radius: 4px; }
+input[type="color"]::-moz-color-swatch { border: none; border-radius: 4px; }

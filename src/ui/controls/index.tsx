@@ -1,11 +1,13 @@
 import { useRef } from "react";
 
+const FIELD = "rounded border border-[var(--field-border)] bg-[var(--field-bg)] text-[var(--text)]";
+
 export function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
   return (
     <label className="block mb-3">
       <div className="flex items-center justify-between mb-1">
-        <span className="text-[11px] font-medium tracking-wide text-zinc-400 uppercase">{label}</span>
-        {hint && <span className="text-[11px] text-zinc-500 tabular-nums">{hint}</span>}
+        <span className="text-[11px] font-medium tracking-wide text-[var(--label)] uppercase">{label}</span>
+        {hint && <span className="text-[11px] text-[var(--subhead)] tabular-nums">{hint}</span>}
       </div>
       {children}
     </label>
@@ -18,6 +20,7 @@ export function Slider({
   label: string; value: number; min: number; max: number; step?: number; unit?: string;
   onChange: (v: number) => void;
 }) {
+  const pct = max > min ? ((value - min) / (max - min)) * 100 : 0;
   return (
     <Field label={label} hint={`${Number.isInteger(step) ? value : value.toFixed(2)}${unit}`}>
       <input
@@ -27,7 +30,8 @@ export function Slider({
         step={step}
         value={value}
         onChange={(e) => onChange(parseFloat(e.target.value))}
-        className="w-full accent-fuchsia-500 cursor-pointer"
+        className="w-full cursor-pointer"
+        style={{ background: `linear-gradient(to right, var(--ctrl-active) ${pct}%, var(--ctrl-bg) ${pct}%)` }}
       />
     </Field>
   );
@@ -41,13 +45,13 @@ export function ColorInput({ label, value, onChange }: { label: string; value: s
           type="color"
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          className="h-8 w-10 rounded border border-zinc-700 bg-transparent cursor-pointer p-0"
+          className="h-8 w-10 rounded cursor-pointer"
         />
         <input
           type="text"
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          className="flex-1 h-8 rounded border border-zinc-700 bg-zinc-900 px-2 text-sm text-zinc-200 font-mono"
+          className={`flex-1 h-8 px-2 text-sm font-mono ${FIELD}`}
         />
       </div>
     </Field>
@@ -59,14 +63,14 @@ export function Segmented<T extends string>({
 }: { label: string; value: T; options: { label: string; value: T }[]; onChange: (v: T) => void }) {
   return (
     <Field label={label}>
-      <div className="flex gap-1 rounded-lg bg-zinc-900 p-1 border border-zinc-800">
+      <div className="flex gap-1 rounded-lg bg-[var(--field-bg)] p-1">
         {options.map((o) => (
           <button
             key={o.value}
             type="button"
             onClick={() => onChange(o.value)}
             className={`flex-1 rounded-md py-1.5 text-xs font-medium transition ${
-              value === o.value ? "bg-fuchsia-600 text-white" : "text-zinc-400 hover:text-zinc-200"
+              value === o.value ? "bg-[var(--ctrl-active)] text-white" : "text-[var(--label)] hover:text-[var(--subhead)]"
             }`}
           >
             {o.label}
@@ -85,7 +89,7 @@ export function Select<T extends string>({
       <select
         value={value}
         onChange={(e) => onChange(e.target.value as T)}
-        className="w-full h-8 rounded border border-zinc-700 bg-zinc-900 px-2 text-sm text-zinc-200"
+        className={`w-full h-8 px-2 text-sm ${FIELD}`}
       >
         {options.map((o) => (
           <option key={o.value} value={o.value}>{o.label}</option>
@@ -102,7 +106,7 @@ export function TextArea({ label, value, onChange }: { label: string; value: str
         value={value}
         onChange={(e) => onChange(e.target.value)}
         rows={4}
-        className="w-full rounded border border-zinc-700 bg-zinc-900 px-2 py-1.5 text-sm text-zinc-200 resize-y"
+        className={`w-full px-2 py-1.5 text-sm resize-y ${FIELD}`}
       />
     </Field>
   );
@@ -111,11 +115,11 @@ export function TextArea({ label, value, onChange }: { label: string; value: str
 export function Toggle({ label, value, onChange }: { label: string; value: boolean; onChange: (v: boolean) => void }) {
   return (
     <div className="flex items-center justify-between mb-3">
-      <span className="text-[11px] font-medium tracking-wide text-zinc-400 uppercase">{label}</span>
+      <span className="text-[11px] font-medium tracking-wide text-[var(--label)] uppercase">{label}</span>
       <button
         type="button"
         onClick={() => onChange(!value)}
-        className={`relative h-5 w-9 rounded-full transition ${value ? "bg-fuchsia-600" : "bg-zinc-700"}`}
+        className={`relative h-5 w-9 rounded-full transition ${value ? "bg-[var(--ctrl-active)]" : "bg-[var(--ctrl-bg)]"}`}
       >
         <span
           className="absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-white transition-transform"
@@ -151,7 +155,7 @@ export function FontUpload({ onLoaded }: { onLoaded: (family: string, label: str
       <button
         type="button"
         onClick={() => ref.current?.click()}
-        className="w-full h-8 rounded border border-dashed border-zinc-600 bg-zinc-900 text-xs text-zinc-300 hover:border-fuchsia-500 hover:text-white transition"
+        className="w-full h-8 rounded border border-dashed border-[var(--field-border)] bg-[var(--field-bg)] text-xs text-[var(--subhead)] hover:border-[var(--ctrl-active)] hover:text-white transition"
       >
         + Upload font (.ttf / .otf / .woff)
       </button>

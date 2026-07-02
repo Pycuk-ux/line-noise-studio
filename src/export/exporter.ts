@@ -18,18 +18,45 @@ function downloadBlob(blob: Blob, filename: string) {
   setTimeout(() => URL.revokeObjectURL(url), 2000);
 }
 
-export function exportPng(renderer: Renderer, t: number): Promise<void> {
-  renderer.render(t);
-  return new Promise((resolve) => {
-    renderer.canvas.toBlob((blob) => {
-      if (blob) downloadBlob(blob, `line-noise-${Date.now()}.png`);
-      resolve();
-    }, "image/png");
+// Output dimensions for the chosen export resolution, preserving canvas aspect.
+// 1080p / 2K target the longer edge (1920 / 2560); dimensions are kept even.
+export function exportDims(s: Settings): { width: number; height: number } {
+  if (s.exportRes === "canvas") return { width: s.width, height: s.height };
+  const targetLong = s.exportRes === "2k" ? 2560 : 1920;
+  const scale = targetLong / Math.max(s.width, s.height);
+  const even = (n: number) => Math.max(2, Math.round((n * scale) / 2) * 2);
+  return { width: even(s.width), height: even(s.height) };
+}
+
+// Render at the export resolution (temporarily resizing the renderer), run fn,
+// then restore the original canvas size.
+async function withExportSize<T>(
+  renderer: Renderer, s: Settings, fn: (dims: { width: number; height: number }) => Promise<T> | T,
+): Promise<T> {
+  const dims = exportDims(s);
+  const resized = dims.width !== s.width || dims.height !== s.height;
+  try {
+    if (resized) renderer.setSettings({ ...s, ...dims }, true);
+    return await fn(dims);
+  } finally {
+    if (resized) renderer.setSettings(s, true);
+  }
+}
+
+export async function exportPng(renderer: Renderer, s: Settings, t: number): Promise<void> {
+  await withExportSize(renderer, s, () => {
+    renderer.render(t);
+    return new Promise<void>((resolve) => {
+      renderer.canvas.toBlob((blob) => {
+        if (blob) downloadBlob(blob, `line-noise-${Date.now()}.png`);
+        resolve();
+      }, "image/png");
+    });
   });
 }
 
-function bitrateFor(s: Settings): number {
-  return Math.min(40_000_000, Math.max(4_000_000, Math.round(s.width * s.height * s.fps * 0.14)));
+function bitrateFor(w: number, h: number, fps: number): number {
+  return Math.min(40_000_000, Math.max(4_000_000, Math.round(w * h * fps * 0.14)));
 }
 
 interface MuxerLike {
@@ -42,9 +69,11 @@ interface MuxerLike {
 async function exportViaWebCodecs(
   renderer: Renderer,
   s: Settings,
+  dims: { width: number; height: number },
   format: VideoFormat,
   onProgress: (p: number) => void,
 ): Promise<void> {
+  const { width, height } = dims;
   const totalFrames = Math.max(1, Math.round(s.loopDuration * s.fps));
   const usPerFrame = 1_000_000 / s.fps;
 
@@ -56,7 +85,7 @@ async function exportViaWebCodecs(
     codec = "avc1.640033"; // H.264 High, level 5.1 (covers all presets)
     muxer = new Muxer({
       target: new ArrayBufferTarget(),
-      video: { codec: "avc", width: s.width, height: s.height },
+      video: { codec: "avc", width, height },
       fastStart: "in-memory",
       firstTimestampBehavior: "offset",
     }) as unknown as MuxerLike;
@@ -65,7 +94,7 @@ async function exportViaWebCodecs(
     codec = "vp09.00.10.08"; // VP9
     muxer = new Muxer({
       target: new ArrayBufferTarget(),
-      video: { codec: "V_VP9", width: s.width, height: s.height, frameRate: s.fps },
+      video: { codec: "V_VP9", width, height, frameRate: s.fps },
     }) as unknown as MuxerLike;
   }
 
@@ -76,9 +105,9 @@ async function exportViaWebCodecs(
 
   const config: VideoEncoderConfig = {
     codec,
-    width: s.width,
-    height: s.height,
-    bitrate: bitrateFor(s),
+    width,
+    height,
+    bitrate: bitrateFor(width, height, s.fps),
     framerate: s.fps,
   };
   if (format === "mp4") (config as VideoEncoderConfig & { avc?: { format: string } }).avc = { format: "avc" };
@@ -118,7 +147,10 @@ async function exportViaMediaRecorder(
   const mime = MediaRecorder.isTypeSupported("video/webm;codecs=vp9")
     ? "video/webm;codecs=vp9"
     : "video/webm";
-  const recorder = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: bitrateFor(s) });
+  const recorder = new MediaRecorder(stream, {
+    mimeType: mime,
+    videoBitsPerSecond: bitrateFor(renderer.canvas.width, renderer.canvas.height, s.fps),
+  });
   const chunks: Blob[] = [];
   recorder.ondataavailable = (e) => e.data.size && chunks.push(e.data);
 
@@ -152,11 +184,13 @@ export async function exportVideo(
   format: VideoFormat,
   onProgress: (p: number) => void,
 ): Promise<void> {
-  if (webCodecsSupported()) {
-    await exportViaWebCodecs(renderer, s, format, onProgress);
-  } else if (format === "webm") {
-    await exportViaMediaRecorder(renderer, s, onProgress);
-  } else {
-    throw new Error("MP4 export needs WebCodecs (Chrome/Edge). Use WEBM in this browser.");
-  }
+  await withExportSize(renderer, s, async (dims) => {
+    if (webCodecsSupported()) {
+      await exportViaWebCodecs(renderer, s, dims, format, onProgress);
+    } else if (format === "webm") {
+      await exportViaMediaRecorder(renderer, s, onProgress);
+    } else {
+      throw new Error("MP4 export needs WebCodecs (Chrome/Edge). Use WEBM in this browser.");
+    }
+  });
 }

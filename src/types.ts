@@ -20,9 +20,12 @@ export interface Settings {
   barOpacity: number; // 0..1 master opacity of the bars
   alphaScale: number; // spatial frequency of the transparency map
 
-  // Text reveal (lines cover the whole screen, fading out over the text)
-  textReveal: number; // 0 = lines everywhere · 1 = fully cleared over the text
-  revealSpread: number; // px — softness/size of the faded region over the text
+  // Line mask — a central "bubble" that fades the gradient-lines layer,
+  // revealing the text (and background) beneath it. Independent of the text.
+  bubbleSize: number; // 0..1.5 — radius of the bubble relative to the canvas
+  bubbleShape: number; // 0 = circle · 1 = squircle (more curved corners)
+  bubbleCurvature: number; // 0 = round · 1 = wide (stretched horizontally)
+  bubbleSoftness: number; // 0 = hard edge · 1 = smoothest transparency transition
 
   // Grain / noise overlay
   grainScale: number; // density
@@ -47,6 +50,9 @@ export interface Settings {
   // Timeline
   loopDuration: number; // seconds per seamless loop
   fps: number;
+
+  // Export
+  exportRes: "canvas" | "1080p" | "2k"; // output resolution for image/video export
 }
 
 export type SettingsPatch = Partial<Settings>;

@@ -5,8 +5,8 @@ import type { VideoFormat } from "../export/exporter";
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section className="border-b border-zinc-800 py-4">
-      <h2 className="text-xs font-semibold uppercase tracking-widest text-fuchsia-400 mb-3">{title}</h2>
+    <section className="border-b border-[var(--field-border)] py-4">
+      <h2 className="text-xs font-semibold uppercase tracking-widest text-[var(--subhead)] mb-3">{title}</h2>
       {children}
     </section>
   );
@@ -29,9 +29,9 @@ export function ControlPanel({
 
   return (
     <div className="h-full overflow-y-auto px-4 pb-8">
-      <div className="sticky top-0 z-10 -mx-4 px-4 py-3 bg-zinc-950/95 backdrop-blur border-b border-zinc-800">
-        <h1 className="text-sm font-bold text-white">Line Noise Studio</h1>
-        <p className="text-[11px] text-zinc-500">Animated gradient lines · noise · text · export</p>
+      <div className="sticky top-0 z-10 -mx-4 px-4 py-3 bg-[var(--bg)]/95 backdrop-blur border-b border-[var(--field-border)]">
+        <h1 className="font-bold text-white" style={{ fontSize: "21px", letterSpacing: "-0.02em" }}>Line Noise Studio</h1>
+        <p className="text-[11px] text-[var(--label)]">Animated gradient lines · noise · text · export</p>
       </div>
 
       <Section title="Canvas">
@@ -87,10 +87,12 @@ export function ControlPanel({
         />
       </Section>
 
-      <Section title="Text reveal">
-        <p className="text-[11px] text-zinc-500 -mt-1 mb-3">Lines cover the whole screen and fade out over the text so it shows through.</p>
-        <Slider label="Fade over text" value={s.textReveal} min={0} max={1} step={0.01} onChange={(v) => update({ textReveal: v })} />
-        <Slider label="Fade size" value={s.revealSpread} min={0} max={400} unit="px" onChange={(v) => update({ revealSpread: v })} />
+      <Section title="Line mask (bubble)">
+        <p className="text-[11px] text-[var(--label)] -mt-1 mb-3">A central bubble fades the gradient-lines layer, revealing the text beneath.</p>
+        <Slider label="Bubble size" value={s.bubbleSize} min={0.05} max={1.2} step={0.01} onChange={(v) => update({ bubbleSize: v })} />
+        <Slider label="Shape (circle → squircle)" value={s.bubbleShape} min={0} max={1} step={0.01} onChange={(v) => update({ bubbleShape: v })} />
+        <Slider label="Curvature (round → wide)" value={s.bubbleCurvature} min={0} max={1} step={0.01} onChange={(v) => update({ bubbleCurvature: v })} />
+        <Slider label="Transparency intensity" value={s.bubbleSoftness} min={0} max={1} step={0.01} onChange={(v) => update({ bubbleSoftness: v })} />
       </Section>
 
       <Section title="Background">
@@ -101,21 +103,29 @@ export function ControlPanel({
       </Section>
 
       <Section title="Export">
-        <div className="grid grid-cols-2 gap-2 mb-2">
-          <Slider label="FPS" value={s.fps} min={12} max={60} onChange={(v) => update({ fps: v })} />
-        </div>
+        <Select
+          label="Resolution"
+          value={s.exportRes}
+          options={[
+            { label: `Match canvas (${s.width}×${s.height})`, value: "canvas" },
+            { label: "1080p (long edge 1920)", value: "1080p" },
+            { label: "2K (long edge 2560)", value: "2k" },
+          ]}
+          onChange={(v) => update({ exportRes: v })}
+        />
+        <Slider label="FPS" value={s.fps} min={12} max={60} onChange={(v) => update({ fps: v })} />
         {exporting && (
           <div className="mb-3">
-            <div className="h-1.5 rounded-full bg-zinc-800 overflow-hidden">
-              <div className="h-full bg-fuchsia-500 transition-all" style={{ width: `${Math.round(progress * 100)}%` }} />
+            <div className="h-1.5 rounded-full bg-[var(--field-bg)] overflow-hidden">
+              <div className="h-full bg-[var(--ctrl-active)] transition-all" style={{ width: `${Math.round(progress * 100)}%` }} />
             </div>
-            <p className="text-[11px] text-zinc-500 mt-1">Exporting… {Math.round(progress * 100)}%</p>
+            <p className="text-[11px] text-[var(--label)] mt-1">Exporting… {Math.round(progress * 100)}%</p>
           </div>
         )}
         <div className="grid grid-cols-3 gap-2">
-          <button disabled={exporting} onClick={onExportPng} className="rounded-md bg-zinc-800 py-2 text-xs font-medium text-white hover:bg-zinc-700 disabled:opacity-40">PNG</button>
-          <button disabled={exporting} onClick={() => onExportVideo("webm")} className="rounded-md bg-zinc-800 py-2 text-xs font-medium text-white hover:bg-zinc-700 disabled:opacity-40">WEBM</button>
-          <button disabled={exporting || !canMp4} title={canMp4 ? "" : "Requires Chrome/Edge (WebCodecs)"} onClick={() => onExportVideo("mp4")} className="rounded-md bg-fuchsia-600 py-2 text-xs font-medium text-white hover:bg-fuchsia-500 disabled:opacity-40">MP4</button>
+          <button disabled={exporting} onClick={onExportPng} className="rounded-md border border-[var(--field-border)] bg-[var(--field-bg)] py-2 text-xs font-medium text-[var(--text)] hover:border-[var(--ctrl-active)] disabled:opacity-40">PNG</button>
+          <button disabled={exporting} onClick={() => onExportVideo("webm")} className="rounded-md border border-[var(--field-border)] bg-[var(--field-bg)] py-2 text-xs font-medium text-[var(--text)] hover:border-[var(--ctrl-active)] disabled:opacity-40">WEBM</button>
+          <button disabled={exporting || !canMp4} title={canMp4 ? "" : "Requires Chrome/Edge (WebCodecs)"} onClick={() => onExportVideo("mp4")} className="rounded-md bg-[var(--ctrl-active)] py-2 text-xs font-medium text-white hover:brightness-110 disabled:opacity-40">MP4</button>
         </div>
         {!canMp4 && <p className="text-[11px] text-amber-500/80 mt-2">MP4 needs WebCodecs (Chrome/Edge). WEBM &amp; PNG work here.</p>}
       </Section>

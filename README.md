@@ -11,9 +11,9 @@ The canvas is tiled into **rows of rectangular cells** ("fractal glass"). Each c
 1. **Transparency map** — a 4D simplex-noise field animates the per-pixel alpha of the cells, so the fill dissolves and reforms randomly over time. Because it evolves around a circle (4D noise), the loop is **seamless**.
 2. **Glass warp** — noise distorts each cell's gradient for a refracted-glass shimmer.
 3. **Grain overlay** — a high-frequency hash noise on top, with independent density and opacity.
-4. **Text reveal** — the line layer covers the whole screen, and a soft blob mask derived from the text **fades the lines out toward the center over the text**, so the text shows through from beneath while the edges stay at full strength.
+4. **Line mask (bubble)** — a central superellipse "bubble" **fades the gradient-lines layer** so the text (and background) beneath shows through. It's independent of the text, with controls for size, shape (circle → squircle), curvature (round → wide), and transparency intensity (hard edge → smoothest fade).
 
-Rows fill completely at thickness 1.0 (no gap between lines). Static text is baked into the background and the animated cells wash over it (blended layer order).
+Layer order (bottom → top): **background → text → masked gradient lines.** Rows fill completely at thickness 1.0 (no gap between lines).
 
 ## Controls
 
@@ -21,9 +21,10 @@ Rows fill completely at thickness 1.0 (no gap between lines). Static text is bak
 **Animation** — speed / flow, glass warp, transparency-map scale, loop length.
 **Noise (grain)** — density, opacity.
 **Text** — content (multi-line), font (built-in stacks **or upload your own** `.ttf/.otf/.woff`), size, color, line spacing, letter spacing, alignment (left / center / right).
-**Text reveal** — fade over text (0 = lines everywhere · 1 = fully cleared over the text), fade size.
+**Line mask (bubble)** — bubble size, shape (circle → squircle), curvature (round → wide), transparency intensity.
 **Background** — solid or two-color gradient fill with adjustable angle.
-**Canvas** — presets: Landscape 1920×1080 (default), Square 1080, Portrait 1080×1920, Wide 2560×1080.
+**Canvas** — presets: 1920×1080 (1080p), 1280×720 (720p), Square 1080, Portrait 1080×1920, Wide 2560×1080.
+**Export** — resolution (Match canvas / 1080p / 2K), FPS, format buttons.
 
 ## Export
 

@@ -52,25 +52,3 @@ export function bakeBase(canvas: HTMLCanvasElement, s: Settings): void {
 
   drawText(ctx, s, s.textColor);
 }
-
-// Fade field (grayscale). Black = keep lines, white = fade lines out.
-// A soft, wide blob centered on the text: the animated line layer covers the
-// whole screen, and this field fades it toward zero over the text so what's
-// beneath (the text) shows through. Empty space stays black => lines stay full.
-export function bakeField(canvas: HTMLCanvasElement, s: Settings): void {
-  canvas.width = s.width;
-  canvas.height = s.height;
-  const ctx = canvas.getContext("2d");
-  if (!ctx) return;
-
-  ctx.fillStyle = "black";
-  ctx.fillRect(0, 0, s.width, s.height);
-
-  // Heavily blurred white text builds a soft blob that saturates to white over
-  // the text body and falls off gradually outward. Multiple passes thicken it
-  // so the center reaches full white (lines fully removed there).
-  ctx.save();
-  ctx.filter = `blur(${Math.max(1, s.revealSpread)}px)`;
-  for (let i = 0; i < 5; i++) drawText(ctx, s, "white");
-  ctx.restore();
-}

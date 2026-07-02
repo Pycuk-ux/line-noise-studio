@@ -1,6 +1,6 @@
 import type { Settings } from "../types";
 import { VERT, FRAG } from "./glsl";
-import { bakeBase, bakeField } from "./textTexture";
+import { bakeBase } from "./textTexture";
 
 function hexToRgb(hex: string): [number, number, number] {
   let h = hex.replace("#", "").trim();
@@ -17,9 +17,7 @@ export class Renderer {
   private program: WebGLProgram;
   private uniforms: Record<string, WebGLUniformLocation | null> = {};
   private baseCanvas: HTMLCanvasElement;
-  private maskCanvas: HTMLCanvasElement;
   private texture: WebGLTexture;
-  private maskTexture: WebGLTexture;
   private settings: Settings;
 
   constructor(canvas: HTMLCanvasElement, settings: Settings) {
@@ -48,11 +46,9 @@ export class Renderer {
     gl.enableVertexAttribArray(loc);
     gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
 
-    // Base texture (bg + text) + reveal-field texture
+    // Base texture (bg + text)
     this.baseCanvas = document.createElement("canvas");
-    this.maskCanvas = document.createElement("canvas");
     this.texture = this.makeTexture();
-    this.maskTexture = this.makeTexture();
 
     this.cacheUniforms();
     this.resize(settings.width, settings.height);
@@ -94,10 +90,11 @@ export class Renderer {
   private cacheUniforms() {
     const gl = this.gl;
     const names = [
-      "uResolution", "uPhase", "uTime", "uBase", "uMask",
+      "uResolution", "uPhase", "uTime", "uBase",
+      "uBubbleSize", "uBubbleShape", "uBubbleCurv", "uBubbleSoft",
       "uBarCount", "uBarThickness", "uBarWidth", "uCellDensity", "uAngleX", "uAngleY",
       "uColorA", "uColorB", "uGradFreq", "uSpeed", "uColorIntensity",
-      "uBarOpacity", "uAlphaScale", "uTextReveal", "uGrainScale", "uGrainOpacity",
+      "uBarOpacity", "uAlphaScale", "uGrainScale", "uGrainOpacity",
     ];
     for (const n of names) this.uniforms[n] = gl.getUniformLocation(this.program, n);
   }
@@ -119,14 +116,9 @@ export class Renderer {
   rebakeBase() {
     const gl = this.gl;
     gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
-
     bakeBase(this.baseCanvas, this.settings);
     gl.bindTexture(gl.TEXTURE_2D, this.texture);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, this.baseCanvas);
-
-    bakeField(this.maskCanvas, this.settings);
-    gl.bindTexture(gl.TEXTURE_2D, this.maskTexture);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, this.maskCanvas);
   }
 
   /** Render one frame at time t (seconds). Loop is seamless every loopDuration. */
@@ -138,13 +130,14 @@ export class Renderer {
     gl.useProgram(this.program);
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, this.texture);
-    gl.activeTexture(gl.TEXTURE1);
-    gl.bindTexture(gl.TEXTURE_2D, this.maskTexture);
 
     const u = this.uniforms;
     gl.uniform1i(u.uBase, 0);
-    gl.uniform1i(u.uMask, 1);
     gl.uniform2f(u.uResolution, s.width, s.height);
+    gl.uniform1f(u.uBubbleSize, s.bubbleSize);
+    gl.uniform1f(u.uBubbleShape, s.bubbleShape);
+    gl.uniform1f(u.uBubbleCurv, s.bubbleCurvature);
+    gl.uniform1f(u.uBubbleSoft, s.bubbleSoftness);
     gl.uniform1f(u.uPhase, phase);
     gl.uniform1f(u.uTime, t);
     gl.uniform1f(u.uBarCount, s.barCount);
@@ -160,7 +153,6 @@ export class Renderer {
     gl.uniform1f(u.uColorIntensity, s.colorIntensity);
     gl.uniform1f(u.uBarOpacity, s.barOpacity);
     gl.uniform1f(u.uAlphaScale, s.alphaScale);
-    gl.uniform1f(u.uTextReveal, s.textReveal);
     gl.uniform1f(u.uGrainScale, s.grainScale);
     gl.uniform1f(u.uGrainOpacity, s.grainOpacity);
 
@@ -170,7 +162,6 @@ export class Renderer {
   dispose() {
     const gl = this.gl;
     gl.deleteTexture(this.texture);
-    gl.deleteTexture(this.maskTexture);
     gl.deleteProgram(this.program);
   }
 }
