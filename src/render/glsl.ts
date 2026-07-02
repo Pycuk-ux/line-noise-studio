@@ -182,7 +182,13 @@ void main(){
   // gate: 0 inside bubble (lines cleared -> text shows), 1 outside (full lines)
   float gate = smoothstep(1.0 - feather, 1.0 + feather, d);
 
-  float alpha = rowMask * an * uBarOpacity * gate;
+  // Layer opacity as a true master control:
+  //   reveal = the layer's intrinsic transparency (noise map * bubble mask)
+  //   O = 0 -> fully transparent; O = 1 -> fully opaque (nothing behind shows,
+  //   overriding the noise map and bubble). In between, both still show.
+  float reveal = an * gate;
+  float O = uBarOpacity;
+  float alpha = rowMask * O * mix(reveal, 1.0, O);
   vec3 col = mix(base, lineCol, alpha);
 
   // --- film grain overlay (density + opacity) ---

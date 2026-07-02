@@ -29,7 +29,7 @@ export const DEFAULT_SETTINGS: Settings = {
   gradFreq: 1,
   speed: 1.4,
   colorIntensity: 0.35,
-  barOpacity: 0.9,
+  barOpacity: 0.6,
   alphaScale: 3.2,
 
   bubbleSize: 0.42,
