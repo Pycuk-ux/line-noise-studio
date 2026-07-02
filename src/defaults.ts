@@ -35,7 +35,10 @@ export const DEFAULT_SETTINGS: Settings = {
   bubbleSize: 0.42,
   bubbleShape: 0,
   bubbleCurvature: 0.35,
-  bubbleIntensity: 1,
+  maskInnerOpacity: 1,
+  maskOuterOpacity: 0,
+  maskInnerStop: 0.35,
+  maskOuterStop: 1,
 
   grainScale: 0.9,
   grainOpacity: 0.14,

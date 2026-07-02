@@ -82,7 +82,10 @@ uniform sampler2D uBase;      // baked background + text
 uniform float uBubbleSize;      // radius of the central mask bubble
 uniform float uBubbleShape;     // 0 circle -> 1 squircle
 uniform float uBubbleCurv;      // 0 round -> 1 wide
-uniform float uBubbleIntensity; // 0 = no hole (lines cover) -> 1 = fully transparent hole
+uniform float uMaskInnerOp;     // opacity at center stop (0..1)
+uniform float uMaskOuterOp;     // opacity at edge stop (0..1)
+uniform float uMaskInnerStop;   // center stop position (0..1 radial)
+uniform float uMaskOuterStop;   // edge stop position (0..1 radial)
 
 uniform float uBarCount;
 uniform float uBarThickness;  // 0..1 (1 = no gap)
@@ -181,10 +184,17 @@ void main(){
   float sz = max(uBubbleSize, 1e-3);
   // superellipse field: <1 inside the bubble, >1 outside
   float d = pow(abs(bp.x) / sz, n) + pow(abs(bp.y) / sz, n);
-  const float feather = 0.35;                  // soft bubble edge
-  float bubbleField = 1.0 - smoothstep(1.0 - feather, 1.0 + feather, d); // 1 inside, 0 outside
-  // Transparency intensity = hole depth: 0 -> no hole, 1 -> fully transparent inside.
-  float maskAlpha = 1.0 - uBubbleIntensity * bubbleField;
+  // radial coordinate: 0 at center, 1 at the bubble edge (superellipse metric)
+  float rr = pow(max(d, 0.0), 1.0 / n);
+  // two-stop transparency ramp along the radius (center -> edge)
+  float s1 = min(uMaskInnerStop, uMaskOuterStop);
+  float s2 = max(uMaskInnerStop, uMaskOuterStop);
+  float ramp = rr <= s1 ? uMaskInnerOp
+             : rr >= s2 ? uMaskOuterOp
+             : mix(uMaskInnerOp, uMaskOuterOp, (rr - s1) / max(s2 - s1, 1e-4));
+  float contain = 1.0 - smoothstep(1.0, 1.04, rr); // keep the mask inside the bubble
+  float maskT = ramp * contain;                     // mask transparency at this pixel
+  float maskAlpha = 1.0 - maskT;
 
   // Layer opacity = pure appearance multiplier (Figma-style). It and the bubble
   // mask compose independently, so both always apply — even at opacity 1.

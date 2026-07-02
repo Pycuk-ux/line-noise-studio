@@ -25,7 +25,14 @@ export interface Settings {
   bubbleSize: number; // 0..1.5 — radius of the bubble relative to the canvas
   bubbleShape: number; // 0 = circle · 1 = squircle (more curved corners)
   bubbleCurvature: number; // 0 = round · 1 = wide (stretched horizontally)
-  bubbleIntensity: number; // 0 = no hole (lines cover) · 1 = fully transparent hole
+  // Radial transparency gradient (center -> edge). Two stops, each with an
+  // opacity (mask transparency: 1 = fully transparent hole, 0 = lines cover)
+  // and a position (0 = bubble center, 1 = bubble edge). Stop spacing controls
+  // how gradual vs. sharp the transition is.
+  maskInnerOpacity: number; // opacity at the center stop (0..1)
+  maskOuterOpacity: number; // opacity at the edge stop (0..1)
+  maskInnerStop: number; // center stop position (0..1)
+  maskOuterStop: number; // edge stop position (0..1)
 
   // Grain / noise overlay
   grainScale: number; // density

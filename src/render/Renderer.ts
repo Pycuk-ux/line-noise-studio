@@ -91,7 +91,8 @@ export class Renderer {
     const gl = this.gl;
     const names = [
       "uResolution", "uPhase", "uTime", "uBase",
-      "uBubbleSize", "uBubbleShape", "uBubbleCurv", "uBubbleIntensity",
+      "uBubbleSize", "uBubbleShape", "uBubbleCurv",
+      "uMaskInnerOp", "uMaskOuterOp", "uMaskInnerStop", "uMaskOuterStop",
       "uBarCount", "uBarThickness", "uBarWidth", "uCellDensity", "uAngleX", "uAngleY",
       "uColorA", "uColorB", "uGradFreq", "uSpeed", "uColorIntensity",
       "uBarOpacity", "uAlphaScale", "uGrainScale", "uGrainOpacity",
@@ -137,7 +138,10 @@ export class Renderer {
     gl.uniform1f(u.uBubbleSize, s.bubbleSize);
     gl.uniform1f(u.uBubbleShape, s.bubbleShape);
     gl.uniform1f(u.uBubbleCurv, s.bubbleCurvature);
-    gl.uniform1f(u.uBubbleIntensity, s.bubbleIntensity);
+    gl.uniform1f(u.uMaskInnerOp, s.maskInnerOpacity);
+    gl.uniform1f(u.uMaskOuterOp, s.maskOuterOpacity);
+    gl.uniform1f(u.uMaskInnerStop, s.maskInnerStop);
+    gl.uniform1f(u.uMaskOuterStop, s.maskOuterStop);
     gl.uniform1f(u.uPhase, phase);
     gl.uniform1f(u.uTime, t);
     gl.uniform1f(u.uBarCount, s.barCount);

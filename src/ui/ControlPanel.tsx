@@ -1,6 +1,7 @@
 import type { Settings, SettingsPatch, Alignment } from "../types";
 import { FONT_STACKS, ASPECT_PRESETS } from "../defaults";
 import { Slider, ColorInput, Segmented, Select, TextArea, Toggle, FontUpload } from "./controls";
+import { TransparencyGradient } from "./controls/TransparencyGradient";
 import type { VideoFormat } from "../export/exporter";
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
@@ -92,7 +93,13 @@ export function ControlPanel({
         <Slider label="Bubble size" value={s.bubbleSize} min={0.05} max={1.2} step={0.01} onChange={(v) => update({ bubbleSize: v })} />
         <Slider label="Shape (circle → squircle)" value={s.bubbleShape} min={0} max={1} step={0.01} onChange={(v) => update({ bubbleShape: v })} />
         <Slider label="Curvature (round → wide)" value={s.bubbleCurvature} min={0} max={1} step={0.01} onChange={(v) => update({ bubbleCurvature: v })} />
-        <Slider label="Transparency intensity" value={s.bubbleIntensity} min={0} max={1} step={0.01} onChange={(v) => update({ bubbleIntensity: v })} />
+        <TransparencyGradient
+          innerOpacity={s.maskInnerOpacity}
+          outerOpacity={s.maskOuterOpacity}
+          innerStop={s.maskInnerStop}
+          outerStop={s.maskOuterStop}
+          onChange={update}
+        />
       </Section>
 
       <Section title="Background">
