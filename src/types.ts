@@ -25,7 +25,7 @@ export interface Settings {
   bubbleSize: number; // 0..1.5 — radius of the bubble relative to the canvas
   bubbleShape: number; // 0 = circle · 1 = squircle (more curved corners)
   bubbleCurvature: number; // 0 = round · 1 = wide (stretched horizontally)
-  bubbleSoftness: number; // 0 = hard edge · 1 = smoothest transparency transition
+  bubbleIntensity: number; // 0 = no hole (lines cover) · 1 = fully transparent hole
 
   // Grain / noise overlay
   grainScale: number; // density

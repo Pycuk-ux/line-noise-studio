@@ -56,13 +56,13 @@ export function ControlPanel({
         <ColorInput label="Gradient A" value={s.colorA} onChange={(v) => update({ colorA: v })} />
         <ColorInput label="Gradient B" value={s.colorB} onChange={(v) => update({ colorB: v })} />
         <Slider label="Gradient frequency" value={s.gradFreq} min={0.25} max={4} step={0.05} onChange={(v) => update({ gradFreq: v })} />
-        <Slider label="Opacity" value={s.barOpacity} min={0} max={1} step={0.01} onChange={(v) => update({ barOpacity: v })} />
+        <Slider label="Layer opacity" value={s.barOpacity} min={0} max={1} step={0.01} onChange={(v) => update({ barOpacity: v })} />
       </Section>
 
       <Section title="Animation">
         <Slider label="Speed / flow" value={s.speed} min={0.1} max={5} step={0.05} onChange={(v) => update({ speed: v })} />
         <Slider label="Glass warp" value={s.colorIntensity} min={0} max={1.5} step={0.01} onChange={(v) => update({ colorIntensity: v })} />
-        <Slider label="Transparency map scale" value={s.alphaScale} min={0.5} max={12} step={0.1} onChange={(v) => update({ alphaScale: v })} />
+        <Slider label="Fill texture scale" value={s.alphaScale} min={0.5} max={12} step={0.1} onChange={(v) => update({ alphaScale: v })} />
         <Slider label="Loop length" value={s.loopDuration} min={1} max={20} step={0.5} unit="s" onChange={(v) => update({ loopDuration: v })} />
       </Section>
 
@@ -88,11 +88,11 @@ export function ControlPanel({
       </Section>
 
       <Section title="Line mask (bubble)">
-        <p className="text-[11px] text-[var(--label)] -mt-1 mb-3">A central bubble fades the gradient-lines layer, revealing the text beneath.</p>
+        <p className="text-[11px] text-[var(--label)] -mt-1 mb-3">A central bubble punches transparency into the lines layer, revealing the text beneath. Independent of layer opacity.</p>
         <Slider label="Bubble size" value={s.bubbleSize} min={0.05} max={1.2} step={0.01} onChange={(v) => update({ bubbleSize: v })} />
         <Slider label="Shape (circle → squircle)" value={s.bubbleShape} min={0} max={1} step={0.01} onChange={(v) => update({ bubbleShape: v })} />
         <Slider label="Curvature (round → wide)" value={s.bubbleCurvature} min={0} max={1} step={0.01} onChange={(v) => update({ bubbleCurvature: v })} />
-        <Slider label="Transparency intensity" value={s.bubbleSoftness} min={0} max={1} step={0.01} onChange={(v) => update({ bubbleSoftness: v })} />
+        <Slider label="Transparency intensity" value={s.bubbleIntensity} min={0} max={1} step={0.01} onChange={(v) => update({ bubbleIntensity: v })} />
       </Section>
 
       <Section title="Background">

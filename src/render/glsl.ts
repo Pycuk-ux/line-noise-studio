@@ -79,10 +79,10 @@ uniform float uPhase;         // 0..2PI loop position
 uniform float uTime;          // seconds (grain flicker)
 uniform sampler2D uBase;      // baked background + text
 
-uniform float uBubbleSize;    // radius of the central mask bubble
-uniform float uBubbleShape;   // 0 circle -> 1 squircle
-uniform float uBubbleCurv;    // 0 round -> 1 wide
-uniform float uBubbleSoft;    // 0 hard edge -> 1 smoothest fade
+uniform float uBubbleSize;      // radius of the central mask bubble
+uniform float uBubbleShape;     // 0 circle -> 1 squircle
+uniform float uBubbleCurv;      // 0 round -> 1 wide
+uniform float uBubbleIntensity; // 0 = no hole (lines cover) -> 1 = fully transparent hole
 
 uniform float uBarCount;
 uniform float uBarThickness;  // 0..1 (1 = no gap)
@@ -166,11 +166,14 @@ void main(){
     + warp  * 3.14159);                      // glassy distortion
   vec3 lineCol = mix(uColorA, uColorB, clamp(gpos, 0.0, 1.0));
 
-  // --- transparency map: evolving random alpha per cell/line ---
+  // --- animated fill texture: the "transparency map that changes randomly"
+  //     now shows as a subtle animated variation *within* the opaque fill,
+  //     so it never fights the layer opacity. ---
   float an = snoise(vec4(q * uAlphaScale + cellId * 0.13, loop)) * 0.5 + 0.5;
   an = smoothstep(0.05, 0.95, an);
+  lineCol *= mix(0.72, 1.0, an);
 
-  // --- central bubble mask: lines fade out inside it, revealing text beneath ---
+  // --- central bubble mask (INDEPENDENT of layer opacity) ---
   vec2 bp = uv - 0.5;
   bp.x *= aspect;                              // aspect-correct so a circle is round
   bp.x /= mix(1.0, 2.4, uBubbleCurv);          // curvature: round -> wide
@@ -178,17 +181,14 @@ void main(){
   float sz = max(uBubbleSize, 1e-3);
   // superellipse field: <1 inside the bubble, >1 outside
   float d = pow(abs(bp.x) / sz, n) + pow(abs(bp.y) / sz, n);
-  float feather = mix(0.015, 1.3, uBubbleSoft);
-  // gate: 0 inside bubble (lines cleared -> text shows), 1 outside (full lines)
-  float gate = smoothstep(1.0 - feather, 1.0 + feather, d);
+  const float feather = 0.35;                  // soft bubble edge
+  float bubbleField = 1.0 - smoothstep(1.0 - feather, 1.0 + feather, d); // 1 inside, 0 outside
+  // Transparency intensity = hole depth: 0 -> no hole, 1 -> fully transparent inside.
+  float maskAlpha = 1.0 - uBubbleIntensity * bubbleField;
 
-  // Layer opacity as a true master control:
-  //   reveal = the layer's intrinsic transparency (noise map * bubble mask)
-  //   O = 0 -> fully transparent; O = 1 -> fully opaque (nothing behind shows,
-  //   overriding the noise map and bubble). In between, both still show.
-  float reveal = an * gate;
-  float O = uBarOpacity;
-  float alpha = rowMask * O * mix(reveal, 1.0, O);
+  // Layer opacity = pure appearance multiplier (Figma-style). It and the bubble
+  // mask compose independently, so both always apply — even at opacity 1.
+  float alpha = uBarOpacity * rowMask * maskAlpha;
   vec3 col = mix(base, lineCol, alpha);
 
   // --- film grain overlay (density + opacity) ---
