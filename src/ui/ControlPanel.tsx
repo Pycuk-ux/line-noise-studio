@@ -1,6 +1,6 @@
 import type { Settings, SettingsPatch, Alignment } from "../types";
-import { FONT_STACKS, ASPECT_PRESETS } from "../defaults";
-import { Slider, ColorInput, Segmented, Select, TextArea, Toggle, FontUpload } from "./controls";
+import { ASPECT_PRESETS } from "../defaults";
+import { Slider, ColorInput, Segmented, Select, TextArea, Toggle, FontUpload, FontPicker } from "./controls";
 import { TransparencyGradient } from "./controls/TransparencyGradient";
 import type { VideoFormat } from "../export/exporter";
 
@@ -26,7 +26,6 @@ export function ControlPanel({
   extraFonts: { label: string; value: string }[];
   onFontLoaded: (family: string, label: string) => void;
 }) {
-  const fontOptions = [...FONT_STACKS, ...extraFonts];
 
   return (
     <div className="h-full overflow-y-auto px-4 pb-8">
@@ -74,7 +73,7 @@ export function ControlPanel({
 
       <Section title="Text">
         <TextArea label="Content" value={s.text} onChange={(v) => update({ text: v })} />
-        <Select label="Font" value={s.fontFamily} options={fontOptions} onChange={(v) => update({ fontFamily: v })} />
+        <FontPicker value={s.fontFamily} extraFonts={extraFonts} onChange={(v) => update({ fontFamily: v })} />
         <FontUpload onLoaded={(family, label) => { onFontLoaded(family, label); update({ fontFamily: family }); }} />
         <Slider label="Size" value={s.fontSize} min={12} max={480} unit="px" onChange={(v) => update({ fontSize: v })} />
         <ColorInput label="Color" value={s.textColor} onChange={(v) => update({ textColor: v })} />
@@ -119,6 +118,16 @@ export function ControlPanel({
             { label: "2K (long edge 2560)", value: "2k" },
           ]}
           onChange={(v) => update({ exportRes: v })}
+        />
+        <Select
+          label="Quality"
+          value={s.exportQuality}
+          options={[
+            { label: "Standard", value: "standard" },
+            { label: "High", value: "high" },
+            { label: "Max (large file)", value: "max" },
+          ]}
+          onChange={(v) => update({ exportQuality: v })}
         />
         <Slider label="FPS" value={s.fps} min={12} max={60} onChange={(v) => update({ fps: v })} />
         {exporting && (

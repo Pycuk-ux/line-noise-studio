@@ -60,6 +60,7 @@ export interface Settings {
 
   // Export
   exportRes: "canvas" | "1080p" | "2k"; // output resolution for image/video export
+  exportQuality: "standard" | "high" | "max"; // video bitrate / compression quality
 }
 
 export type SettingsPatch = Partial<Settings>;

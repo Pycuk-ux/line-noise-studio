@@ -1,4 +1,6 @@
-import { useRef } from "react";
+import { useRef, useState } from "react";
+import { FONT_STACKS } from "../../defaults";
+import { GOOGLE_FONTS, isGoogleFont, loadGoogleFont } from "../../fonts";
 
 const FIELD = "rounded border border-[var(--field-border)] bg-[var(--field-bg)] text-[var(--text)]";
 
@@ -127,6 +129,46 @@ export function Toggle({ label, value, onChange }: { label: string; value: boole
         />
       </button>
     </div>
+  );
+}
+
+export function FontPicker({
+  value, extraFonts, onChange,
+}: {
+  value: string;
+  extraFonts: { label: string; value: string }[];
+  onChange: (family: string) => void;
+}) {
+  const [loading, setLoading] = useState(false);
+  const handle = async (v: string) => {
+    const gf = isGoogleFont(v);
+    if (gf) {
+      setLoading(true);
+      await loadGoogleFont(gf);
+      setLoading(false);
+    }
+    onChange(v);
+  };
+  return (
+    <Field label="Font" hint={loading ? "loading…" : undefined}>
+      <select
+        value={value}
+        onChange={(e) => handle(e.target.value)}
+        className={`w-full h-8 px-2 text-sm ${FIELD}`}
+      >
+        <optgroup label="Basic">
+          {FONT_STACKS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+        </optgroup>
+        <optgroup label="Google Fonts">
+          {GOOGLE_FONTS.map((f) => <option key={f.family} value={f.css}>{f.label}</option>)}
+        </optgroup>
+        {extraFonts.length > 0 && (
+          <optgroup label="Uploaded">
+            {extraFonts.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+          </optgroup>
+        )}
+      </select>
+    </Field>
   );
 }
 

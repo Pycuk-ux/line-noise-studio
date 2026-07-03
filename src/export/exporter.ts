@@ -55,8 +55,21 @@ export async function exportPng(renderer: Renderer, s: Settings, t: number): Pro
   });
 }
 
-function bitrateFor(w: number, h: number, fps: number): number {
-  return Math.min(40_000_000, Math.max(4_000_000, Math.round(w * h * fps * 0.14)));
+// Bits-per-pixel-per-frame by quality. Film grain + fine gradients compress
+// poorly, so we target generous bitrates (esp. High/Max) to avoid blockiness.
+const QUALITY_BPP: Record<Settings["exportQuality"], number> = {
+  standard: 0.18,
+  high: 0.5,
+  max: 1.0,
+};
+const QUALITY_CAP: Record<Settings["exportQuality"], number> = {
+  standard: 40_000_000,
+  high: 100_000_000,
+  max: 220_000_000,
+};
+
+function bitrateFor(w: number, h: number, fps: number, quality: Settings["exportQuality"]): number {
+  return Math.min(QUALITY_CAP[quality], Math.max(6_000_000, Math.round(w * h * fps * QUALITY_BPP[quality])));
 }
 
 interface MuxerLike {
@@ -107,8 +120,10 @@ async function exportViaWebCodecs(
     codec,
     width,
     height,
-    bitrate: bitrateFor(width, height, s.fps),
+    bitrate: bitrateFor(width, height, s.fps, s.exportQuality),
     framerate: s.fps,
+    latencyMode: "quality",
+    bitrateMode: "variable",
   };
   if (format === "mp4") (config as VideoEncoderConfig & { avc?: { format: string } }).avc = { format: "avc" };
   encoder.configure(config);
@@ -149,7 +164,7 @@ async function exportViaMediaRecorder(
     : "video/webm";
   const recorder = new MediaRecorder(stream, {
     mimeType: mime,
-    videoBitsPerSecond: bitrateFor(renderer.canvas.width, renderer.canvas.height, s.fps),
+    videoBitsPerSecond: bitrateFor(renderer.canvas.width, renderer.canvas.height, s.fps, s.exportQuality),
   });
   const chunks: Blob[] = [];
   recorder.ondataavailable = (e) => e.data.size && chunks.push(e.data);

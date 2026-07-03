@@ -61,4 +61,5 @@ export const DEFAULT_SETTINGS: Settings = {
   fps: 30,
 
   exportRes: "canvas",
+  exportQuality: "high",
 };
