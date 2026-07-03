@@ -45,6 +45,7 @@ export const DEFAULT_SETTINGS: Settings = {
 
   text: "Opera\nConcerts\nVisual Arts\nInstallation\nMusic",
   fontFamily: "Georgia, 'Times New Roman', serif",
+  fontWeight: 400,
   fontSize: 150,
   textColor: "#1a2b6b",
   lineHeight: 1.02,

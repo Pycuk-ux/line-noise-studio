@@ -41,6 +41,7 @@ export interface Settings {
   // Text
   text: string;
   fontFamily: string;
+  fontWeight: number;
   fontSize: number;
   textColor: string;
   lineHeight: number; // multiplier of font size

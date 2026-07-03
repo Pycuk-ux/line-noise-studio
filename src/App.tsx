@@ -7,7 +7,7 @@ import { exportPng, exportVideo, webCodecsSupported, type VideoFormat } from "./
 
 // Settings that require re-baking the background/text texture when changed.
 const REBAKE_KEYS: (keyof Settings)[] = [
-  "text", "fontFamily", "fontSize", "textColor", "lineHeight", "letterSpacing",
+  "text", "fontFamily", "fontWeight", "fontSize", "textColor", "lineHeight", "letterSpacing",
   "align", "textPadding", "bgColor", "bgColor2", "bgGradient", "bgGradAngle",
   "width", "height",
 ];

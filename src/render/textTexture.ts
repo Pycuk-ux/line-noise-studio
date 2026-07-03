@@ -9,7 +9,7 @@ function drawText(ctx: CanvasRenderingContext2D, s: Settings, fill: string) {
   ctx.fillStyle = fill;
   ctx.textBaseline = "middle";
   ctx.textAlign = s.align;
-  ctx.font = `${s.fontSize}px ${s.fontFamily}`;
+  ctx.font = `${s.fontWeight} ${s.fontSize}px ${s.fontFamily}`;
   try {
     (ctx as CanvasRenderingContext2D & { letterSpacing: string }).letterSpacing =
       `${s.letterSpacing}px`;

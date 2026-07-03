@@ -20,7 +20,7 @@ Layer order (bottom → top): **background → text → masked gradient lines.**
 **Lines** — rows, cells per row, thickness (row fill), width, angle X (shear) / angle Y (rotate), gradient colors A/B, gradient frequency, opacity.
 **Animation** — speed / flow, glass warp, transparency-map scale, loop length.
 **Noise (grain)** — density, opacity.
-**Text** — content (multi-line), font (built-in stacks **or upload your own** `.ttf/.otf/.woff`), size, color, line spacing, letter spacing, alignment (left / center / right).
+**Text** — content (multi-line), font (system stacks · **40 curated Google Fonts** across sans / serif / handwriting / mono, loaded on demand · **or upload your own** `.ttf/.otf/.woff`), **weight** (only the weights the chosen font ships), size, color, line spacing, letter spacing, alignment (left / center / right).
 **Line mask (bubble)** — bubble size, shape (circle → squircle), curvature (round → wide), and a **radial transparency gradient** with two draggable stops (center/edge opacity + positions) so the falloff can be gradual or sharp. Independent of layer opacity.
 **Background** — solid or two-color gradient fill with adjustable angle.
 **Canvas** — presets: 1920×1080 (1080p), 1280×720 (720p), Square 1080, Portrait 1080×1920, Wide 2560×1080.

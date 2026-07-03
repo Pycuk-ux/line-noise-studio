@@ -73,8 +73,8 @@ export function ControlPanel({
 
       <Section title="Text">
         <TextArea label="Content" value={s.text} onChange={(v) => update({ text: v })} />
-        <FontPicker value={s.fontFamily} extraFonts={extraFonts} onChange={(v) => update({ fontFamily: v })} />
-        <FontUpload onLoaded={(family, label) => { onFontLoaded(family, label); update({ fontFamily: family }); }} />
+        <FontPicker value={s.fontFamily} weight={s.fontWeight} extraFonts={extraFonts} onChange={update} />
+        <FontUpload onLoaded={(family, label) => { onFontLoaded(family, label); update({ fontFamily: family, fontWeight: 400 }); }} />
         <Slider label="Size" value={s.fontSize} min={12} max={480} unit="px" onChange={(v) => update({ fontSize: v })} />
         <ColorInput label="Color" value={s.textColor} onChange={(v) => update({ textColor: v })} />
         <Slider label="Line spacing" value={s.lineHeight} min={0.6} max={3} step={0.01} unit="×" onChange={(v) => update({ lineHeight: v })} />
