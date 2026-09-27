@@ -49,3 +49,34 @@ npm run build    # typecheck + production build
 - **Browser support:** MP4 requires the WebCodecs API (Chromium-based browsers). WEBM + PNG work everywhere.
 - The muxer libraries (`mp4-muxer`, `webm-muxer`) are deprecated upstream in favor of [Mediabunny](https://github.com/Vanilla-OS/mediabunny). They still work; migrating is a possible future improvement.
 - Uploaded fonts stay in-memory for the session (via the `FontFace` API) — nothing is sent anywhere.
+
+## Collectible card (`/card/`)
+
+A second page: an interactive Three.js holographic trading card, built from
+the Figma frame *Pycuk_DS › card* (node `504:1066`).
+
+```bash
+npm run dev   # open http://localhost:5173/card/
+```
+
+- **Layers**: every Figma layer is a separate PNG in `public/card/card/`. Their
+  positions (Figma px, 1 world unit = 1 px) live in `src/card/layout.ts`.
+- **Card stock**: 4 px extruded rounded rectangle with a small bevel on the edge (`CARD.thickness`).
+- **Window parallax**: `moving-inside-elements`, `my-photo` and `scan-effect`
+  (hard-light 30 %) drift at different depths inside the torn-edge mask (`WINDOW_LAYERS[].depth`).
+- **Raised elements**: name, signature, UX/UI, icons, barcode and 7 YOE sit a
+  few px above the card surface (`DECALS[].lift`), so they separate slightly on tilt.
+- **Holographic laminate**: `holographic-layer.png` drives an additive rainbow
+  foil, a gloss band and a glare that react to tilt (`src/card/shaders.ts`, strength in `main.ts`).
+- **Stage**: the page follows the phone mockup. `website-bg.png` (1565 × 2866) is
+  the stage at card scale; the Bitcoin (behind the card), Chinese coin and
+  blurred unicorn (in front) are placed by their mockup positions in `EXTRAS`.
+- **Input**: cursor on desktop, gyroscope on phones (iOS asks via an
+  "Enable motion" button). With no input the card holds still. Click or tap to flip.
+
+### Hosting
+
+`.github/workflows/pages.yml` builds the site and deploys it to GitHub Pages
+on every push to `main` (and the card branch). The card is served at
+`https://pycuk-ux.github.io/line-noise-studio/card/`. It must be opened
+directly (not inside another page's iframe) for phone tilt to work.
