@@ -73,3 +73,10 @@ npm run dev   # open http://localhost:5173/card/
   blurred unicorn (in front) are placed by their mockup positions in `EXTRAS`.
 - **Input**: cursor on desktop, gyroscope on phones (iOS asks via an
   "Enable motion" button). With no input the card holds still. Click or tap to flip.
+
+### Hosting
+
+`.github/workflows/pages.yml` builds the site and deploys it to GitHub Pages
+on every push to `main` (and the card branch). The card is served at
+`https://pycuk-ux.github.io/line-noise-studio/card/`. It must be opened
+directly (not inside another page's iframe) for phone tilt to work.
