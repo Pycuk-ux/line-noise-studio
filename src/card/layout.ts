@@ -55,39 +55,48 @@ const wx = WINDOW.x;
 const wy = WINDOW.y;
 
 export const DECALS: Decal[] = [
-  { name: "name", src: asset("card/name.png"), x: 96, y: 53, w: 948, h: 71, lift: 18 },
-  { name: "star", src: asset("card/star.png"), x: wx + 959, y: wy + 88, w: 64, h: 72, lift: 22 },
-  { name: "upwork", src: asset("card/upwork.png"), x: wx + 855, y: wy + 90, w: 72, h: 72, lift: 22 },
-  { name: "cod", src: asset("card/cod.png"), x: wx + 851, y: wy + 1028, w: 176, h: 64, lift: 14 },
-  { name: "signature", src: asset("card/signature.png"), x: wx + 59, y: wy + 995, w: 384, h: 130, lift: 30 },
-  { name: "uix-ui", src: asset("card/uix-ui.png"), x: wx + 60, y: wy + 1194, w: 393, h: 159, lift: 24 },
+  { name: "name", src: asset("card/name.png"), x: 96, y: 53, w: 948, h: 71, lift: 6 },
+  { name: "star", src: asset("card/star.png"), x: wx + 959, y: wy + 88, w: 64, h: 72, lift: 8 },
+  { name: "upwork", src: asset("card/upwork.png"), x: wx + 855, y: wy + 90, w: 72, h: 72, lift: 8 },
+  { name: "cod", src: asset("card/cod.png"), x: wx + 851, y: wy + 1028, w: 176, h: 64, lift: 5 },
+  { name: "signature", src: asset("card/signature.png"), x: wx + 59, y: wy + 995, w: 384, h: 130, lift: 8 },
+  { name: "uix-ui", src: asset("card/uix-ui.png"), x: wx + 60, y: wy + 1194, w: 393, h: 159, lift: 7 },
   // 7-yoe has a 4px outside stroke, so the PNG is 8px larger than the vector node.
-  { name: "7-yoe", src: asset("card/7-yoe.png"), x: 895, y: 1357, w: 141, h: 153, lift: 26 },
+  { name: "7-yoe", src: asset("card/7-yoe.png"), x: 895, y: 1357, w: 141, h: 153, lift: 7 },
 ];
 
 export const CARD_BASE = asset("card/bg-image-green.webp");
 export const HOLO = asset("card/holographic-layer.png");
 export const PAGE_BG = asset("website-bg.png");
 
+/**
+ * The page is laid out like the Figma mockup: website-bg.png (1565 × 2866) is
+ * the stage, at the same scale as the card, with the card centre 93px above
+ * the stage centre.
+ */
+export const STAGE = { w: 1565, h: 2866, cardOffsetY: 93 };
+
 export interface Extra {
   name: string;
-  /** PNG to drop in public/card/extras/. A drawn placeholder is used until it exists. */
   src: string;
-  placeholder: "bitcoin" | "yuan" | "unicorn";
-  /** Centre in world px relative to the card centre (y up), and z toward the viewer. */
+  /** Where it appears in the mockup: centre relative to the card centre (px, y up) and plane width. */
   x: number;
   y: number;
+  width: number;
+  /** Depth toward the viewer (negative = behind the card). Position and size are compensated so it still lands on x/y/width. */
   z: number;
-  size: number;
-  /** Extra sideways drift with tilt/cursor, px. */
+  /** In-plane rotation, radians (counter-clockwise). */
+  rotation: number;
+  /** Sideways drift with tilt/cursor, px. Larger for things closer to the viewer. */
   drift: number;
-  spin: number;
+  /** Depth-of-field blur (texture mip bias). 0 = sharp. */
+  blur: number;
 }
 
 export const EXTRAS: Extra[] = [
-  { name: "bitcoin", src: asset("extras/bitcoin.png"), placeholder: "bitcoin", x: -640, y: 560, z: 220, size: 260, drift: 70, spin: 0.35 },
-  { name: "chinese-coin", src: asset("extras/chinese-coin.png"), placeholder: "yuan", x: 660, y: -380, z: 150, size: 230, drift: 55, spin: -0.3 },
-  { name: "unicorn", src: asset("extras/unicorn.png"), placeholder: "unicorn", x: 700, y: 470, z: -180, size: 420, drift: -40, spin: 0.12 },
+  { name: "bitcoin", src: asset("extras/bitcoin.png"), x: -546, y: 834, width: 310, z: -80, rotation: 0, drift: -30, blur: 0 },
+  { name: "chinese-coin", src: asset("extras/chinese-coin.png"), x: 566, y: -902, width: 362, z: 140, rotation: 0, drift: 45, blur: 0 },
+  { name: "unicorn", src: asset("extras/unicorn.webp"), x: -346, y: -1291, width: 740, z: 320, rotation: 0.32, drift: 80, blur: 1.6 },
 ];
 
 /** Card-px (top-left origin, y down) → local world coords (card centre origin, y up). */

@@ -64,11 +64,12 @@ npm run dev   # open http://localhost:5173/card/
 - **Card stock**: 4 px extruded rounded rectangle with a small bevel on the edge (`CARD.thickness`).
 - **Window parallax**: `moving-inside-elements`, `my-photo` and `scan-effect`
   (hard-light 30 %) drift at different depths inside the torn-edge mask (`WINDOW_LAYERS[].depth`).
-- **Floating elements**: name, signature, UX/UI, icons, barcode and 7 YOE sit
-  above the card surface (`DECALS[].lift`) with soft shadows underneath.
+- **Raised elements**: name, signature, UX/UI, icons, barcode and 7 YOE sit a
+  few px above the card surface (`DECALS[].lift`), so they separate slightly on tilt.
 - **Holographic laminate**: `holographic-layer.png` drives an additive rainbow
-  foil, a gloss band and a glare that react to tilt (`src/card/shaders.ts`).
-- **Extras**: Bitcoin, Chinese coin and unicorn use drawn placeholders until
-  `public/card/extras/{bitcoin,chinese-coin,unicorn}.png` exist. Drop the PNGs in, no code changes needed.
+  foil, a gloss band and a glare that react to tilt (`src/card/shaders.ts`, strength in `main.ts`).
+- **Stage**: the page follows the phone mockup. `website-bg.png` (1565 × 2866) is
+  the stage at card scale; the Bitcoin (behind the card), Chinese coin and
+  blurred unicorn (in front) are placed by their mockup positions in `EXTRAS`.
 - **Input**: cursor on desktop, gyroscope on phones (iOS asks via an
-  "Enable motion" button), slow idle drift otherwise. Click or tap to flip.
+  "Enable motion" button). With no input the card holds still. Click or tap to flip.

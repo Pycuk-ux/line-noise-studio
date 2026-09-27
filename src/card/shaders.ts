@@ -74,7 +74,6 @@ export const holoShader = {
     uniform vec2 uTilt;
     uniform vec2 uSize;
     uniform float uRadius;
-    uniform float uTime;
     uniform float uStrength;
     varying vec2 vUv;
 
@@ -95,7 +94,7 @@ export const holoShader = {
       vec2 t = uTilt;
 
       // Foil hue shifts along a diagonal and with the viewing angle.
-      float phase = dot(vUv, vec2(0.9, 1.35)) * 1.6 + t.x * 0.9 - t.y * 0.7 + uTime * 0.02;
+      float phase = dot(vUv, vec2(0.9, 1.35)) * 1.6 + t.x * 0.9 - t.y * 0.7;
       vec3 foil = spectrum(phase);
 
       // Diagonal gloss band sweeping across as the card turns.
@@ -119,31 +118,29 @@ export const holoShader = {
   `,
 };
 
-/** Soft contact shadow for floating elements: the decal's alpha, mip-blurred. */
-export const shadowShader = {
+/** Floating extras (coins, unicorn) with optional depth-of-field blur. */
+export const extraShader = {
   vertexShader: VERT,
   fragmentShader: /* glsl */ `
     uniform sampler2D map;
-    uniform float uOpacity;
     uniform float uBlur;
-    uniform float uPad;   // plane is uPad× the decal so the blur has room to spread
     varying vec2 vUv;
-
-    float tap(vec2 uv) {
-      vec2 inside = step(0.0, uv) * step(uv, vec2(1.0));
-      return texture2D(map, uv, uBlur).a * inside.x * inside.y;
-    }
-
     void main() {
-      vec2 uv = (vUv - 0.5) * uPad + 0.5;
-      // Sample a 3×3 of blurred mips to soften the silhouette further.
-      float a = 0.0;
-      vec2 px = vec2(0.02);
-      for (int i = -1; i <= 1; i++)
-        for (int j = -1; j <= 1; j++)
-          a += tap(uv + vec2(float(i), float(j)) * px);
-      a /= 9.0;
-      gl_FragColor = vec4(0.0, 0.0, 0.0, a * uOpacity);
+      vec4 c;
+      if (uBlur <= 0.0) {
+        c = texture2D(map, vUv);
+      } else {
+        // 3×3 taps of a blurred mip level read as a soft out-of-focus edge.
+        c = vec4(0.0);
+        vec2 px = vec2(0.004 * uBlur);
+        for (int i = -1; i <= 1; i++)
+          for (int j = -1; j <= 1; j++)
+            c += texture2D(map, vUv + vec2(float(i), float(j)) * px, uBlur);
+        c /= 9.0;
+      }
+      if (c.a < 0.002) discard;
+      gl_FragColor = c;
+      #include <colorspace_fragment>
     }
   `,
 };

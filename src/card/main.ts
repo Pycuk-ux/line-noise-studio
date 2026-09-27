@@ -8,12 +8,12 @@ import {
   EXTRAS,
   HOLO,
   PAGE_BG,
+  STAGE,
   WINDOW,
   WINDOW_LAYERS,
   toLocal,
 } from "./layout";
-import { cardShadowTexture, placeholderTexture } from "./placeholders";
-import { holoShader, shadowShader, windowShader } from "./shaders";
+import { extraShader, holoShader, windowShader } from "./shaders";
 
 const canvas = document.querySelector<HTMLCanvasElement>("#scene")!;
 const loaderEl = document.querySelector<HTMLElement>("#loader")!;
@@ -54,8 +54,7 @@ const [pageBgTex, baseTex, holoTex, bgTex, photoTex, scanTex, decalTexes, extraT
   load(WINDOW_LAYERS.photo.src),
   load(WINDOW_LAYERS.scan.src),
   Promise.all(DECALS.map((d) => load(d.src))),
-  // Floating extras: use the real PNG when present, otherwise a drawn stand-in.
-  Promise.all(EXTRAS.map((e) => load(e.src).catch(() => placeholderTexture(e.placeholder)))),
+  Promise.all(EXTRAS.map((e) => load(e.src))),
 ]);
 
 // ─── Card ───────────────────────────────────────────────────────────────────
@@ -90,8 +89,16 @@ function faceGeometry() {
   return g;
 }
 
+// Draw order. Card layers skip the depth test and are stacked by renderOrder
+// instead, so a thin 4px card never z-fights at steep angles; the face turned
+// away from the camera is hidden each frame.
+const ORDER = { pageBg: -10, behind: -1, body: 0, base: 1, window: 10, holo: 20, decals: 30, front: 100 };
+
 const cardRoot = new THREE.Group(); // tilt
 const card = new THREE.Group(); // flip
+const frontFace = new THREE.Group();
+const backFace = new THREE.Group();
+card.add(frontFace, backFace);
 cardRoot.add(card);
 scene.add(cardRoot);
 
@@ -109,15 +116,20 @@ scene.add(cardRoot);
   geo.translate(0, 0, -(T - bevel * 2) / 2);
   const edge = new THREE.MeshStandardMaterial({ color: CARD.edgeColor, roughness: 0.35, metalness: 0.15 });
   const body = new THREE.Mesh(geo, edge);
+  body.renderOrder = ORDER.body;
   card.add(body);
 }
 
 const face = faceGeometry();
+const layer = { depthTest: false, depthWrite: false } as const;
 
 // Front print: the green glitch art (bg-image-green).
-const front = new THREE.Mesh(face, new THREE.MeshBasicMaterial({ map: baseTex, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -4 }));
-front.position.z = FRONT + 0.2;
-card.add(front);
+{
+  const front = new THREE.Mesh(face, new THREE.MeshBasicMaterial({ map: baseTex, ...layer }));
+  front.position.z = FRONT + 0.1;
+  front.renderOrder = ORDER.base;
+  frontFace.add(front);
+}
 
 // Window: moving-inside-elements + photo + scan, each drifting at its own depth.
 const windowUniforms = {
@@ -135,11 +147,11 @@ const windowUniforms = {
 };
 {
   const { cx, cy } = toLocal(WINDOW.x, WINDOW.y, WINDOW.w, WINDOW.h);
-  const mat = new THREE.ShaderMaterial({ ...windowShader, uniforms: windowUniforms, transparent: true, depthWrite: false });
+  const mat = new THREE.ShaderMaterial({ ...windowShader, uniforms: windowUniforms, transparent: true, ...layer });
   const mesh = new THREE.Mesh(new THREE.PlaneGeometry(WINDOW_LAYERS.bg.w, WINDOW_LAYERS.bg.h), mat);
-  mesh.position.set(cx, cy, FRONT + 0.4);
-  mesh.renderOrder = 10;
-  card.add(mesh);
+  mesh.position.set(cx, cy, FRONT + 0.2);
+  mesh.renderOrder = ORDER.window;
+  frontFace.add(mesh);
 }
 
 // Holographic laminate (front + back share uniforms).
@@ -148,55 +160,33 @@ const holoUniforms = {
   uTilt: { value: new THREE.Vector2() },
   uSize: { value: new THREE.Vector2(W, H) },
   uRadius: { value: CARD.radius },
-  uTime: { value: 0 },
-  uStrength: { value: 1 },
+  uStrength: { value: 0.5 },
 };
 const holoMat = new THREE.ShaderMaterial({
   ...holoShader,
   uniforms: holoUniforms,
   transparent: true,
-  depthWrite: false,
   blending: THREE.AdditiveBlending,
+  ...layer,
 });
 {
   const holo = new THREE.Mesh(new THREE.PlaneGeometry(W, H), holoMat);
-  holo.position.z = FRONT + 0.8;
-  holo.renderOrder = 20;
-  card.add(holo);
+  holo.position.z = FRONT + 0.3;
+  holo.renderOrder = ORDER.holo;
+  frontFace.add(holo);
 }
 
-// Floating elements: real 3D offsets above the face + a soft shadow on it.
-interface DecalRig {
-  mesh: THREE.Mesh;
-  shadow: THREE.Mesh;
-  baseX: number;
-  baseY: number;
-  lift: number;
-}
-const decals: DecalRig[] = DECALS.map((d, i) => {
-  const tex = decalTexes[i];
+// Raised elements: a few px above the face, so they separate slightly on tilt.
+const decals = DECALS.map((d, i) => {
   const { cx, cy } = toLocal(d.x, d.y, d.w, d.h);
   const mesh = new THREE.Mesh(
     new THREE.PlaneGeometry(d.w, d.h),
-    new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false }),
+    new THREE.MeshBasicMaterial({ map: decalTexes[i], transparent: true, ...layer }),
   );
   mesh.position.set(cx, cy, FRONT + d.lift);
-  mesh.renderOrder = 40 + i;
-
-  const pad = 1.35;
-  const shadow = new THREE.Mesh(
-    new THREE.PlaneGeometry(d.w * pad, d.h * pad),
-    new THREE.ShaderMaterial({
-      ...shadowShader,
-      uniforms: { map: { value: tex }, uOpacity: { value: 0.55 }, uBlur: { value: 2.5 }, uPad: { value: pad } },
-      transparent: true,
-      depthWrite: false,
-    }),
-  );
-  shadow.position.set(cx, cy, FRONT + 0.6);
-  shadow.renderOrder = 15;
-  card.add(mesh, shadow);
-  return { mesh, shadow, baseX: cx, baseY: cy, lift: d.lift };
+  mesh.renderOrder = ORDER.decals + i;
+  frontFace.add(mesh);
+  return { mesh, baseX: cx, baseY: cy, lift: d.lift };
 });
 
 // Back of the card.
@@ -222,55 +212,47 @@ const decals: DecalRig[] = DECALS.map((d, i) => {
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.anisotropy = maxAniso;
 
-  const back = new THREE.Mesh(face, new THREE.MeshBasicMaterial({ map: tex, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -4 }));
+  const back = new THREE.Mesh(face, new THREE.MeshBasicMaterial({ map: tex, ...layer }));
   back.rotation.y = Math.PI;
-  back.position.z = -FRONT - 0.2;
+  back.position.z = -FRONT - 0.1;
+  back.renderOrder = ORDER.base;
   const backHolo = new THREE.Mesh(new THREE.PlaneGeometry(W, H), holoMat);
   backHolo.rotation.y = Math.PI;
-  backHolo.position.z = -FRONT - 0.8;
-  backHolo.renderOrder = 20;
-  card.add(back, backHolo);
+  backHolo.position.z = -FRONT - 0.3;
+  backHolo.renderOrder = ORDER.holo;
+  backFace.add(back, backHolo);
 }
-
-// Soft shadow the card casts on the page.
-const cardShadow = (() => {
-  const s = cardShadowTexture(W, H, CARD.radius);
-  const m = new THREE.Mesh(
-    new THREE.PlaneGeometry(s.width, s.height),
-    new THREE.MeshBasicMaterial({ map: s.tex, transparent: true, opacity: 0.6, depthWrite: false }),
-  );
-  m.position.z = -120;
-  m.renderOrder = -5;
-  scene.add(m);
-  return m;
-})();
 
 // ─── Page background ────────────────────────────────────────────────────────
 
 const BG_Z = -1600;
 const pageBg = new THREE.Mesh(
   new THREE.PlaneGeometry(1, 1),
-  new THREE.MeshBasicMaterial({ map: pageBgTex, depthWrite: false }),
+  new THREE.MeshBasicMaterial({ map: pageBgTex, depthTest: false, depthWrite: false }),
 );
-pageBg.position.z = BG_Z;
-pageBg.renderOrder = -10;
+pageBg.renderOrder = ORDER.pageBg;
 scene.add(pageBg);
 
-// ─── Floating extras around the card ────────────────────────────────────────
+// ─── Coins and unicorn ──────────────────────────────────────────────────────
 
 const extras = EXTRAS.map((e, i) => {
   const tex = extraTexes[i];
   const img = tex.image as { width: number; height: number };
-  const aspect = img.width / img.height;
   const mesh = new THREE.Mesh(
-    new THREE.PlaneGeometry(e.size * Math.min(1, aspect), e.size / Math.max(1, aspect)),
-    new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, side: THREE.DoubleSide }),
+    new THREE.PlaneGeometry(1, img.height / img.width),
+    new THREE.ShaderMaterial({
+      ...extraShader,
+      uniforms: { map: { value: tex }, uBlur: { value: e.blur } },
+      transparent: true,
+      depthWrite: false,
+      // Behind the card: depth-tested so the card covers it. In front: always on top.
+      depthTest: e.z < 0,
+    }),
   );
-  mesh.position.set(e.x, e.y, e.z);
-  // Behind-the-card extras draw first so the card covers them.
-  mesh.renderOrder = e.z < 0 ? -1 : 100 + i;
+  mesh.rotation.z = e.rotation;
+  mesh.renderOrder = e.z < 0 ? ORDER.behind : ORDER.front + i;
   scene.add(mesh);
-  return { mesh, cfg: e };
+  return { mesh, cfg: e, x: 0, y: 0 };
 });
 
 // ─── Lights (only the extruded edge is lit) ─────────────────────────────────
@@ -281,6 +263,9 @@ scene.add(key);
 
 // ─── Layout ─────────────────────────────────────────────────────────────────
 
+// The camera looks at the stage centre, which sits below the card centre.
+const EYE_Y = -STAGE.cardOffsetY;
+
 function resize() {
   const w = window.innerWidth;
   const h = window.innerHeight;
@@ -288,24 +273,34 @@ function resize() {
   camera.aspect = w / h;
 
   const tanHalf = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
-  // Leave room for the floating extras on wide screens; fill the width on phones.
-  const fitW = camera.aspect > 1 ? W + 900 : W * 1.16;
-  const fitH = H * 1.14;
+  // Phones show the full stage width like the mockup; wide screens frame the
+  // card with its coins and let the unicorn run off the bottom edge.
+  const fitW = STAGE.w;
+  const fitH = 2200;
   const dist = Math.max(fitH / 2 / tanHalf, fitW / 2 / tanHalf / camera.aspect);
-  camera.position.set(0, 0, dist);
-  // Tight near plane keeps depth precision for the 4px-thick card layers.
-  camera.near = Math.max(10, dist * 0.4);
-  camera.far = dist + Math.abs(BG_Z) + 1000;
+  camera.position.set(0, EYE_Y, dist);
+  camera.near = Math.max(10, dist * 0.3);
+  camera.far = dist - BG_Z + 1000;
   camera.updateProjectionMatrix();
 
-  // Cover-fit the background at its depth, with headroom for parallax.
-  const d = dist - BG_Z;
-  const viewH = 2 * d * tanHalf * 1.12;
+  // Anything at depth z is scaled by (dist - z) / dist so it lands on its
+  // mockup position and size as seen from the camera.
+  const k = (z: number) => (dist - z) / dist;
+
+  // Background: the mockup stage, grown further if needed to cover the screen.
+  const kb = k(BG_Z);
+  const viewH = 2 * (dist - BG_Z) * tanHalf;
   const viewW = viewH * camera.aspect;
-  const img = pageBgTex.image as { width: number; height: number };
-  const imgAspect = img.width / img.height;
-  if (viewW / viewH > imgAspect) pageBg.scale.set(viewW, viewW / imgAspect, 1);
-  else pageBg.scale.set(viewH * imgAspect, viewH, 1);
+  const cover = Math.max((viewW * 1.08) / (STAGE.w * kb), (viewH * 1.08) / (STAGE.h * kb), 1);
+  pageBg.scale.set(STAGE.w * kb * cover, STAGE.h * kb * cover, 1);
+  pageBg.userData.k = kb;
+
+  for (const ex of extras) {
+    const ke = k(ex.cfg.z);
+    ex.x = ex.cfg.x * ke;
+    ex.y = EYE_Y + (ex.cfg.y - EYE_Y) * ke;
+    ex.mesh.scale.setScalar(ex.cfg.width * ke);
+  }
 }
 window.addEventListener("resize", resize);
 resize();
@@ -340,12 +335,13 @@ canvas.addEventListener("pointerup", (e) => {
 const MAX_YAW = 0.42;
 const MAX_PITCH = 0.32;
 const timer = new THREE.Timer();
+const normal = new THREE.Vector3();
+const quat = new THREE.Quaternion();
 
 renderer.setAnimationLoop((now) => {
   timer.update(now);
   const dt = Math.min(timer.getDelta(), 0.05);
-  const t = timer.getElapsed();
-  input.update(dt, t);
+  input.update(dt);
   const tilt = input.value;
 
   // Springy flip.
@@ -354,34 +350,30 @@ renderer.setAnimationLoop((now) => {
 
   cardRoot.rotation.set(-tilt.y * MAX_PITCH, tilt.x * MAX_YAW, 0);
   card.rotation.y = flip;
-  cardRoot.position.y = Math.sin(t * 0.9) * 8;
+
+  // Show only the face that points at the camera.
+  normal.set(0, 0, 1).applyQuaternion(card.getWorldQuaternion(quat));
+  const facingCamera = normal.dot(camera.position) > 0;
+  frontFace.visible = facingCamera;
+  backFace.visible = !facingCamera;
 
   windowUniforms.uTilt.value.set(tilt.x, tilt.y);
   // Viewed from the back the tilt reads mirrored.
-  const facing = Math.cos(flip) >= 0 ? 1 : -1;
-  holoUniforms.uTilt.value.set(tilt.x * facing + Math.sin(flip) * 0.8, tilt.y);
-  holoUniforms.uTime.value = t;
+  holoUniforms.uTilt.value.set(tilt.x * Math.cos(flip) + Math.sin(flip) * 0.8, tilt.y);
 
-  // Push lifted elements a little further than true parallax, and slide
-  // their shadows away from the light.
   for (const d of decals) {
-    d.mesh.position.x = d.baseX + tilt.x * d.lift * 0.9;
-    d.mesh.position.y = d.baseY + tilt.y * d.lift * 0.9;
-    d.shadow.position.x = d.baseX + d.lift * (0.35 - tilt.x * 0.5);
-    d.shadow.position.y = d.baseY - d.lift * (0.45 + tilt.y * 0.5);
+    d.mesh.position.x = d.baseX + tilt.x * d.lift * 0.6;
+    d.mesh.position.y = d.baseY + tilt.y * d.lift * 0.6;
   }
 
-  for (const [i, { mesh, cfg }] of extras.entries()) {
-    const depth = 1 + cfg.z / 400;
-    mesh.position.x = cfg.x + tilt.x * cfg.drift * depth;
-    mesh.position.y = cfg.y + tilt.y * cfg.drift * depth + Math.sin(t * 0.8 + i * 2.1) * 16;
-    mesh.rotation.z = Math.sin(t * cfg.spin + i) * 0.25;
-    mesh.rotation.y = tilt.x * 0.6;
-    mesh.rotation.x = -tilt.y * 0.4;
+  for (const ex of extras) {
+    ex.mesh.position.set(ex.x + tilt.x * ex.cfg.drift, ex.y + tilt.y * ex.cfg.drift, ex.cfg.z);
+    ex.mesh.rotation.y = tilt.x * 0.25;
+    ex.mesh.rotation.x = -tilt.y * 0.2;
   }
 
-  cardShadow.position.set(-tilt.x * 50 + 30, -tilt.y * 50 - 50, cardShadow.position.z);
-  pageBg.position.set(-tilt.x * 90, -tilt.y * 90, BG_Z);
+  const kb = pageBg.userData.k as number;
+  pageBg.position.set(-tilt.x * 60 * kb, EYE_Y - tilt.y * 60 * kb, BG_Z);
   key.position.set(tilt.x * -600 + 300, tilt.y * -600 + 500, 900);
 
   renderer.render(scene, camera);
