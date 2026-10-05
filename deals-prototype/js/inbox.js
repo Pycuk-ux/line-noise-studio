@@ -66,6 +66,19 @@ window.GC = window.GC || {};
   function render() {
     document.getElementById("deal-list").innerHTML = deals.map(cardHtml).join("");
     renderSummary();
+    if (GC.map) GC.map.renderPins();
+  }
+
+  // Card ↔ map pin hover link
+  function bindLinking() {
+    const list = document.getElementById("deal-list");
+    const handler = (on) => (e) => {
+      const card = e.target.closest(".row-card");
+      if (!card || (e.relatedTarget && card.contains(e.relatedTarget))) return;
+      if (GC.map) GC.map.link(card.dataset.id, on);
+    };
+    list.addEventListener("mouseover", handler(true));
+    list.addEventListener("mouseout", handler(false));
   }
 
   function addDeal(deal) {
@@ -73,13 +86,14 @@ window.GC = window.GC || {};
     summary.activeDeals += 1;
     if (deal.price > 0) summary.totalValue += deal.price; else summary.withoutPrice += 1;
     render();
+    if (GC.map) GC.map.placeNewDeal(deal);
     const li = document.querySelector(`.row-card[data-id="${deal.id}"]`);
     if (li) {
       li.scrollIntoView({ block: "nearest", behavior: "smooth" });
-      setTimeout(() => { li.classList.remove("is-new"); deal.isNew = false; }, 4000);
+      setTimeout(() => { li.classList.remove("is-new"); deal.isNew = false; if (GC.map) GC.map.renderPins(); }, 4000);
     }
     GC.inbox.lastAdded = deal; // handy for inspection in the console
   }
 
-  GC.inbox = { render, addDeal, deals };
+  GC.inbox = { render, addDeal, deals, bindLinking };
 })();

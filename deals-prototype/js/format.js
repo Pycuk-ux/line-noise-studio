@@ -81,6 +81,25 @@ window.GC = window.GC || {};
   GC.esc = function (s) {
     return String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   };
+  /*
+   * Repair two export bugs in the DS icon catalog (fix upstream, then delete this shim):
+   *  - "setting", "contact": `calc(50%-0.5px)` without spaces is invalid CSS → glyph drifts up.
+   *  - "arrow-right": a JSX leftover `style={{ containerType: "size" }}` → glyph renders empty,
+   *    and the exported path is the left arrow (the flip was lost).
+   */
+  if (window.DS_ICONS && !window.DS_ICONS.__repaired) {
+    const rawGet = window.DS_ICONS.get;
+    window.DS_ICONS.get = function (name) {
+      let svg = rawGet(name);
+      // "arrow-right" also lost its flip on export: its path is the left arrow.
+      if (name === "arrow-right") svg = svg.replace('<div style="height:100cqh;width:100cqw">', '<div style="height:100cqh;width:100cqw;transform:scaleX(-1)">');
+      return svg
+        .replace(/calc\(([^)]*?[0-9%])([-+])([0-9])/g, "calc($1 $2 $3")
+        .replace(/"\s+style=\{\{\s*containerType:\s*"size"\s*\}\}/g, ';container-type:size"');
+    };
+    window.DS_ICONS.__repaired = true;
+  }
+
   GC.icon = function (name, extraClass) {
     const html = window.DS_ICONS ? window.DS_ICONS.get(name) : "";
     return `<span class="ico${extraClass ? " " + extraClass : ""}" aria-hidden="true">${html}</span>`;

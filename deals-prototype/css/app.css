@@ -170,20 +170,24 @@ button { font-family: inherit; }
 .status-pill[data-tone="review"]  { background: var(--surface-warning-light); color: var(--text-warning-pressed); }
 .status-pill[data-tone="positive"]{ background: var(--surface-positive); color: var(--text-positive-hover); }
 
+/* Stage palette — Figma stage/* variables mapped to DS primitives; shared by chips, map pins and legend. */
+[data-stage] { --stage-bg: var(--surface-secondary); --stage-fg: var(--text-secondary); --stage-bd: var(--border-default); }
+[data-stage="SCR"]       { --stage-bg: var(--color-yellow-50);  --stage-fg: var(--color-yellow-800);  --stage-bd: var(--color-yellow-200); }
+[data-stage="QUAL"]      { --stage-bg: var(--color-emerald-50); --stage-fg: var(--color-emerald-800); --stage-bd: var(--color-emerald-100); }
+[data-stage="LOI"]       { --stage-bg: var(--color-cyan-50);    --stage-fg: var(--color-cyan-800);    --stage-bd: var(--color-cyan-100); }
+[data-stage="DD"]        { --stage-bg: var(--color-violet-50);  --stage-fg: var(--color-violet-800);  --stage-bd: var(--color-violet-100); }
+[data-stage="SPA"]       { --stage-bg: var(--color-purple-50);  --stage-fg: var(--color-purple-800);  --stage-bd: var(--color-purple-100); }
+[data-stage="Completed"] { --stage-bg: var(--color-green-50);   --stage-fg: var(--color-green-700);   --stage-bd: var(--color-green-100); }
+[data-stage="Declined"]  { --stage-bg: var(--color-red-50);     --stage-fg: var(--color-red-700);     --stage-bd: var(--color-red-100); }
+
 .stage-chip {
   display: inline-flex; align-items: center; gap: var(--space-1);
   padding: var(--space-1) var(--space-1) var(--space-1) var(--space-2);
-  border-radius: var(--radius-4); border: 1px solid var(--border-default);
-  font-size: var(--label-xs-size); line-height: var(--label-xs-line); font-weight: var(--w-semibold);
-  background: var(--surface-secondary); color: var(--text-secondary); white-space: nowrap;
+  border-radius: var(--radius-4); border: 1px solid var(--stage-bd); background: var(--stage-bg); color: var(--stage-fg);
+  font-size: var(--label-xs-size); line-height: var(--label-xs-line); font-weight: var(--w-semibold); white-space: nowrap;
+  font-family: var(--font-sans);
 }
 .stage-chip--static { padding-right: var(--space-2); }
-.stage-chip[data-stage="Received"], .stage-chip[data-stage="Other"] { background: var(--surface-secondary); border-color: var(--border-default); color: var(--text-secondary); }
-.stage-chip[data-stage="SCR"]  { background: var(--color-yellow-50); border-color: var(--color-yellow-200); color: var(--color-yellow-800); }
-.stage-chip[data-stage="QUAL"] { background: var(--surface-positive); border-color: var(--brand-secondary-disabled); color: var(--text-positive-hover); }
-.stage-chip[data-stage="LOI"]  { background: var(--color-indigo-50); border-color: var(--color-indigo-200); color: var(--color-indigo-500); }
-.stage-chip[data-stage="DD"], .stage-chip[data-stage="SPA"] { background: var(--color-purple-50); border-color: var(--color-purple-200); color: var(--color-purple-700); }
-.stage-chip[data-stage="Completed"] { background: var(--surface-positive); border-color: var(--brand-secondary-disabled); color: var(--text-positive-hover); }
 
 /* ---------- Pagination — ds:provisional name="pagination" ---------- */
 .list-footer {
@@ -203,12 +207,104 @@ button { font-family: inherit; }
 .pager__item[aria-current="page"] { background: var(--surface-main); color: var(--text-link); }
 .pager__item:hover:not([aria-current="page"]) { background: var(--surface-white-hover); }
 
-/* ---------- Map ---------- */
+/* ---------- Map (ds:provisional map) — interactive, base map drawn from tokens ---------- */
 .map-panel {
-  /* ds:provisional name="map" — static image placeholder of the Figma map */
-  min-height: 0; border-radius: var(--radius-8); overflow: hidden; background: var(--surface-white);
+  position: relative; min-height: 0; border-radius: var(--radius-8); overflow: hidden;
+  background: var(--color-grey-100); user-select: none;
 }
-.map-panel img { width: 100%; height: 100%; object-fit: cover; object-position: top center; display: block; }
+.content.is-map-off { grid-template-columns: minmax(0, 1fr); }
+.content.is-map-off .map-panel { display: none; }
+.map-viewport { position: absolute; inset: 0; overflow: hidden; cursor: grab; touch-action: none; }
+.map-viewport.is-dragging { cursor: grabbing; }
+.map-viewport:focus-visible { outline: var(--focus-ring-width) solid var(--focus-ring); outline-offset: calc(-1 * var(--focus-ring-width)); }
+.map-world { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+.map-base { display: block; }
+.map-base .mb-land { fill: var(--color-grey-100); }
+.map-base .mb-water { fill: var(--color-cyan-100); }
+.map-base .mb-park { fill: var(--color-emerald-100); }
+.map-base .mb-streets path { fill: none; stroke: var(--surface-white); stroke-width: 3; }
+.map-base .mb-major path { fill: none; stroke: var(--surface-white); stroke-width: 9; stroke-linecap: round; }
+.map-base .mb-highway path { fill: none; stroke: var(--color-orange-200); stroke-width: 8; stroke-linecap: round; }
+.map-base .mb-highway .mb-ring { stroke: var(--color-yellow-200); stroke-width: 6; }
+.map-base .mb-district { fill: var(--text-tertiary); font: var(--w-medium) calc(2 * var(--label-xs-size)) var(--font-sans); letter-spacing: 0.2em; }
+.map-base .mb-shield rect { fill: var(--surface-white); stroke: var(--text-secondary); stroke-width: 1.5; }
+.map-base .mb-shield text { fill: var(--text-secondary); font: var(--w-semibold) var(--label-xs-size) var(--font-sans); text-anchor: middle; }
+
+.map-pins { position: absolute; inset: 0; pointer-events: none; }
+.map-pin {
+  /* ds:provisional name="map-pin" — Figma pin-qual-office-sqm */
+  position: absolute; transform: translate(-50%, -50%); pointer-events: auto; cursor: pointer;
+  display: inline-flex; align-items: center; gap: var(--space-1); padding: var(--space-none) var(--space-1);
+  min-height: var(--space-5); border: none; border-radius: var(--radius-full);
+  background: var(--stage-bg); color: var(--stage-fg); white-space: nowrap;
+  font-family: var(--font-sans); font-size: var(--label-xs-size); line-height: var(--label-xs-line); font-weight: var(--w-semibold);
+  box-shadow: 0 var(--space-1) var(--space-2) var(--color-alpha-light-200);
+  transition: transform .12s ease, box-shadow .12s ease;
+}
+.map-pin__divider { width: 1px; height: var(--space-4); background: var(--border-default); }
+.map-pin[data-mode="dot"] {
+  min-height: 0; width: var(--space-3); height: var(--space-3); padding: 0;
+  background: var(--stage-fg); border: 1px solid var(--surface-white);
+}
+.map-pin:hover, .map-pin.is-linked { transform: translate(-50%, -50%) scale(1.12); z-index: 2; box-shadow: 0 0 0 var(--focus-ring-width) var(--stage-fg), 0 var(--space-1) var(--space-2) var(--color-alpha-light-200); }
+.map-pin:focus-visible { outline: var(--focus-ring-width) solid var(--focus-ring); outline-offset: var(--focus-ring-offset); z-index: 2; }
+.map-pin.is-new { z-index: 3; animation: pin-pulse 1.2s ease-out 3; }
+@keyframes pin-pulse { 0% { box-shadow: 0 0 0 0 var(--brand-secondary); } 100% { box-shadow: 0 0 0 var(--space-3) var(--color-alpha-light-50); } }
+
+.map-ctl-wrap { position: absolute; left: var(--space-1); top: var(--space-1); z-index: 5; }
+.map-ctl {
+  display: inline-flex; align-items: center; gap: var(--space-1); height: var(--space-6); padding: 0 var(--space-1);
+  border: none; border-radius: var(--radius-4); background: var(--surface-white); color: var(--brand-primary); cursor: pointer;
+  font-family: var(--font-sans); font-size: var(--text-label-md-size); font-weight: var(--w-medium);
+  box-shadow: 0 var(--space-1) var(--space-2) var(--color-alpha-light-100);
+}
+.map-ctl:focus-visible { outline: var(--focus-ring-width) solid var(--focus-ring); }
+.map-ctl__divider { width: 1px; height: var(--space-4); background: var(--border-default); }
+.map-menu {
+  position: absolute; left: 0; top: calc(100% + var(--space-1)); width: 240px; padding: var(--space-2);
+  display: flex; flex-direction: column; gap: var(--space-1);
+  background: var(--surface-white); border: 1px solid var(--border-default); border-radius: var(--radius-4);
+  box-shadow: 0 var(--space-1) var(--space-2) var(--color-alpha-light-100);
+}
+.map-menu[hidden] { display: none; }
+.map-menu__title { margin: 0 0 var(--space-1); color: var(--text-tertiary); font-size: var(--type-caption-size); line-height: var(--type-caption-line); }
+.map-menu__group { display: flex; flex-direction: column; }
+.map-menu__item { padding: var(--space-1) 0; }
+.map-menu__toggle { justify-content: space-between; }
+.map-menu__divider { height: 1px; margin: var(--space-1) 0; background: var(--border-default); }
+.map-menu__hint { margin: var(--space-1) 0 0; color: var(--text-tertiary); font-size: var(--type-caption-size); line-height: var(--type-caption-line); }
+
+.map-zoom {
+  position: absolute; right: var(--space-1); bottom: var(--space-1); z-index: 4; display: flex; flex-direction: column;
+  border-radius: var(--radius-4); background: var(--color-alpha-dark-600); backdrop-filter: blur(10px);
+}
+.map-zoom button {
+  width: var(--space-6); height: var(--space-6); display: flex; align-items: center; justify-content: center;
+  border: none; background: transparent; color: var(--icon-secondary); cursor: pointer; border-radius: var(--radius-4);
+}
+.map-zoom button:hover { background: var(--surface-white); }
+.map-zoom button:focus-visible { outline: var(--focus-ring-width) solid var(--focus-ring); }
+.map-zoom__divider { height: 1px; background: var(--border-default); }
+.map-legend {
+  position: absolute; left: var(--space-1); bottom: var(--space-1); z-index: 4; display: flex; flex-wrap: wrap; gap: var(--space-1);
+  padding: var(--space-1); border-radius: var(--radius-4); background: var(--color-alpha-dark-600); backdrop-filter: blur(10px);
+}
+.map-legend__item {
+  display: inline-flex; align-items: center; gap: var(--space-1); padding: 0 var(--space-1); border: none; border-radius: var(--radius-4);
+  background: transparent; cursor: pointer; color: var(--text-secondary);
+  font-family: var(--font-sans); font-size: var(--label-xs-size); line-height: var(--label-xs-line); font-weight: var(--w-medium);
+}
+.map-legend__dot { width: var(--space-1); height: var(--space-1); border-radius: var(--radius-full); background: var(--stage-fg); }
+.map-legend__item[aria-pressed="false"] { color: var(--text-disabled); text-decoration: line-through; }
+.map-legend__item[aria-pressed="false"] .map-legend__dot { background: var(--icon-disabled); }
+.map-legend__item:focus-visible { outline: var(--focus-ring-width) solid var(--focus-ring); }
+
+/* Card ↔ pin link */
+.row-card.is-linked { outline: 1px solid var(--border-strong); outline-offset: calc(-1 * var(--focus-ring-width)); }
+.row-card.is-flash { background: var(--surface-positive); }
+
+/* Board-view icon: the DS has no kanban glyph — rotate the "cards" glyph (flagged in TOKENS.md). */
+.ico--rotate { transform: rotate(90deg); }
 
 /* ---------- Toasts (DS Alert, positioned) ---------- */
 .toast-region {
@@ -227,7 +323,7 @@ button { font-family: inherit; }
   .filters .search-field { width: 100%; }
   .content { grid-template-columns: minmax(0, 1fr); }
   .deal-list { overflow: visible; }
-  .map-panel { height: 320px; }
+  .map-panel { height: 360px; }
   .row-card { grid-template-columns: 72px minmax(0, 1fr) auto; gap: var(--space-3); }
   .row-card__media { width: 72px; height: 96px; }
   .row-card__body { grid-template-columns: minmax(0, 1fr); }

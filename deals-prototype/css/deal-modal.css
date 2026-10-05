@@ -103,8 +103,6 @@ fieldset.field-group > legend { padding: 0; margin-bottom: var(--space-1); }
 .field-group__row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-2); }
 
 /* Units bar */
-.units-bar { display: flex; align-items: center; justify-content: flex-end; gap: var(--space-2); margin-bottom: var(--space-4); }
-.units-bar .ds-field { width: 96px; }
 
 /* Draft banner (DS Alert) */
 .draft-banner { display: flex; align-items: flex-start; gap: var(--space-3); margin-bottom: var(--space-4); }
@@ -270,6 +268,37 @@ fieldset.field-group > legend { padding: 0; margin-bottom: var(--space-1); }
 .prov-select-wrap .ds-field__icon { pointer-events: none; }
 .team-tokens { display: contents; }
 
+/* ---------- Units inline with the Key metrics heading ---------- */
+.units-inline { display: flex; align-items: center; gap: var(--space-2); }
+.units-inline .ds-field { width: 96px; }
+
+/* ---------- Auto-filled value (ds:provisional readonly-field) — static, no focus, no hover ---------- */
+.readonly-field { display: flex; flex-direction: column; gap: var(--space-1); min-width: 0; }
+.readonly-field__box {
+  display: flex; align-items: center; gap: var(--space-2);
+  padding: var(--space-3) var(--space-2); border: 1px solid var(--border-default); border-radius: var(--radius-4);
+  background: var(--surface-secondary); cursor: default;
+}
+.readonly-field__value {
+  flex: 1 1 auto; min-width: 0; color: var(--text-primary);
+  font-size: var(--text-body-md-size); line-height: var(--text-body-md-line); letter-spacing: var(--text-body-md-tracking);
+}
+.readonly-field__value[data-empty="true"] { color: var(--text-placeholder); font-size: var(--text-body-sm-size); }
+.readonly-field[data-state="error"] .readonly-field__box { border-color: var(--border-negative); }
+.readonly-field[data-state="error"] .ds-field__helper { color: var(--text-negative); }
+
+/* ---------- Assets (multi-asset deal) ---------- */
+.asset-list { display: flex; flex-direction: column; gap: var(--space-3); }
+.asset-row {
+  /* ds:provisional name="asset-row" */
+  margin: 0; min-width: 0; padding: var(--space-3); border: 1px solid var(--border-default); border-radius: var(--radius-8);
+  display: flex; flex-direction: column; gap: var(--space-3);
+}
+.asset-row__head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); min-height: var(--space-6); }
+.asset-row__head legend { float: left; padding: 0; }
+.asset-row__fields { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); gap: var(--space-4); align-items: start; }
+.asset-addr { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+
 /* ---------- Narrow screens — layout only ---------- */
 @media (max-width: 900px) {
   .dm-overlay { padding: var(--space-2); }
@@ -279,9 +308,24 @@ fieldset.field-group > legend { padding: 0; margin-bottom: var(--space-1); }
   .form-grid .span-2 { grid-column: auto; }
   .prov-progress { overflow-x: auto; }
   .prov-progress > li, .prov-progress > li.is-other { flex: 0 0 auto; }
-  .units-bar { flex-wrap: wrap; justify-content: flex-start; }
+  .asset-row__fields { grid-template-columns: minmax(0, 1fr); }
+  .section-heading { flex-wrap: wrap; }
   .thumb-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .metrics { flex-wrap: wrap; row-gap: var(--space-4); }
   .metric { flex: 1 1 30%; }
   .dm__foot { flex-wrap: wrap; }
 }
+
+/* Preview: assets table (ds:provisional table — mirrors the Deal Details Asset table) */
+.pv-table-wrap { overflow-x: auto; }
+.pv-table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.pv-table th {
+  text-align: left; padding: var(--space-2); background: var(--surface-secondary); color: var(--text-tertiary);
+  font-size: var(--type-caption-size); line-height: var(--type-caption-line); font-weight: var(--w-regular); white-space: nowrap;
+}
+.pv-table td {
+  padding: var(--space-2); border-bottom: 1px solid var(--border-default); color: var(--text-primary);
+  font-size: var(--text-label-md-size); line-height: var(--text-label-md-line); font-weight: var(--w-medium); white-space: nowrap;
+}
+.pv-table td.is-empty { color: var(--text-placeholder); }
+.pv-table td.num { color: var(--text-tertiary); }

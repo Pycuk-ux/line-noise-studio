@@ -64,6 +64,17 @@ stacked avatars, `vertical-align`). No colour, radius, padding or type of a DS c
 | `map` | Map-container | static image cropped from the user's screenshot |
 | `notification-button` | navbar bell | `--icon-inverse`, badge `--icon-negative` / `--text-inverse` |
 
+| `map-pin` | pin-qual-office-sqm (16281:65599) | stage palette (below), `--radius-full`, padding `--space-none`/`--space-1`, min-h `--space-5`, divider `--border-default`, shadow `--color-alpha-light-200`; dot mode `--space-3` |
+| `dropdown` (map pin settings) | Map "Price ▾" control | `--surface-white`, `--border-default`, `--radius-4`; contents are DS **Radio** + DS **Toggle** |
+| map base (inside `map`) | Map-container | drawn as SVG: land `--color-grey-100`, water `--color-cyan-100`, parks `--color-emerald-100`, streets `--surface-white`, motorways `--color-orange-200`, ring `--color-yellow-200`, labels `--text-tertiary`; overlays `--color-alpha-dark-600` |
+| `readonly-field` (auto-filled Rent/psm, NIY) | — | box `--surface-secondary` + `--border-default` + `--radius-4`, padding `--space-3`/`--space-2` (same box as DS field), **no hover, not focusable**, value `--text-body-md-*`, error `--border-negative` |
+| `asset-row` | — (CEO: "each asset starts with asset type, address") | `--border-default`, `--radius-8`, p `--space-3`, gap `--space-3`/`--space-4`; fields are DS Text field + provisional select |
+| `table` (preview assets) | Deal Details Asset table | header `--surface-secondary` / `--text-tertiary` caption, rows `--border-default`, values `--text-label-md-*` |
+
+**Stage palette** (Figma `stage/*` variables mapped to DS primitives, shared by stage chips, map pins and the map legend):
+SCR `yellow-50/800/200`, QUAL `emerald-50/800/100`, LOI `cyan-50/800/100`, DD `violet-50/800/100`, SPA `purple-50/800/100`,
+Completed `green-50/700/100`, Declined `red-50/700/100`, Received/Other `--surface-secondary`/`--text-secondary`.
+
 `components.py migrate` will pick these up once matching components ship.
 
 ---
@@ -100,7 +111,12 @@ to the DS or migrate Figma to 12/14.**
 | Modal shadow `0 4 4 #0000001F, 0 2 8 #00000029` | modal, listbox | `--color-alpha-light-100` (#00000017) / `-200` (#00000033) with `--space-1/2` offsets | No elevation tokens in the DS |
 | Modal radius 8 / item radius 16 (Figma draft pill tabs) | stepper | not used: stepper follows the approved progress-bar pattern (radius 4) | — |
 | Industry icons (hotel / office / logistics glyphs) | chips | DS `building` (`house` for Residential) | **No industry glyphs in the DS icon set** |
-| `arrow-right` icon | Next button | DS `chevron-right` | **DS bug:** `arrow-right` contains a JSX leftover `style={{ containerType: "size" }}` and renders empty |
+| `setting`, `contact` icons | Table settings button | DS glyph, repaired at load | **DS bug:** `top:calc(50%-0.5px)` (no spaces) is invalid CSS, so the glyph drifts up. Shim in `js/format.js` adds the spaces. |
+| `arrow-right` icon | Next button | DS glyph, repaired at load | **DS bug:** JSX leftover `style={{ containerType: "size" }}` (renders empty) **and** the path is the left arrow (flip lost). Shim fixes both. |
+| Kanban / board icon | View switch | DS `cards` rotated 90° | No board glyph in the DS |
+| Map pin text 10/12/500–600 | map pins, legend | `--label-xs-*` 12/14 | +2px — no 10px step |
+| Map overlay `backdrop-blur 10px` | zoom, legend | literal `blur(10px)` | no blur/elevation tokens |
+| Map base | map | vector drawing from tokens | Figma map raster can't be downloaded here, and Artifact CSP blocks tile servers |
 | Only Logistics has industry colours (lime) | preview header chip | `--color-lime-50/900` | Other industries fall back to neutral |
 
 Non-CSS literals: the brand mark's `#fff` / `#339989` fills (copied verbatim from the DS),

@@ -5,6 +5,7 @@ window.GC = window.GC || {};
   const M = GC.MOCK;
   const esc = GC.esc;
   const F = () => GC.FIELDS;
+  const def = (id) => GC.fieldDef(id);
   const S = () => GC.state;
 
   let overlay = null, dialog = null, releaseTrap = null, trigger = null;
@@ -26,21 +27,21 @@ window.GC = window.GC || {};
   }
 
   function toDisplay(id, v) {
-    const f = F()[id], u = S().units;
+    const f = def(id), u = S().units;
     if (v == null || Number.isNaN(v)) return v;
     if (f.kind === "area") return GC.fmt.areaToDisplay(v, u.area);
     if (f.kind === "moneyPeriod") return GC.fmt.periodToDisplay(v, u.period);
     return v;
   }
   function fromDisplay(id, v) {
-    const f = F()[id], u = S().units;
+    const f = def(id), u = S().units;
     if (f.kind === "area") return GC.fmt.areaFromDisplay(v, u.area);
     if (f.kind === "moneyPeriod") return GC.fmt.periodFromDisplay(v, u.period);
     return v;
   }
   function formatDisplay(id, v) {
     if (v == null || Number.isNaN(v)) return "";
-    if (F()[id].kind === "year") return String(v);
+    if (def(id).kind === "year") return String(v);
     return GC.fmt.num(v, 2);
   }
   function displayValue(id) {
@@ -50,9 +51,10 @@ window.GC = window.GC || {};
   }
 
   function shownError(id) {
-    const s = S(), f = F()[id];
-    if (!f) return "";
-    if (!(s.touched[id] || s.attempted[f.step])) return "";
+    const s = S(), f = def(id);
+    const step = f ? f.step : GC.splitKey(id)[0] ? 0 : null; // asset type/address live on Key Info
+    if (step == null) return "";
+    if (!(s.touched[id] || s.attempted[step])) return "";
     return GC.validateField(id);
   }
 
@@ -61,7 +63,7 @@ window.GC = window.GC || {};
 
   function numField(id, o) {
     o = o || {};
-    const f = F()[id];
+    const f = def(id);
     const err = shownError(id);
     const a = affixes(f);
     const helper = err || o.helper || "";
@@ -112,20 +114,6 @@ window.GC = window.GC || {};
     </div>`;
   }
 
-  function unitsBar(which) {
-    const parts = [];
-    if (which.includes("period")) parts.push(segmented("Rent period", "period", [{ value: "yearly", label: "Yearly" }, { value: "monthly", label: "Monthly" }]));
-    if (which.includes("area")) parts.push(segmented("Area unit", "area", [{ value: "sqm", label: "SQM" }, { value: "sqf", label: "SQF" }]));
-    if (which.includes("currency")) {
-      parts.push(`<div class="ds-field" data-size="small" data-state="default">
-        <div class="ds-field__box prov-select-wrap" data-ds-provisional="select">
-          <select class="ds-field__input prov-select" data-unit-select="currency" aria-label="Currency">
-            ${M.currencies.map((c) => `<option value="${c.id}" ${S().units.currency === c.id ? "selected" : ""}>${c.id}</option>`).join("")}
-          </select><span class="ds-field__icon">${DS_ICONS.get("chevron-down")}</span></div></div>`);
-    }
-    return `<div class="units-bar" role="group" aria-label="Units"><span class="t-label">Units</span>${parts.join("")}</div>`;
-  }
-
   function sectionHeading(title, extra) {
     return `<div class="section-heading" data-ds-provisional="section-heading"><h3 class="section-heading__title t-title">${title}</h3>${extra || ""}</div>`;
   }
@@ -147,38 +135,121 @@ window.GC = window.GC || {};
     </div>`;
   }
 
-  function stepKeyInfo() {
+  function unitsInline() {
+    return `<div class="units-inline" role="group" aria-label="Units">
+      ${segmented("Area unit", "area", [{ value: "sqm", label: "SQM" }, { value: "sqf", label: "SQF" }])}
+      <div class="ds-field" data-size="small" data-state="default">
+        <div class="ds-field__box prov-select-wrap" data-ds-provisional="select">
+          <select class="ds-field__input prov-select" data-unit-select="currency" aria-label="Currency">
+            ${M.currencies.map((c) => `<option value="${c.id}" ${S().units.currency === c.id ? "selected" : ""}>${c.id}</option>`).join("")}
+          </select><span class="ds-field__icon">${DS_ICONS.get("chevron-down")}</span></div></div>
+    </div>`;
+  }
+
+  /** Auto-filled value: looks like a field but is static — no focus, no hover. */
+  function readonlyField(id, o) {
+    const err = o.error || "";
+    return `<div class="readonly-field" data-ds-provisional="readonly-field" data-wrap="${id}" data-state="${err ? "error" : "default"}">
+      <div class="field-labelrow"><span class="ds-field__label" id="l-${id}">${esc(o.label)}${o.required ? ` <span class="ds-field__req" aria-hidden="true">*</span>` : ""}</span>
+        <span class="auto-tag" data-ds-provisional="tag">auto</span></div>
+      <div class="readonly-field__box">${affixHtml(o.prefix)}
+        <output class="readonly-field__value" id="v-${id}" aria-labelledby="l-${id}" aria-describedby="h-${id}" data-empty="${o.value == null}">${o.value == null ? esc(o.empty || "—") : esc(o.value)}</output>
+        ${affixHtml(o.suffix)}</div>
+      <div class="ds-field__helper" id="h-${id}">${err ? esc(err) : o.helperHtml || esc(o.helper || "")}</div>
+    </div>`;
+  }
+
+  function niyAutoHelper() {
+    return `Rent ÷ Price × 100 <button type="button" class="ds-btn" data-type="ghost" data-size="sm" data-act="niy-override">${GC.icon("edit", "ds-btn__icon")}<span class="ds-btn__label">Override</span></button>`;
+  }
+  function niyManualHelper() {
+    const calc = GC.fmt.niyCalculated(S().data);
+    return `Calculated: ${calc == null ? "—" : GC.fmt.num(calc, 2) + "%"} <button type="button" class="ds-btn" data-type="ghost" data-size="sm" data-act="niy-reset">${GC.icon("refresh", "ds-btn__icon")}<span class="ds-btn__label">Reset to calculated</span></button>`;
+  }
+
+  function psmField() {
     const s = S();
     const psm = GC.fmt.rentPerArea(s.data, s.units.area);
-    const psmLabel = s.units.area === "sqf" ? "Rent/psf" : "Rent/psm";
-    const niyCalc = GC.fmt.niyCalculated(s.data);
-    const manual = s.data.niy_manual;
-    const niyLabelRow = `<div class="field-labelrow"><label class="ds-field__label" for="f-niy">NIY${req(F().niy)}</label>
-        <span class="auto-tag" data-ds-provisional="tag" data-tone="${manual ? "manual" : "auto"}" id="niy-tag">${manual ? "edited" : "auto"}</span></div>`;
-    const niyHelper = manual
-      ? `Calculated: ${niyCalc == null ? "—" : GC.fmt.num(niyCalc, 2) + "%"} <button type="button" class="ds-btn" data-type="ghost" data-size="sm" data-act="niy-reset">${GC.icon("refresh", "ds-btn__icon")}<span class="ds-btn__label">Reset to calculated</span></button>`
-      : "Rent ÷ Price × 100 — editable";
+    return readonlyField("rent_psm", {
+      label: s.units.area === "sqf" ? "Rent/psf" : "Rent/psm",
+      value: psm == null ? null : GC.fmt.num(psm, 2),
+      prefix: GC.fmt.currencySymbol(s.units.currency), suffix: "/ " + GC.fmt.areaUnitLabel(s.units.area) + " / yr",
+      helper: "Rent ÷ Area", empty: "Fills in from Rent and Area",
+    });
+  }
+
+  function niyField() {
+    const s = S();
+    if (s.data.niy_manual) {
+      const labelRow = `<div class="field-labelrow"><label class="ds-field__label" for="f-niy">NIY${req(F().niy)}</label>
+        <span class="auto-tag" data-ds-provisional="tag" data-tone="manual">edited</span></div>`;
+      return numField("niy", { labelRow, helperHtml: niyManualHelper(), placeholder: "0" });
+    }
+    return readonlyField("niy", {
+      label: "NIY", required: true, suffix: "%",
+      value: s.data.niy == null ? null : GC.fmt.num(s.data.niy, 2),
+      helperHtml: niyAutoHelper(), empty: "Fills in from Rent and Price", error: shownError("niy"),
+    });
+  }
+
+  function assetRow(aid, i, n) {
+    const s = S();
+    const typeId = GC.assetKey(aid, "type"), addrId = GC.assetKey(aid, "address");
+    const tErr = shownError(typeId), aErr = shownError(addrId);
+    const type = s.data[typeId] || "";
+    return `<fieldset class="asset-row" data-asset="${aid}">
+      <div class="asset-row__head">
+        <legend class="t-value">Asset ${i + 1}</legend>
+        ${n > 1 ? `<button type="button" class="ds-btn" data-type="ghost" data-size="sm" data-act="asset-remove" data-asset="${aid}" aria-label="Remove asset ${i + 1}">${GC.icon("bin", "ds-btn__icon")}<span class="ds-btn__label">Remove</span></button>` : ""}
+      </div>
+      <div class="asset-row__fields">
+        <div class="ds-field" data-size="medium" data-state="${tErr ? "error" : "default"}" data-wrap="${typeId}">
+          <label class="ds-field__label" for="f-${typeId}">Asset type <span class="ds-field__req" aria-hidden="true">*</span></label>
+          <div class="ds-field__box prov-select-wrap" data-ds-provisional="select">
+            <select class="ds-field__input prov-select" id="f-${typeId}" data-field="${typeId}" aria-required="true" aria-invalid="${!!tErr}" aria-describedby="h-${typeId}">
+              <option value="">Select type</option>
+              ${M.industries.map((ind) => `<option value="${ind.id}" ${type === ind.id ? "selected" : ""}>${esc(ind.id)}</option>`).join("")}
+            </select><span class="ds-field__icon">${DS_ICONS.get("chevron-down")}</span>
+          </div>
+          <div class="ds-field__helper" id="h-${typeId}"${tErr ? "" : " hidden"}>${esc(tErr)}</div>
+        </div>
+        <div class="ds-field" data-size="medium" data-state="${aErr ? "error" : "default"}" data-wrap="${addrId}">
+          <label class="ds-field__label" for="f-${addrId}">Address <span class="ds-field__req" aria-hidden="true">*</span></label>
+          <div class="ds-field__box"><span class="ds-field__icon">${DS_ICONS.get("location")}</span>
+            <input class="ds-field__input" id="f-${addrId}" data-field="${addrId}" type="text" autocomplete="off" value="${esc(s.data[addrId] || "")}"
+              placeholder="Street, postcode, city" aria-required="true" aria-invalid="${!!aErr}" aria-describedby="h-${addrId}"></div>
+          <div class="ds-field__helper" id="h-${addrId}"${aErr ? "" : " hidden"}>${esc(aErr)}</div>
+        </div>
+      </div>
+    </fieldset>`;
+  }
+
+  function stepKeyInfo() {
+    const s = S();
+    const n = s.assets.length;
     return `
-      ${unitsBar(["period", "area", "currency"])}
       <section class="form-section" aria-labelledby="photos-title"><div id="upload-root"></div></section>
       <section class="form-section" aria-labelledby="ki-title">
-        ${sectionHeading(`<span id="ki-title">Key metrics</span>`)}
+        <div class="section-heading" data-ds-provisional="section-heading">
+          <h3 class="section-heading__title t-title" id="ki-title">Key metrics</h3>${unitsInline()}
+        </div>
         <p class="req-note"><span class="ds-field__req">*</span> Required</p>
         <div class="form-grid">
           ${numField("area_sqm", { placeholder: "0" })}
           ${numField("price", { placeholder: "0" })}
           ${numField("occupancy", { placeholder: "0–100" })}
           ${numField("rent_yearly", { placeholder: "0" })}
-          <div class="ds-field is-computed" data-size="medium" data-state="default" data-wrap="rent_psm">
-            <div class="field-labelrow"><label class="ds-field__label" for="f-rent_psm" id="l-rent_psm">${psmLabel}</label><span class="auto-tag" data-ds-provisional="tag">auto</span></div>
-            <div class="ds-field__box">${affixHtml(GC.fmt.currencySymbol(s.units.currency))}
-              <input class="ds-field__input" id="f-rent_psm" type="text" readonly value="${psm == null ? "" : GC.fmt.num(psm, 2)}" placeholder="Calculated" aria-describedby="h-rent_psm">
-              ${affixHtml("/ " + GC.fmt.areaUnitLabel(s.units.area) + " / yr")}</div>
-            <div class="ds-field__helper" id="h-rent_psm">Yearly rent ÷ area — read-only</div>
-          </div>
-          ${numField("niy", { labelRow: niyLabelRow, helperHtml: niyHelper, placeholder: "Calculated" })}
-          ${numField("assets_count", { placeholder: "1" })}
+          ${psmField()}
+          ${niyField()}
         </div>
+      </section>
+      <section class="form-section" aria-labelledby="assets-title">
+        <div class="section-heading" data-ds-provisional="section-heading">
+          <h3 class="section-heading__title t-title" id="assets-title">Assets <span class="count" id="assets-count">(${n})</span></h3>
+          <button type="button" class="ds-btn" data-type="secondary" data-size="sm" data-act="asset-add">${GC.icon("plus", "ds-btn__icon")}<span class="ds-btn__label">Add asset</span></button>
+        </div>
+        <p class="req-note">A deal can include several assets. Each one starts with its type and address.</p>
+        <div class="asset-list">${s.assets.map((aid, i) => assetRow(aid, i, n)).join("")}</div>
       </section>`;
   }
 
@@ -250,27 +321,34 @@ window.GC = window.GC || {};
 
   function pairGroup(legend, a, b) {
     return `<fieldset class="field-group"><legend class="ds-field__label">${esc(legend)}</legend>
-      <div class="field-group__row">${numField(a, { hideLabel: true, placeholder: F()[a].label })}${numField(b, { hideLabel: true, placeholder: F()[b].label })}</div></fieldset>`;
+      <div class="field-group__row">${numField(a, { hideLabel: true, placeholder: def(a).label })}${numField(b, { hideLabel: true, placeholder: def(b).label })}</div></fieldset>`;
   }
 
   function stepPhysical() {
-    return `
-      ${unitsBar(["area"])}
-      ${sectionHeading("Physical")}
-      <div class="form-grid">
-        ${pairGroup("GLA / NLA", "gla_sqm", "nla_sqm")}
-        ${numField("land_sqm")}
-        ${pairGroup("Year built / renovated", "year_built", "year_renovated")}
-        ${numField("floors")}
-        ${numField("units_count")}
-        ${numField("parking")}
-        ${selectField("condition", "Condition", M.conditions, { placeholder: "Select condition" })}
-      </div>`;
+    const s = S();
+    return s.assets.map((aid, i) => {
+      const k = (f) => GC.assetKey(aid, f);
+      const type = s.data[k("type")], addr = (s.data[k("address")] || "").trim();
+      return `<section class="form-section" aria-labelledby="ph-${aid}">
+        <div class="section-heading" data-ds-provisional="section-heading">
+          <h3 class="section-heading__title t-title" id="ph-${aid}">Asset ${i + 1}${type ? ` · ${esc(type)}` : ""}</h3>
+          <span class="t-muted asset-addr">${esc(addr)}</span>
+        </div>
+        <div class="form-grid">
+          ${pairGroup("GLA / NLA", k("gla_sqm"), k("nla_sqm"))}
+          ${numField(k("land_sqm"))}
+          ${pairGroup("Year built / renovated", k("year_built"), k("year_renovated"))}
+          ${numField(k("floors"))}
+          ${numField(k("units_count"))}
+          ${numField(k("parking"))}
+          ${selectField(k("condition"), "Condition", M.conditions, { placeholder: "Select condition" })}
+        </div>
+      </section>`;
+    }).join("");
   }
 
   function stepFinancial() {
     return `
-      ${unitsBar(["period", "currency"])}
       <section class="form-section">
         ${sectionHeading("Income &amp; costs")}
         <div class="form-grid">
@@ -323,7 +401,7 @@ window.GC = window.GC || {};
         <button type="button" class="ds-btn" data-type="secondary" data-size="lg" data-act="back" ${s.step === 0 ? "disabled aria-disabled=\"true\"" : ""}>${GC.icon("arrow-left", "ds-btn__icon")}<span class="ds-btn__label">Back</span></button>
         ${last
           ? `<button type="button" class="ds-btn" data-type="primary" data-size="lg" data-act="add">${GC.icon("plus", "ds-btn__icon")}<span class="ds-btn__label">Add Deal</span></button>`
-          : `<button type="button" class="ds-btn" data-type="primary" data-size="lg" data-act="next"><span class="ds-btn__label">Next</span>${GC.icon("chevron-right", "ds-btn__icon")}</button>`}
+          : `<button type="button" class="ds-btn" data-type="primary" data-size="lg" data-act="next"><span class="ds-btn__label">Next</span>${GC.icon("arrow-right", "ds-btn__icon")}</button>`}
       </div>`;
   }
 
@@ -380,8 +458,7 @@ window.GC = window.GC || {};
   // ============================================================
   function focusFirstError(step) {
     const errs = GC.validateStep(step).errors;
-    const first = Object.keys(GC.FIELDS).find((id) => errs[id]);
-    const el = first && dialog.querySelector(`#f-${first}`);
+    const el = Object.keys(errs).map((id) => dialog.querySelector(`#f-${id}`)).find((x) => x && x.matches("input, select"));
     if (el) el.focus();
   }
 
@@ -401,6 +478,7 @@ window.GC = window.GC || {};
         }
       }
     }
+    if (i === 1 && !s.data.industry) s.data.industry = s.data[GC.assetKey(s.assets[0], "type")] || "";
     s.step = i;
     s.visited[i] = true;
     s.restoredFrom = null;
@@ -410,32 +488,33 @@ window.GC = window.GC || {};
   // ============================================================
   //  Input handling
   // ============================================================
+  /** Replace helper markup only when it changed — re-rendering mid-click would swallow the click. */
+  function setHelperHtml(helper, html) {
+    if (helper.dataset.html === html) return;
+    helper.innerHTML = html;
+    helper.dataset.html = html;
+  }
+
   function setFieldErrorUI(id) {
     const wrap = dialog.querySelector(`[data-wrap="${id}"]`);
     if (!wrap) return;
     const err = shownError(id);
     wrap.dataset.state = err ? "error" : "default";
     const input = wrap.querySelector(".ds-field__input");
-    input.setAttribute("aria-invalid", err ? "true" : "false");
+    if (input) input.setAttribute("aria-invalid", err ? "true" : "false");
     const helper = wrap.querySelector(".ds-field__helper");
-    if (id === "niy" && !err) updateNiyUI();
-    else if (helper) { helper.textContent = err || ""; helper.hidden = !err; }
+    if (!helper) return;
+    if (err) { helper.textContent = err; helper.dataset.html = ""; helper.hidden = false; }
+    else if (id === "niy") { setHelperHtml(helper, S().data.niy_manual ? niyManualHelper() : niyAutoHelper()); helper.hidden = false; }
+    else if (id === "rent_psm") { helper.textContent = "Rent ÷ Area"; }
+    else { helper.textContent = ""; helper.hidden = true; }
   }
 
-  function updateNiyUI() {
-    const s = S();
-    const wrap = dialog.querySelector('[data-wrap="niy"]');
-    if (!wrap) return;
-    const calc = GC.fmt.niyCalculated(s.data);
-    const tag = wrap.querySelector("#niy-tag");
-    tag.textContent = s.data.niy_manual ? "edited" : "auto";
-    tag.dataset.tone = s.data.niy_manual ? "manual" : "auto";
-    const err = shownError("niy");
-    const helper = wrap.querySelector(".ds-field__helper");
-    if (err) helper.textContent = err;
-    else helper.innerHTML = s.data.niy_manual
-      ? `Calculated: ${calc == null ? "—" : GC.fmt.num(calc, 2) + "%"} <button type="button" class="ds-btn" data-type="ghost" data-size="sm" data-act="niy-reset">${GC.icon("refresh", "ds-btn__icon")}<span class="ds-btn__label">Reset to calculated</span></button>`
-      : "Rent ÷ Price × 100 — editable";
+  function setOutput(id, value, empty) {
+    const out = dialog.querySelector(`#v-${id}`);
+    if (!out) return;
+    out.textContent = value == null ? empty : value;
+    out.dataset.empty = value == null ? "true" : "false";
   }
 
   /** Recalculate Rent/psm and (unless overridden) NIY after any Key Info change. */
@@ -444,16 +523,22 @@ window.GC = window.GC || {};
     if (!s.data.niy_manual) {
       s.data.niy = GC.fmt.niyCalculated(s.data);
       delete s.raw.niy;
-      const niyInput = dialog.querySelector("#f-niy");
-      if (niyInput && niyInput !== document.activeElement) niyInput.value = formatDisplay("niy", s.data.niy);
-      if (s.touched.niy || s.attempted[0]) setFieldErrorUI("niy");
+      setOutput("niy", s.data.niy == null ? null : GC.fmt.num(s.data.niy, 2), "Fills in from Rent and Price");
+      setFieldErrorUI("niy");
+    } else {
+      const wrap = dialog.querySelector('[data-wrap="niy"]');
+      if (wrap && !shownError("niy")) setHelperHtml(wrap.querySelector(".ds-field__helper"), niyManualHelper());
     }
-    const psmInput = dialog.querySelector("#f-rent_psm");
-    if (psmInput) {
-      const psm = GC.fmt.rentPerArea(s.data, s.units.area);
-      psmInput.value = psm == null ? "" : GC.fmt.num(psm, 2);
+    const psm = GC.fmt.rentPerArea(s.data, s.units.area);
+    setOutput("rent_psm", psm == null ? null : GC.fmt.num(psm, 2), "Fills in from Rent and Area");
+  }
+
+  function crossCheck(id) {
+    const [aid, base] = GC.splitKey(id);
+    if (aid && base === "year_built") {
+      const ren = GC.assetKey(aid, "year_renovated");
+      if (S().touched[ren]) setFieldErrorUI(ren);
     }
-    updateNiyUI();
   }
 
   function onInput(e) {
@@ -461,16 +546,21 @@ window.GC = window.GC || {};
     const s = S();
     const id = el.dataset.field;
     if (!id) return;
-    if (GC.FIELDS[id]) {
+    if (def(id)) {
       s.raw[id] = el.value;
       const n = GC.fmt.parseNum(el.value);
       s.data[id] = n == null || Number.isNaN(n) ? n : fromDisplay(id, n);
       if (id === "niy") s.data.niy_manual = true; // an emptied NIY reverts to auto on blur
       if (s.step === 0) recalc();
-      if (shownError(id) || dialog.querySelector(`[data-wrap="${id}"]`).dataset.state === "error") setFieldErrorUI(id);
-      if (id === "year_built" && s.touched.year_renovated) setFieldErrorUI("year_renovated");
+      const wrap = dialog.querySelector(`[data-wrap="${id}"]`);
+      if (shownError(id) || (wrap && wrap.dataset.state === "error")) setFieldErrorUI(id);
+      crossCheck(id);
     } else if (id !== "team") {
       s.data[id] = el.value;
+      if (GC.splitKey(id)[0]) {
+        const wrap = dialog.querySelector(`[data-wrap="${id}"]`);
+        if (wrap && wrap.dataset.state === "error") setFieldErrorUI(id);
+      }
     }
     onAnyChange();
   }
@@ -478,15 +568,20 @@ window.GC = window.GC || {};
   function onBlur(e) {
     const el = e.target;
     const id = el.dataset && el.dataset.field;
-    if (!id || !GC.FIELDS[id]) return;
+    if (!id) return;
     const s = S();
+    const [aidKey, baseKey] = GC.splitKey(id);
+    if (aidKey && (baseKey === "type" || baseKey === "address")) {
+      s.touched[id] = true; setFieldErrorUI(id); renderStepper(); return;
+    }
+    if (!def(id)) return;
     s.touched[id] = true;
     const v = s.data[id];
     if (v != null && !Number.isNaN(v)) { delete s.raw[id]; el.value = formatDisplay(id, toDisplay(id, v)); }
     if (v == null) delete s.raw[id];
-    if (id === "niy" && v == null && s.data.niy_manual) { s.data.niy_manual = false; recalc(); }
+    if (id === "niy" && v == null && s.data.niy_manual) { s.data.niy_manual = false; renderStep({ focus: false, scrollTop: false }); return; }
     setFieldErrorUI(id);
-    if (id === "year_built" && s.touched.year_renovated) setFieldErrorUI("year_renovated");
+    crossCheck(id);
     renderStepper();
   }
 
@@ -581,7 +676,14 @@ window.GC = window.GC || {};
     dialog.addEventListener("change", (e) => {
       const el = e.target;
       if (el.dataset.unitSelect) { setUnit(el.dataset.unitSelect, el.value); return; }
-      if (el.tagName === "SELECT" || el.type === "date") { if (el.dataset.field) { S().data[el.dataset.field] = el.value; onAnyChange(); } }
+      if (el.tagName === "SELECT" || el.type === "date") {
+        const id = el.dataset.field;
+        if (id) {
+          S().data[id] = el.value;
+          if (GC.splitKey(id)[1] === "type") { S().touched[id] = true; setFieldErrorUI(id); }
+          onAnyChange();
+        }
+      }
     });
     dialog.addEventListener("focusout", (e) => {
       onBlur(e);
@@ -654,9 +756,39 @@ window.GC = window.GC || {};
         case "add": addDeal(); break;
         case "start-over": GC.clearDraft(); GC.resetState(); S().open = true; renderStep(); break;
         case "niy-reset": {
-          S().data.niy_manual = false; recalc();
-          setFieldErrorUI("niy");
-          const inp = dialog.querySelector("#f-niy"); if (inp) inp.focus();
+          S().data.niy_manual = false; delete S().raw.niy; recalc();
+          renderStep({ focus: false, scrollTop: false });
+          const btn = dialog.querySelector('[data-act="niy-override"]'); if (btn) btn.focus();
+          onAnyChange();
+          break;
+        }
+        case "niy-override": {
+          const s = S();
+          s.data.niy_manual = true;
+          renderStep({ focus: false, scrollTop: false });
+          const inp = dialog.querySelector("#f-niy"); if (inp) { inp.focus(); inp.select(); }
+          onAnyChange();
+          break;
+        }
+        case "asset-add": {
+          const s = S();
+          const aid = GC.newAssetId();
+          s.assets.push(aid);
+          renderStep({ focus: false, scrollTop: false });
+          dialog.querySelector(`#f-${GC.assetKey(aid, "type")}`).focus();
+          onAnyChange();
+          break;
+        }
+        case "asset-remove": {
+          const s = S();
+          const aid = act.dataset.asset;
+          const idx = s.assets.indexOf(aid);
+          s.assets.splice(idx, 1);
+          Object.keys(s.data).forEach((k) => { if (k.startsWith(aid + "__")) delete s.data[k]; });
+          Object.keys(s.raw).forEach((k) => { if (k.startsWith(aid + "__")) delete s.raw[k]; });
+          renderStep({ focus: false, scrollTop: false });
+          const next = s.assets[Math.min(idx, s.assets.length - 1)];
+          dialog.querySelector(`#f-${GC.assetKey(next, "type")}`).focus();
           onAnyChange();
           break;
         }

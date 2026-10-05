@@ -2,7 +2,7 @@
 window.GC = window.GC || {};
 
 (function () {
-  const DRAFT_KEY = "gocanopy.addDeal.draft.v1";
+  const DRAFT_KEY = "gocanopy.addDeal.draft.v2";
 
   GC.STEPS = [
     { id: "key", label: "Key Info" },
@@ -23,17 +23,6 @@ window.GC = window.GC || {};
     occupancy:    { step: 0, label: "Occupancy", kind: "percent", required: true, min: 0, max: 100 },
     rent_yearly:  { step: 0, label: "Rent", kind: "moneyPeriod", required: true, gt: 0 },
     niy:          { step: 0, label: "NIY", kind: "percent", required: true, gt: 0, max: 100 },
-    assets_count: { step: 0, label: "Number of assets", kind: "int", required: true, min: 1 },
-
-    // Physical Info — optional
-    gla_sqm:        { step: 2, label: "GLA", kind: "area", min: 0 },
-    nla_sqm:        { step: 2, label: "NLA", kind: "area", min: 0 },
-    land_sqm:       { step: 2, label: "Land area", kind: "area", min: 0 },
-    year_built:     { step: 2, label: "Year built", kind: "year", min: 1800, max: 2100 },
-    year_renovated: { step: 2, label: "Year renovated", kind: "year", min: 1800, max: 2100 },
-    floors:         { step: 2, label: "Floors", kind: "int", min: 0 },
-    units_count:    { step: 2, label: "Units", kind: "int", min: 0 },
-    parking:        { step: 2, label: "Parking", kind: "int", min: 0, suffix: "spaces" },
 
     // Financial Info — optional. Rent / Price / NIY are not repeated (captured in Key Info).
     noi_yearly:          { step: 3, label: "Net operating income", kind: "moneyPeriod" },
@@ -49,6 +38,32 @@ window.GC = window.GC || {};
     ltv:                 { step: 3, label: "LTV", kind: "percent", min: 0, max: 100 },
     cost_of_debt:        { step: 3, label: "Cost of debt", kind: "percent", min: 0, max: 100 },
   };
+
+  /*
+   * A deal is made of one or more assets (CEO: "each asset starts with asset type, address").
+   * Asset values live in state.data under composite keys "<assetId>__<field>", e.g. "a1__gla_sqm".
+   * Type + address are required (Key Info); the physical fields are optional (Physical Info).
+   */
+  GC.ASSET_FIELDS = {
+    gla_sqm:        { step: 2, label: "GLA", kind: "area", min: 0 },
+    nla_sqm:        { step: 2, label: "NLA", kind: "area", min: 0 },
+    land_sqm:       { step: 2, label: "Land area", kind: "area", min: 0 },
+    year_built:     { step: 2, label: "Year built", kind: "year", min: 1800, max: 2100 },
+    year_renovated: { step: 2, label: "Year renovated", kind: "year", min: 1800, max: 2100 },
+    floors:         { step: 2, label: "Floors", kind: "int", min: 0 },
+    units_count:    { step: 2, label: "Units", kind: "int", min: 0 },
+    parking:        { step: 2, label: "Parking", kind: "int", min: 0, suffix: "spaces" },
+  };
+  GC.assetKey = (aid, field) => `${aid}__${field}`;
+  GC.splitKey = (id) => { const i = id.indexOf("__"); return i < 0 ? [null, id] : [id.slice(0, i), id.slice(i + 2)]; };
+  /** Field definition for a flat id ("price") or a per-asset id ("a1__gla_sqm"). */
+  GC.fieldDef = function (id) {
+    const [aid, base] = GC.splitKey(id);
+    return aid ? GC.ASSET_FIELDS[base] : GC.FIELDS[id];
+  };
+
+  let assetSeq = 0;
+  GC.newAssetId = () => "a" + (++assetSeq).toString(36) + Date.now().toString(36).slice(-3);
 
   function defaultData() {
     const d = {
@@ -75,6 +90,7 @@ window.GC = window.GC || {};
       raw: {},
       units: { area: "sqm", period: "yearly", currency: "EUR" },
       data: defaultData(),
+      assets: [GC.newAssetId()],
       images: [], // { id, name, size, status: 'uploading'|'done', progress, src, data }
       uploadErrors: [],
       ai: { summary: true, strengths: true, risks: true },
@@ -91,8 +107,11 @@ window.GC = window.GC || {};
   // ---------- Validation ----------
   GC.validateField = function (id, d) {
     d = d || GC.state.data;
-    const f = GC.FIELDS[id];
-    const v = d[id];
+    const [aidReq, baseReq] = GC.splitKey(id);
+    if (aidReq && baseReq === "type") return d[id] ? "" : "Asset type is required";
+    if (aidReq && baseReq === "address") return (d[id] || "").trim() ? "" : "Address is required";
+    const f = GC.fieldDef(id);
+    const v = d[id] === undefined ? null : d[id];
     if (!f) return "";
     if (v == null) return f.required ? `${f.label} is required` : "";
     if (Number.isNaN(v)) return "Enter a number";
@@ -100,7 +119,11 @@ window.GC = window.GC || {};
     if (f.gt != null && !(v > f.gt)) return `Must be greater than ${f.gt}`;
     if (f.min != null && v < f.min) return f.kind === "percent" && f.max != null ? `Enter a value between ${f.min} and ${f.max}` : `Must be at least ${f.min}`;
     if (f.max != null && v > f.max) return f.kind === "percent" && f.min != null ? `Enter a value between ${f.min} and ${f.max}` : `Must be ${f.max} or less`;
-    if (id === "year_renovated" && d.year_built != null && !Number.isNaN(d.year_built) && v < d.year_built) return "Can't be earlier than year built";
+    const [aid, base] = GC.splitKey(id);
+    if (base === "year_renovated") {
+      const built = d[GC.assetKey(aid, "year_built")];
+      if (built != null && !Number.isNaN(built) && v < built) return "Can't be earlier than year built";
+    }
     return "";
   };
 
@@ -111,6 +134,20 @@ window.GC = window.GC || {};
       const msg = GC.validateField(id);
       if (msg) errors[id] = msg;
     });
+    const s = GC.state;
+    if (step === 0) {
+      s.assets.forEach((aid) => {
+        if (!s.data[GC.assetKey(aid, "type")]) errors[GC.assetKey(aid, "type")] = "Asset type is required";
+        if (!(s.data[GC.assetKey(aid, "address")] || "").trim()) errors[GC.assetKey(aid, "address")] = "Address is required";
+      });
+    }
+    if (step === 2) {
+      s.assets.forEach((aid) => Object.keys(GC.ASSET_FIELDS).forEach((f) => {
+        const id = GC.assetKey(aid, f);
+        const msg = GC.validateField(id);
+        if (msg) errors[id] = msg;
+      }));
+    }
     if (step === 1 && GC.state.data.deadline_date && !/^\d{4}-\d{2}-\d{2}$/.test(GC.state.data.deadline_date)) errors.deadline_date = "Enter a valid date";
     return { valid: Object.keys(errors).length === 0, errors };
   };
@@ -134,6 +171,12 @@ window.GC = window.GC || {};
       if (typeof a === "string" && a !== "" && a !== b) return true;
     }
     if (s.data.niy_manual) return true;
+    if (s.assets.length > 1) return true;
+    for (const k of Object.keys(s.data)) {
+      if (!k.includes("__")) continue;
+      const v = s.data[k];
+      if (typeof v === "number" || (typeof v === "string" && v.trim() !== "")) return true;
+    }
     return Object.keys(s.raw).some((k) => s.raw[k] && String(s.raw[k]).trim() !== "");
   };
 
@@ -148,7 +191,7 @@ window.GC = window.GC || {};
     Object.keys(s.data).forEach((k) => { const v = s.data[k]; data[k] = typeof v === "number" && Number.isNaN(v) ? null : v; });
     const payload = {
       v: 1, savedAt: new Date().toISOString(), step: s.step, visited: s.visited,
-      units: s.units, data, ai: s.ai,
+      units: s.units, data, ai: s.ai, assets: s.assets,
       images: s.images.filter((im) => im.status === "done" && im.data).map((im) => ({ id: im.id, name: im.name, size: im.size, data: im.data })),
     };
     try {
@@ -175,7 +218,8 @@ window.GC = window.GC || {};
     const s = initialState();
     s.step = Math.min(draft.step || 0, 3);
     s.visited = draft.visited || s.visited;
-    s.units = Object.assign(s.units, draft.units || {});
+    s.units = Object.assign(s.units, draft.units || {}, { period: "yearly" });
+    if (Array.isArray(draft.assets) && draft.assets.length) s.assets = draft.assets.slice();
     s.data = Object.assign(defaultData(), draft.data || {});
     s.ai = Object.assign(s.ai, draft.ai || {});
     s.images = (draft.images || []).map((im) => ({ id: im.id, name: im.name, size: im.size, status: "done", progress: 100, src: im.data, data: im.data }));

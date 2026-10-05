@@ -16,7 +16,7 @@ window.GC = window.GC || {};
   function join(a, b) { return [a, b].filter(Boolean).join(" · "); }
 
   function numVal(id) {
-    const s = GC.state, f = GC.FIELDS[id], v = s.data[id];
+    const s = GC.state, f = GC.fieldDef(id), v = s.data[id];
     if (v == null || Number.isNaN(v)) return null;
     const cur = s.units.currency;
     switch (f.kind) {
@@ -103,11 +103,35 @@ window.GC = window.GC || {};
     </div>`;
   }
 
+  /** Mirrors the Deal Details "Asset" table: one row per asset. */
+  function assetsTable() {
+    const s = GC.state;
+    const cell = (v) => (v == null || v === "" ? `<td class="is-empty">—</td>` : `<td>${esc(v)}</td>`);
+    const rows = s.assets.map((aid, i) => {
+      const k = (f) => GC.assetKey(aid, f);
+      const built = numVal(k("year_built")), ren = numVal(k("year_renovated"));
+      return `<tr>
+        <td class="num">${i + 1}</td>
+        ${cell((s.data[k("address")] || "").trim())}
+        <td>${s.data[k("type")] ? `<span class="industry-chip" data-ds-provisional="chip">${esc(s.data[k("type")])}</span>` : "—"}</td>
+        ${cell(numVal(k("gla_sqm")))}${cell(numVal(k("nla_sqm")))}${cell(numVal(k("land_sqm")))}
+        ${cell(built || ren ? [built || "—", ren].filter(Boolean).join(" / ") : null)}
+        ${cell(numVal(k("floors")))}${cell(numVal(k("units_count")))}${cell(numVal(k("parking")))}
+        ${cell(s.data[k("condition")])}
+      </tr>`;
+    }).join("");
+    return `<div class="pv-table-wrap" data-ds-provisional="table"><table class="pv-table">
+      <thead><tr><th scope="col">#</th><th scope="col">Address</th><th scope="col">Asset type</th><th scope="col">GLA</th><th scope="col">NLA</th><th scope="col">Land area</th>
+        <th scope="col">Year built / renovated</th><th scope="col">Floors</th><th scope="col">Units</th><th scope="col">Parking</th><th scope="col">Condition</th></tr></thead>
+      <tbody>${rows}</tbody></table></div>`;
+  }
+
   function html() {
     const s = GC.state, d = s.data, f = fmt();
     const name = d.deal_name.trim();
     const industryChip = d.industry ? `<span class="industry-chip industry-chip--header" data-industry="${esc(d.industry)}" data-ds-provisional="chip"><span class="dot" aria-hidden="true"></span>${esc(d.industry)}</span>` : "";
-    const assets = d.assets_count != null && !Number.isNaN(d.assets_count) ? `${f.num(d.assets_count, 0)} asset${d.assets_count === 1 ? "" : "s"}` : "";
+    const n = s.assets.length;
+    const assets = `${n} asset${n === 1 ? "" : "s"}`;
     return `<div class="pv">
       <div class="pv-head">
         <div class="pv-head__title">
@@ -147,25 +171,17 @@ window.GC = window.GC || {};
         </div>
       </div>
 
-      <div class="pv-row pv-row--half">
-        <div class="pv-card">
-          ${heading("Physical", 2)}
-          <div class="ov-cols">
-            ${row("GLA", numVal("gla_sqm"))}${row("NLA", numVal("nla_sqm"))}
-            ${row("Land area", numVal("land_sqm"))}${row("Floors", numVal("floors"))}
-            ${row("Year built", numVal("year_built"))}${row("Year renovated", numVal("year_renovated"))}
-            ${row("Units", numVal("units_count"))}${row("Parking", numVal("parking"))}
-            ${row("Condition", d.condition)}
-          </div>
-        </div>
-        <div class="pv-card">
-          ${heading("Financial", 3)}
-          <div class="ov-cols">
-            <p class="ov-subhead">Income &amp; costs</p>
-            ${["noi_yearly", "opex_yearly", "erv_yearly", "debt_service_yearly", "capex", "purchaser_costs", "wault"].map((id) => row(GC.FIELDS[id].label, numVal(id))).join("")}
-            <p class="ov-subhead">Assumption</p>
-            ${["exit_yield", "rent_growth", "hold_period", "ltv", "cost_of_debt"].map((id) => row(GC.FIELDS[id].label, numVal(id))).join("")}
-          </div>
+      <div class="pv-card">
+        ${heading("Assets", 2)}
+        ${assetsTable()}
+      </div>
+      <div class="pv-card">
+        ${heading("Financial", 3)}
+        <div class="ov-cols">
+          <p class="ov-subhead">Income &amp; costs</p>
+          ${["noi_yearly", "opex_yearly", "erv_yearly", "debt_service_yearly", "capex", "purchaser_costs", "wault"].map((id) => row(GC.FIELDS[id].label, numVal(id))).join("")}
+          <p class="ov-subhead">Assumption</p>
+          ${["exit_yield", "rent_growth", "hold_period", "ltv", "cost_of_debt"].map((id) => row(GC.FIELDS[id].label, numVal(id))).join("")}
         </div>
       </div>
     </div>`;
@@ -200,7 +216,7 @@ window.GC = window.GC || {};
       id: "new-" + Date.now().toString(36),
       name: d.deal_name.trim() || "Untitled deal",
       location: d.location.trim(),
-      assets: d.assets_count,
+      assets: s.assets.length,
       industry: d.industry || null,
       status: { label: "New", tone: "info" },
       owner: team[0] ? team[0].initials : null,
@@ -219,6 +235,11 @@ window.GC = window.GC || {};
       record: {
         units: Object.assign({}, s.units),
         data: JSON.parse(JSON.stringify(d)),
+        assets: s.assets.map((aid) => {
+          const o = {};
+          Object.keys(d).forEach((key) => { const [a, base] = GC.splitKey(key); if (a === aid) o[base] = d[key]; });
+          return o;
+        }),
         photos: images.map((im) => im.name),
         ai: { summary: s.ai.summary, keyStrengths: s.ai.strengths, investmentRisks: s.ai.risks },
       },

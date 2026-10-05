@@ -32,6 +32,17 @@
   hydrateIcons();
   bindSegmented(document);
   GC.inbox.render();
+  GC.inbox.bindLinking();
+  GC.map.mount(document.getElementById("map-panel"));
+
+  // Map on/off (right switch). The left switch (list / board) is visual only for now.
+  document.getElementById("map-switch").addEventListener("click", (e) => {
+    const seg = e.target.closest("[data-map]");
+    if (!seg) return;
+    const on = seg.dataset.map === "on";
+    document.getElementById("content").classList.toggle("is-map-off", !on);
+    if (on) GC.map.fit();
+  });
 
   const addBtn = document.getElementById("add-deal-btn");
   addBtn.addEventListener("click", () => GC.dealModal.open(addBtn));

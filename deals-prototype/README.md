@@ -18,7 +18,7 @@ No build step.
 
 **Tests (optional):** `bash tests/make-fixtures.sh && node tests/e2e.cjs` while the server runs. The test
 needs Playwright and serves the Vercel DS from a local clone (`GOCANOPY_DS_ROOT`, default `../../gocanopy-design-system`).
-It makes 79 checks across the acceptance checklist; the latest run passed all 79 with 0 console errors or warnings.
+It makes 72 checks (acceptance checklist + map + multi-asset); the latest run passed all 72 with 0 console errors or warnings.
 
 ## Structure
 
@@ -34,7 +34,8 @@ js/upload.js          dropzone, limits, simulated progress, DnD + keyboard reord
 js/deal-modal.js      modal shell, stepper, Key/General/Physical/Financial steps, close + draft logic
 js/preview.js         Preview step (mirrors Deal Details), AI flags, deal object
 js/inbox.js           inbox list, add-deal + highlight
-assets/img/           deal photos + map, cropped from the provided screenshots (Figma assets were unreachable)
+assets/img/           deal photos cropped from the provided screenshots (Figma assets were unreachable)
+js/map.js             interactive map: vector base map, pins, pin settings, legend, pan/zoom
 docs/screens/         screenshots of every state
 tests/                Playwright e2e (acceptance checklist)
 TOKENS.md             token report: components, provisionals, off-system values
@@ -89,6 +90,29 @@ TOKENS.md             token report: components, provisionals, off-system values
     `aria-invalid` and `aria-describedby`, and focus moves to the first invalid field.
   - Comboboxes follow the ARIA pattern (Esc closes only the list). Industry chips are a `radiogroup` with roving
     tabindex.
+
+## Iteration 2 changes
+
+- **Settings icon** sits centred again. The DS `setting` glyph had invalid CSS (`calc(50%-0.5px)`); a small shim in
+  `js/format.js` repairs it, along with `arrow-right` (now back on Next). Both are DS bugs to fix upstream.
+- **View switches** match Figma: left = List / Board (Board is visual only for now), right = Hide map / Show map
+  (works: the list takes the full width when the map is off).
+- **Interactive map** (`js/map.js`):
+  - drag to pan, wheel or +/− to zoom, layers button resets the view; keyboard: arrows pan, +/− zoom;
+  - pins styled as in Figma (stage colour + industry icon + value);
+  - **pin settings dropdown**: what the pin shows (Price, Rent, Rent/psm, Area, NIY, Occupancy) and toggles for
+    *Industry icon* and *Value label*; with both off, pins become stage-coloured dots;
+  - legend filters pins by stage; hovering a card highlights its pin, clicking a pin highlights its card;
+  - a newly added deal gets a pulsing pin. The base map is drawn from DS tokens (tiles and the Figma raster are unavailable).
+- **Modal units**: Yearly/Monthly removed (rent is yearly). SQM/SQF + currency now sit on the "Key metrics" heading
+  row; Physical and Financial follow that choice and have no unit controls of their own.
+- **Auto-filled values** (Rent/psm, NIY) are static: not focusable, no hover, grey box with an "auto" tag. NIY keeps
+  an **Override** action that turns it into an input, and **Reset to calculated** brings the auto value back.
+- **Multi-asset deals** (CEO comment): Key Info has an **Assets** list. Each asset starts with *Asset type* and
+  *Address* (required); add or remove assets. Number of assets is derived from the list. Physical Info has one block
+  per asset, and Preview shows an assets table like the Deal Details "Asset" table. Deal-level Industry is prefilled
+  from the first asset.
+- The inbox now lists all 11 active deals (2 without price), each with a pin.
 
 ## Deviations from Figma
 
