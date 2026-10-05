@@ -5,6 +5,8 @@ Static HTML/CSS/vanilla JS on the Gocanopy design system. Mock data only, no bac
 
 ## Run
 
+Live (private Artifact): https://claude.ai/artifact/QFehnUScTAf2ygpCEudiXQ. Rebuild the single-file version with `python3 tools/build-artifact.py OUT.html`.
+
 ```bash
 cd deals-prototype
 python3 -m http.server 8080

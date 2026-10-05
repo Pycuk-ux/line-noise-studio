@@ -269,3 +269,19 @@ fieldset.field-group > legend { padding: 0; margin-bottom: var(--space-1); }
 .industry-chip--header[data-industry="Logistics"] { background: var(--color-lime-50); color: var(--color-lime-900); }
 .prov-select-wrap .ds-field__icon { pointer-events: none; }
 .team-tokens { display: contents; }
+
+/* ---------- Narrow screens — layout only ---------- */
+@media (max-width: 900px) {
+  .dm-overlay { padding: var(--space-2); }
+  .dm, .dm[data-wide="true"] { width: 100%; height: calc(100% - 2 * var(--space-2)); }
+  .dm[data-size="sm"] { height: auto; }
+  .form-grid, .form-grid--2, .pv-row, .pv-row--half, .ov-cols { grid-template-columns: minmax(0, 1fr); }
+  .form-grid .span-2 { grid-column: auto; }
+  .prov-progress { overflow-x: auto; }
+  .prov-progress > li, .prov-progress > li.is-other { flex: 0 0 auto; }
+  .units-bar { flex-wrap: wrap; justify-content: flex-start; }
+  .thumb-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .metrics { flex-wrap: wrap; row-gap: var(--space-4); }
+  .metric { flex: 1 1 30%; }
+  .dm__foot { flex-wrap: wrap; }
+}

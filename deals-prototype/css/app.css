@@ -50,7 +50,7 @@ button { font-family: inherit; }
 /* ============================================================
    Page shell
    ============================================================ */
-.page { display: flex; flex-direction: column; height: 100vh; min-height: 0; }
+.page { display: flex; flex-direction: column; height: 100%; min-height: 0; }
 
 /* Navbar = DS .ds-navbar, reused unchanged (see TOKENS.md divergence). */
 .app-nav { flex: 0 0 auto; }
@@ -217,3 +217,22 @@ button { font-family: inherit; }
 }
 .toast-region .ds-alert { pointer-events: auto; animation: toast-in .2s ease-out; }
 @keyframes toast-in { from { opacity: 0; transform: translateY(var(--space-2)); } to { opacity: 1; transform: none; } }
+
+/* ---------- Narrow screens (tablet / phone) — layout only ---------- */
+@media (max-width: 900px) {
+  .page { height: auto; min-height: 100%; }
+  .ds-navbar__menu { min-width: 0; overflow-x: auto; }
+  .ds-user-dropdown { font-size: 0; }
+  .page-head, .page-head__controls, .filters, .filters__group, .list-footer { flex-wrap: wrap; }
+  .filters .search-field { width: 100%; }
+  .content { grid-template-columns: minmax(0, 1fr); }
+  .deal-list { overflow: visible; }
+  .map-panel { height: 320px; }
+  .row-card { grid-template-columns: 72px minmax(0, 1fr) auto; gap: var(--space-3); }
+  .row-card__media { width: 72px; height: 96px; }
+  .row-card__body { grid-template-columns: minmax(0, 1fr); }
+  .row-card__price { align-items: flex-start; }
+  .row-card__owner { justify-content: flex-start; }
+  .row-card__tags, .row-card__stats { flex-wrap: wrap; }
+  .row-card__stats { gap: var(--space-3); }
+}
