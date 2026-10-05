@@ -49,3 +49,18 @@ npm run build    # typecheck + production build
 - **Browser support:** MP4 requires the WebCodecs API (Chromium-based browsers). WEBM + PNG work everywhere.
 - The muxer libraries (`mp4-muxer`, `webm-muxer`) are deprecated upstream in favor of [Mediabunny](https://github.com/Vanilla-OS/mediabunny). They still work; migrating is a possible future improvement.
 - Uploaded fonts stay in-memory for the session (via the `FontFace` API) — nothing is sent anywhere.
+
+## Partner Element website — Use cases page
+
+A desktop build of the Partner Element "Use case V.1" Figma page lives alongside the studio:
+
+```bash
+npm run dev      # http://localhost:5173/website/
+```
+
+- Source: `src/website/` (entry `website/index.html`), built as a second Vite page.
+- The **Use cases** section is scroll-driven: the left menu sticks 120px from the top, the tab whose
+  illustration + text is first from the top is highlighted, clicking a tab smooth-scrolls to it, and
+  the menu scrolls away together with the last subsection.
+- Brand fonts *Coil* and *CoFo Sans* are commercial, so Manrope / Inter stand in. Add their webfonts
+  with `@font-face` and they take over automatically (see `src/website/website.css`).

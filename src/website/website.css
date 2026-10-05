@@ -1,0 +1,47 @@
+@import "tailwindcss";
+
+/* Partner Element brand fonts. "Coil" and "CoFo Sans" are commercial faces used
+   in the Figma file; drop their webfont files in and declare @font-face for them
+   and they'll take over. Until then Manrope / Inter stand in. */
+@theme {
+  --font-coil: "Coil", "Manrope Variable", system-ui, sans-serif;
+  --font-cofo: "CoFo Sans", "Inter Variable", system-ui, sans-serif;
+  --font-menlo: Menlo, ui-monospace, "SFMono-Regular", monospace;
+
+  --color-pe-bg: #f5f4f2;
+  --color-pe-ink: #202020;
+  --color-pe-ink-2: #1b1a1b;
+  --color-pe-body: #382f2d;
+  --color-pe-muted: #665a56;
+  --color-pe-navy: #2f1e67;
+  --color-pe-purple: #6558b1;
+  --color-pe-lilac: #7a72b4;
+  --color-pe-line: #d8d5e5;
+  --color-pe-line-2: #dadaef;
+  --color-pe-slack: #4a2851;
+  --color-pe-slack-search: #5f3362;
+
+  --shadow-pe-card: 17px 166px 47px 0 rgba(38, 18, 43, 0), 11px 106px 43px 0 rgba(38, 18, 43, 0.01),
+    6px 60px 36px 0 rgba(38, 18, 43, 0.02), 3px 27px 27px 0 rgba(38, 18, 43, 0.04),
+    1px 7px 15px 0 rgba(38, 18, 43, 0.04);
+}
+
+html {
+  background: var(--color-pe-bg);
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-cofo);
+  color: var(--color-pe-ink);
+  background: var(--color-pe-bg);
+  -webkit-font-smoothing: antialiased;
+  /* Desktop layout — keep the 1440 design intact on narrower windows. */
+  min-width: 1366px;
+}
+
+/* Figma's cap-height text trimming, used for the small Slack-mock labels. */
+.trim-cap {
+  text-box-trim: trim-both;
+  text-box-edge: cap alphabetic;
+}
