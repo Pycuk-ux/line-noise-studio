@@ -24,8 +24,15 @@
 
 .dm__head {
   flex: 0 0 auto; display: flex; flex-direction: column; gap: var(--space-3);
-  padding: var(--space-4) var(--space-3) var(--space-3); background: var(--surface-main);
+  padding: var(--space-4) var(--space-3) var(--space-3); background: var(--surface-white);
+  border-bottom: 1px solid var(--border-default);
 }
+.dm__title { display: flex; align-items: baseline; gap: var(--space-2); min-width: 0; }
+.dm__deal-name {
+  min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-tertiary);
+  font-size: var(--text-body-md-size); line-height: var(--text-body-md-line); font-weight: var(--w-medium);
+}
+.dm__deal-name::before { content: "·"; margin-right: var(--space-2); }
 .dm__title-row { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); }
 .dm__body { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: var(--space-4) var(--space-3) var(--space-6); }
 .dm__body[data-tone="grey"] { background: var(--surface-main); padding-top: var(--space-2); }
@@ -46,6 +53,7 @@
 .prov-progress {
   display: flex; align-items: center; gap: var(--space-1); margin: 0; padding: var(--space-1);
   list-style: none; background: var(--surface-white); border-radius: var(--radius-8);
+  border: 1px solid var(--border-default);
 }
 .prov-progress > li { flex: 1 1 0; min-width: 0; display: flex; }
 .prov-progress__item {
@@ -327,3 +335,14 @@ fieldset.field-group > legend { padding: 0; margin-bottom: var(--space-1); }
 }
 .pv-table td.is-empty { color: var(--text-placeholder); }
 .pv-table td.num { color: var(--text-tertiary); }
+
+/* Undo toast inside the dialog (ds:provisional toast) */
+.dm { position: relative; }
+.dm-toast {
+  position: absolute; left: 50%; bottom: calc(var(--space-16) + var(--space-2)); transform: translateX(-50%); z-index: 30;
+  display: flex; align-items: center; gap: var(--space-2); padding: var(--space-2) var(--space-2) var(--space-2) var(--space-3);
+  border-radius: var(--radius-8); background: var(--surface-white); color: var(--text-primary); border: 1px solid var(--border-default);
+  box-shadow: 0 var(--space-1) var(--space-2) var(--color-alpha-light-200); animation: dm-toast-in .2s ease-out;
+}
+.dm-toast__msg { font-size: var(--text-label-md-size); font-weight: var(--w-medium); white-space: nowrap; }
+@keyframes dm-toast-in { from { opacity: 0; } to { opacity: 1; } }

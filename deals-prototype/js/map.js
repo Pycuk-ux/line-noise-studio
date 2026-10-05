@@ -181,7 +181,7 @@ window.GC = window.GC || {};
   function link(id, on) {
     const pin = pinLayer && pinLayer.querySelector(`.map-pin[data-id="${id}"]`);
     if (pin) pin.classList.toggle("is-linked", on);
-    const card = document.querySelector(`.row-card[data-id="${id}"]`);
+    const card = document.querySelector(`.deal-card[data-id="${id}"]`);
     if (card) card.classList.toggle("is-linked", on);
   }
 
@@ -265,7 +265,7 @@ window.GC = window.GC || {};
       }
       const pin = e.target.closest(".map-pin");
       if (pin) {
-        const card = document.querySelector(`.row-card[data-id="${pin.dataset.id}"]`);
+        const card = document.querySelector(`.deal-card[data-id="${pin.dataset.id}"]`);
         if (card) {
           card.scrollIntoView({ block: "center", behavior: "smooth" });
           card.classList.add("is-flash");

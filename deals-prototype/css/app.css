@@ -115,11 +115,58 @@ button { font-family: inherit; }
   background: var(--surface-white); border-radius: var(--radius-8); overflow: hidden;
 }
 .deal-list {
-  list-style: none; margin: 0; padding: var(--space-1);
+  margin: 0; padding: var(--space-1);
   flex: 1 1 auto; min-height: 0; overflow-y: auto;
-  display: flex; flex-direction: column; gap: var(--space-1);
+  display: flex; flex-direction: column; gap: var(--space-4);
   background: var(--surface-main);
 }
+.card-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-1); }
+
+/* Grouped by stage — ds:provisional stage-group (Figma 18829:253921, from the brief) */
+.stage-group { background: var(--surface-secondary); border-radius: var(--radius-8); padding: 0 var(--space-1) var(--space-1); }
+.stage-group .card-list { margin-top: var(--space-1); }
+.stage-group__sticky {
+  position: sticky; top: calc(-1 * var(--space-1)); z-index: 3;
+  margin: 0 calc(-1 * var(--space-1)); padding: var(--space-1);
+  border-radius: var(--radius-8) var(--radius-8) 0 0; background: var(--surface-secondary);
+  transition: background-color .12s ease, box-shadow .12s ease;
+}
+.stage-group__sticky.is-stuck {
+  background: var(--surface-main); border-radius: 0;
+  box-shadow: 0 var(--space-1) var(--space-2) var(--color-alpha-light-100);
+}
+.stage-group__head {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--space-2);
+  min-height: var(--space-8); padding: 0 var(--space-3); border-radius: var(--radius-4);
+  background: var(--stage-bg); color: var(--stage-fg);
+  font-size: var(--text-label-md-size); line-height: var(--text-label-md-line); font-weight: var(--w-semibold);
+}
+.stage-group__count { font-weight: var(--w-medium); }
+.stage-group__total { font-variant-numeric: tabular-nums; }
+
+/* Kanban board — ds:provisional board-column / board-card (Figma 18829:254538, from the brief) */
+.deal-list[data-view="board"] { flex-direction: row; overflow-x: auto; overflow-y: hidden; gap: var(--space-2); }
+.board-col { flex: 0 0 300px; display: flex; flex-direction: column; min-height: 0; overflow-y: auto; }
+.board-col .card-list { flex: 1 0 auto; }
+.board-col .stage-group__sticky { top: 0; }
+.board-card {
+  display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-3);
+  background: var(--surface-white); border-radius: var(--radius-8); transition: background-color .12s ease;
+}
+.board-card__media { height: 96px; margin: calc(-1 * var(--space-3)) calc(-1 * var(--space-3)) 0; border-radius: var(--radius-8) var(--radius-8) 0 0; overflow: hidden; }
+.board-card__media img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.board-card__top { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-2); }
+.board-card__name { overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.board-card__actions { display: flex; flex: 0 0 auto; }
+.board-card__price { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-2); }
+.board-card__tags { flex-wrap: wrap; gap: var(--space-2); }
+.board-card__stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-2) var(--space-3); }
+.board-card__stats .stat { min-width: 0; }
+.board-card__foot { display: flex; align-items: center; justify-content: space-between; }
+
+/* Card fields menu (reuses the map dropdown styles) */
+.card-fields-wrap { position: relative; }
+.card-fields-menu { left: auto; right: 0; z-index: 20; }
 
 /* Row card — ds:provisional name="row-card" */
 .row-card {
@@ -150,7 +197,7 @@ button { font-family: inherit; }
 .comments { display: inline-flex; align-items: center; gap: var(--space-1); color: var(--text-secondary); }
 
 /* Temporary highlight for a freshly added deal */
-.row-card.is-new { background: var(--surface-positive); outline: var(--focus-ring-width) solid var(--brand-secondary); outline-offset: calc(-1 * var(--focus-ring-width)); }
+.deal-card.is-new { background: var(--surface-positive); outline: var(--focus-ring-width) solid var(--brand-secondary); outline-offset: calc(-1 * var(--focus-ring-width)); }
 
 /* Chips — ds:provisional name="chip" */
 .industry-chip {
@@ -300,8 +347,8 @@ button { font-family: inherit; }
 .map-legend__item:focus-visible { outline: var(--focus-ring-width) solid var(--focus-ring); }
 
 /* Card ↔ pin link */
-.row-card:hover, .row-card.is-linked { background: var(--surface-secondary); }
-.row-card.is-flash { background: var(--surface-positive); }
+.deal-card:hover, .deal-card.is-linked { background: var(--surface-secondary); }
+.deal-card.is-flash { background: var(--surface-positive); }
 
 /* Board-view icon: the DS has no kanban glyph — rotate the "cards" glyph (flagged in TOKENS.md). */
 .ico--rotate { transform: rotate(90deg); }
@@ -332,3 +379,4 @@ button { font-family: inherit; }
   .row-card__tags, .row-card__stats { flex-wrap: wrap; }
   .row-card__stats { gap: var(--space-3); }
 }
+.list-footer[hidden] { display: none; }

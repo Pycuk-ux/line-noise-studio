@@ -123,15 +123,6 @@ window.GC = window.GC || {};
   // ============================================================
   function draftBanner() {
     const s = S();
-    if (s.undoDraft) {
-      return `<div class="draft-banner" data-ds-provisional="banner" role="status">
-        <span class="draft-banner__icon">${GC.icon("bin")}</span>
-        <div class="draft-banner__text"><p class="draft-banner__title">Draft deleted</p><p class="draft-banner__sub">The form is empty now.</p></div>
-        <div class="draft-banner__actions">
-          <button type="button" class="ds-btn" data-type="secondary" data-size="md" data-act="draft-undo">${GC.icon("refresh", "ds-btn__icon")}<span class="ds-btn__label">Undo</span></button>
-        </div>
-      </div>`;
-    }
     if (!s.restoredFrom) return "";
     const d = new Date(s.restoredFrom);
     const when = isNaN(d) ? "" : `Saved ${GC.fmt.dateLong(d.toISOString().slice(0, 10))}, ${d.toTimeString().slice(0, 5)}.`;
@@ -437,6 +428,14 @@ window.GC = window.GC || {};
     });
   }
 
+  /** Keep the deal name pinned in the header once the user has moved past Key Info. */
+  function renderDealName() {
+    const el = dialog.querySelector("#dm-deal-name");
+    const name = (S().data.deal_name || "").trim();
+    el.hidden = !(S().step > 0 && name);
+    el.textContent = name;
+  }
+
   function renderStep(opts) {
     opts = opts || {};
     const s = S();
@@ -445,6 +444,7 @@ window.GC = window.GC || {};
     body.dataset.tone = s.step === 4 ? "grey" : "white";
     body.innerHTML = bodyHtml();
     dialog.querySelector(".dm__foot").innerHTML = footHtml();
+    renderDealName();
     renderStepper();
     if (s.step === 0) GC.upload.mount(body.querySelector("#upload-root"), { onChange: onAnyChange });
     if (s.step === 4) GC.preview.bind(body, { goTo });
@@ -760,21 +760,14 @@ window.GC = window.GC || {};
           GC.clearDraft();
           GC.resetState();
           S().open = true;
-          S().undoDraft = draft;
           renderStep({ focus: false });
-          dialog.querySelector('[data-act="draft-undo"]').focus();
-          setTimeout(() => {
-            if (!dialog || S().undoDraft !== draft) return;
-            S().undoDraft = null;
-            const b = dialog.querySelector(".draft-banner");
-            const hadFocus = b && b.contains(document.activeElement);
-            if (b) b.remove();
-            if (hadFocus) focusFirstField();
-          }, 8000);
+          focusFirstField();
+          showUndoToast(draft);
           break;
         }
         case "draft-undo": {
-          const draft = S().undoDraft;
+          const draft = undoDraft;
+          hideUndoToast();
           if (!draft) break;
           GC.putDraft(draft);
           GC.applyDraft(draft);
@@ -783,6 +776,7 @@ window.GC = window.GC || {};
           const c = dialog.querySelector('[data-act="draft-continue"]'); if (c) c.focus();
           break;
         }
+        case "undo-dismiss": hideUndoToast(); focusFirstField(); break;
         case "niy-reset": {
           S().data.niy_manual = false; delete S().raw.niy; recalc();
           renderStep({ focus: false, scrollTop: false });
@@ -836,6 +830,28 @@ window.GC = window.GC || {};
     overlay.addEventListener("click", (e) => { if (e.target === overlay && overlay._downOnSelf) requestClose(); });
   }
 
+  // ---------- Undo toast (inside the dialog so it stays reachable inside the focus trap) ----------
+  let undoDraft = null, undoTimer = null;
+  function showUndoToast(draft) {
+    hideUndoToast();
+    undoDraft = draft;
+    const t = document.createElement("div");
+    t.className = "dm-toast";
+    t.setAttribute("role", "status");
+    t.dataset.dsProvisional = "toast";
+    t.innerHTML = `<span class="dm-toast__icon">${GC.icon("bin")}</span><span class="dm-toast__msg">Draft deleted</span>
+      <button type="button" class="ds-btn" data-type="ghost" data-size="sm" data-act="draft-undo">${GC.icon("refresh", "ds-btn__icon")}<span class="ds-btn__label">Undo</span></button>
+      <button type="button" class="ds-btn is-icon-only" data-type="ghost" data-size="sm" data-act="undo-dismiss" aria-label="Dismiss"><span class="ds-btn__icon">${DS_ICONS.get("x-close")}</span></button>`;
+    dialog.appendChild(t);
+    undoTimer = setTimeout(hideUndoToast, 8000);
+  }
+  function hideUndoToast() {
+    clearTimeout(undoTimer);
+    undoDraft = null;
+    const t = dialog && dialog.querySelector(".dm-toast");
+    if (t) t.remove();
+  }
+
   function announceLocked() {
     const s = S();
     s.attempted[s.step] = true;
@@ -870,7 +886,7 @@ window.GC = window.GC || {};
       <div class="dm" role="dialog" aria-modal="true" aria-labelledby="dm-title" tabindex="-1" data-ds-provisional="modal">
         <div class="dm__head">
           <div class="dm__title-row">
-            <h2 class="t-section-title" id="dm-title">Add New Deal</h2>
+            <div class="dm__title"><h2 class="t-section-title" id="dm-title">Add New Deal</h2><span class="dm__deal-name" id="dm-deal-name" hidden></span></div>
             <button type="button" class="ds-btn is-icon-only" data-type="ghost" data-size="md" data-act="close" aria-label="Close">
               <span class="ds-btn__icon">${DS_ICONS.get("x-close")}</span></button>
           </div>

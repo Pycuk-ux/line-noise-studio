@@ -86,8 +86,10 @@
         <div class="ds-field sort-field" data-size="small" data-state="default">
           <div class="ds-field__box prov-select-wrap" data-ds-provisional="select">
             <span class="sort-field__prefix" aria-hidden="true">Sort</span>
-            <select class="ds-field__input prov-select" aria-label="Sort">
-              <option>Newest received</option><option>Oldest received</option><option>Price: high to low</option><option>Next deadline</option>
+            <select class="ds-field__input prov-select" id="sort-select" aria-label="Sort">
+              <option value="newest">Newest received</option><option value="oldest">Oldest received</option>
+              <option value="price">Price: high to low</option><option value="deadline">Next deadline</option>
+              <option value="stage">Deal stage</option>
             </select>
             <span class="ds-field__icon" data-icon="chevron-down"></span>
           </div>
@@ -101,14 +103,18 @@
           </div>
         </div>
         <div class="ds-segmented" role="group" aria-label="View" id="view-switch">
-          <button type="button" class="ds-segment" aria-pressed="true" aria-label="List view" title="List view"><span class="ico" data-icon="cards"></span></button>
-          <button type="button" class="ds-segment" aria-pressed="false" aria-label="Board view (coming later)" title="Board view — coming later"><span class="ico ico--rotate" data-icon="cards"></span></button>
+          <button type="button" class="ds-segment" data-layout="list" aria-pressed="true" aria-label="List view" title="List view"><span class="ico" data-icon="cards"></span></button>
+          <button type="button" class="ds-segment" data-layout="board" aria-pressed="false" aria-label="Board view" title="Board view"><span class="ico ico--rotate" data-icon="cards"></span></button>
         </div>
         <div class="ds-segmented" role="group" aria-label="Map" id="map-switch">
           <button type="button" class="ds-segment" data-map="off" aria-pressed="false" aria-label="Hide map" title="Hide map"><span class="ico" data-icon="table-only"></span></button>
           <button type="button" class="ds-segment" data-map="on" aria-pressed="true" aria-label="Show map" title="Show map"><span class="ico" data-icon="table-map"></span></button>
         </div>
-        <button type="button" class="ds-btn is-icon-only" data-type="secondary" data-size="md" aria-label="Table settings"><span class="ds-btn__icon" data-icon="setting"></span></button>
+        <div class="card-fields-wrap">
+          <button type="button" class="ds-btn is-icon-only" data-type="secondary" data-size="md" id="card-fields-btn" aria-label="Table settings"
+            aria-haspopup="dialog" aria-expanded="false" aria-controls="card-fields-menu"><span class="ds-btn__icon" data-icon="setting"></span></button>
+          <div class="map-menu card-fields-menu" id="card-fields-menu" role="dialog" aria-label="Deal card fields" data-ds-provisional="dropdown" hidden></div>
+        </div>
         <button type="button" class="ds-btn" data-type="secondary" data-size="md"><span class="ds-btn__icon" data-icon="download"></span><span class="ds-btn__label">Report</span></button>
         <button type="button" class="ds-btn" data-type="primary" data-size="md" id="add-deal-btn" aria-haspopup="dialog">
           <span class="ds-btn__icon" data-icon="plus"></span><span class="ds-btn__label">New deal</span>
@@ -119,8 +125,8 @@
     <!-- List + map -->
     <main class="content" id="content">
       <section class="deal-list-panel" aria-label="Deals">
-        <ul class="deal-list" id="deal-list"></ul>
-        <footer class="list-footer" data-ds-provisional="pagination">
+        <div class="deal-list" id="deal-list" data-view="list"></div>
+        <footer class="list-footer" id="list-footer" data-ds-provisional="pagination">
           <div class="per-page">
             <div class="ds-field" data-size="small" data-state="default">
               <div class="ds-field__box prov-select-wrap" data-ds-provisional="select">

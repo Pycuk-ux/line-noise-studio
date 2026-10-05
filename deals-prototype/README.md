@@ -18,7 +18,7 @@ No build step.
 
 **Tests (optional):** `bash tests/make-fixtures.sh && node tests/e2e.cjs` while the server runs. The test
 needs Playwright and serves the Vercel DS from a local clone (`GOCANOPY_DS_ROOT`, default `../../gocanopy-design-system`).
-It makes 82 checks (acceptance checklist + map + multi-asset + draft undo); the latest run passed all 82 with 0 console errors or warnings.
+It makes 94 checks (acceptance checklist + map + multi-asset + draft undo + stage grouping/board/card fields); the latest run passed all 94 with 0 console errors or warnings.
 
 ## Structure
 
@@ -123,6 +123,22 @@ TOKENS.md             token report: components, provisionals, off-system values
   industry comes from its assets (one type → that type, several types → Mixed-use).
 - **Saved draft banner** spans the modal width with **Continue** and **Delete draft** on the right. Delete clears the
   form and shows a "Draft deleted · Undo" bar (focus moves to Undo; it disappears after 8 s). Undo restores the draft.
+
+## Iteration 4 changes
+
+- **Draft delete**: the draft card disappears and a separate **Undo** toast pops up at the bottom of the modal
+  (8 s, dismissible). Undo brings the draft and its card back.
+- **Modal header** is white; the stepper bar gets a thin border so it still reads on white.
+- **Deal name pinned in the header** ("Add New Deal · Harbour Gate Logistics Park") from General Info onwards.
+- **Sort → Deal stage** groups the list by stage (Figma 18829:253921, built from the brief — Figma was rate-limited):
+  each stage is a `--surface-secondary` container; its header shows the abbreviation, the count in brackets and the
+  stage's total on the right (empty when the stage has no priced deals) and is filled with the stage colour.
+  Headers are `position: sticky`; once cards slide under, the 4 px ring around the header fills grey and a soft
+  shadow appears. Stages are 16 px apart; empty stages show "(0)".
+- **Kanban board** (left switch → Board; Figma 18829:254538, from the brief): one column per stage with the same
+  sticky header behaviour (each column scrolls on its own), compact deal cards, horizontal scroll, no pagination.
+- **Card fields** (settings icon): choose what deal cards show — Area, Rent, Rent/psm, NIY, WAULT, Occupancy, Deal
+  source. Applies to list and board cards and is remembered in the browser.
 
 ## Deviations from Figma
 

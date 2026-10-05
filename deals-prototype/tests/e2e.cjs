@@ -58,6 +58,33 @@ function ok(cond, msg) { if (cond) { pass++; console.log('  ✓', msg); } else {
   await page.waitForTimeout(200);
   ok(await page.$eval('.row-card[data-id="d9"]', (e) => e.classList.contains('is-flash')), 'clicking a pin highlights its card');
 
+  console.log('0b. Grouped by stage, board, card fields');
+  await page.selectOption('#sort-select', 'stage');
+  ok((await page.$$('#deal-list .stage-group')).length === 8, '8 stage groups');
+  ok((await txt('.stage-group[data-stage="SCR"] .stage-group__name')) === 'SCR (3)' && (await txt('.stage-group[data-stage="SCR"] .stage-group__total')) === '€122.4M', 'SCR header: count + total');
+  ok((await txt('.stage-group[data-stage="Received"] .stage-group__name')).endsWith('(0)') && (await txt('.stage-group[data-stage="Received"] .stage-group__total')) === '', 'empty stage: (0), no total');
+  ok(await page.$eval('.stage-group[data-stage="SCR"] .stage-group__head', (e) => getComputedStyle(e).backgroundColor) === 'rgb(254, 252, 232)', 'header filled with the stage colour');
+  await page.$eval('#deal-list', (e) => (e.scrollTop = 520)); await page.waitForTimeout(150);
+  ok(await page.$eval('.stage-group[data-stage="SCR"] .stage-group__sticky', (e) => e.classList.contains('is-stuck') && getComputedStyle(e).position === 'sticky'), 'sticky header gets the stuck state on scroll');
+  await page.click('[data-layout="board"]');
+  ok((await page.$$('#deal-list .board-col')).length === 8 && !(await page.isVisible('#list-footer')), 'board: 8 columns, no pagination');
+  await page.$eval('.board-col[data-stage="SCR"]', (e) => (e.scrollTop = 150)); await page.waitForTimeout(150);
+  ok(await page.$eval('.board-col[data-stage="SCR"] .stage-group__sticky', (e) => e.classList.contains('is-stuck')), 'board column header sticks on scroll');
+  await page.screenshot({ path: OUT('board.png') });
+  await page.click('#card-fields-btn');
+  await page.click('#card-fields-menu label:has([data-card-field="area"])');
+  await page.click('#card-fields-menu label:has([data-card-field="niy"])');
+  const labels = await page.$$eval('.board-card[data-id="d5"] .stat .t-label', (els) => els.map((e) => e.textContent));
+  ok(!labels.includes('Area') && labels.includes('NIY'), 'card fields toggle what cards show');
+  await page.keyboard.press('Escape');
+  await page.click('[data-layout="list"]');
+  await page.selectOption('#sort-select', 'newest');
+  await page.click('#card-fields-btn');
+  await page.click('#card-fields-menu label:has([data-card-field="area"])');
+  await page.click('#card-fields-menu label:has([data-card-field="niy"])');
+  await page.keyboard.press('Escape');
+  ok((await page.$$('.deal-list .card-list > .row-card')).length === 11, 'back to the flat list');
+
   console.log('1. Open + empty close');
   await page.click('#add-deal-btn');
   ok(await page.isVisible('.dm[role="dialog"]'), 'modal opens from New deal');
@@ -155,6 +182,9 @@ function ok(cond, msg) { if (cond) { pass++; console.log('  ✓', msg); } else {
   await page.keyboard.press('Escape');
   ok(!!(await page.$('.dm[role="dialog"]')), 'Esc in listbox did not close modal');
 
+  ok(await page.isVisible('#dm-deal-name') && (await txt('#dm-deal-name')) === 'Harbour Gate Logistics Park', 'deal name pinned in the modal header');
+  ok(await page.$eval('.dm__head', (e) => getComputedStyle(e).backgroundColor) === 'rgb(255, 255, 255)', 'modal header is white');
+
   console.log('7. Physical (per asset)');
   await page.click('[data-act="next"]');
   ok((await page.$$('.dm__body .form-section')).length === 2, 'one physical block per asset');
@@ -197,11 +227,12 @@ function ok(cond, msg) { if (cond) { pass++; console.log('  ✓', msg); } else {
   ok(await page.$eval('.draft-banner', (e) => e.getBoundingClientRect().width > 900), 'banner spans the modal width');
   await page.screenshot({ path: OUT('draft-banner.png') });
   await page.click('[data-act="draft-delete"]');
-  ok(await page.isVisible('[data-act="draft-undo"]') && (await page.evaluate(() => localStorage.getItem('gocanopy.addDeal.draft.v2'))) === null, 'delete → form cleared, Undo shown');
-  ok(await page.evaluate(() => document.activeElement.dataset.act) === 'draft-undo', 'focus on Undo');
+  ok(!(await page.$('.draft-banner')), 'delete → draft card disappears');
+  ok(await page.isVisible('.dm-toast [data-act="draft-undo"]') && (await page.evaluate(() => localStorage.getItem('gocanopy.addDeal.draft.v2'))) === null, 'separate Undo toast shown, draft removed');
+  ok((await val('#f-deal_name')) === '', 'form cleared');
   await page.screenshot({ path: OUT('draft-undo.png') });
   await page.click('[data-act="draft-undo"]');
-  ok(await page.isVisible('[data-act="draft-continue"]') && !!(await page.evaluate(() => localStorage.getItem('gocanopy.addDeal.draft.v2'))), 'Undo restores the draft');
+  ok(!(await page.$('.dm-toast')) && await page.isVisible('[data-act="draft-continue"]') && !!(await page.evaluate(() => localStorage.getItem('gocanopy.addDeal.draft.v2'))), 'Undo restores the draft');
   await page.click('[data-act="draft-continue"]');
   ok(!(await page.$('.draft-banner')), 'Continue dismisses the banner');
   await page.click('[data-step="0"]');

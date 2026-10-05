@@ -70,6 +70,9 @@ stacked avatars, `vertical-align`). No colour, radius, padding or type of a DS c
 | `readonly-field` (auto-filled Rent/psm, NIY) | — | box `--surface-secondary` + `--border-default` + `--radius-4`, padding `--space-3`/`--space-2` (same box as DS field), **no hover, not focusable**, value `--text-body-md-*`, error `--border-negative` |
 | `asset-row` | — (CEO: "each asset starts with asset type, address") | fill `--color-grey-100` (#F3F4F6, no border), `--radius-8`, p `--space-3`, gap `--space-3`/`--space-4`; fields are DS Text field + provisional select |
 | `banner` (draft restored / deleted + Undo) | — | `--color-grey-100`, left rule `--space-1` `--brand-primary`, `--radius-4`, p `--space-3`/`--space-4`; DS Buttons |
+| `stage-group` / `board-column` | 18829:253921 / 18829:254538 (built from the brief) | container `--surface-secondary`, `--radius-8`, p `--space-1`, groups `--space-4` apart; header fill = stage palette, h `--space-8`, `--text-label-md-*` 600; stuck: ring `--surface-main` + shadow `--color-alpha-light-100` |
+| `board-card` | — | `--surface-white`, `--radius-8`, p `--space-3`, stats grid gap `--space-2`/`--space-3` |
+| `toast` (Undo, in-modal) | — | `--surface-white`, `--border-default`, `--radius-8`, shadow `--color-alpha-light-200`; DS ghost buttons |
 | `table` (preview assets) | Deal Details Asset table | header `--surface-secondary` / `--text-tertiary` caption, rows `--border-default`, values `--text-label-md-*` |
 
 **Stage palette** (Figma `stage/*` variables mapped to DS primitives, shared by stage chips, map pins and the map legend):
