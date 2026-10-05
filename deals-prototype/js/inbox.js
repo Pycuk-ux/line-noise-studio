@@ -4,6 +4,11 @@ window.GC = window.GC || {};
 (function () {
   const esc = GC.esc;
   const deals = GC.MOCK.deals.slice();
+  const archived = [];
+  const source = () => (view.sort === "archived" ? archived : deals);
+  const ME = "Liam O'Connor";
+  /** Activity log entry (shown in the details drawer → Logs). */
+  function log(d, text) { d.log = d.log || []; d.log.unshift({ who: ME, text, at: new Date().toISOString() }); }
   const summary = Object.assign({}, GC.MOCK.inboxSummary);
 
   function industryIcon(id) {
@@ -100,7 +105,7 @@ window.GC = window.GC || {};
         <div class="row-card__owner">
           ${d.comments ? `<span class="comments t-value">${GC.icon("message-text")}${d.comments}</span>` : ""}
           ${ownerHtml(d)}
-          <button type="button" class="stage-chip" data-stage="${esc(d.stage)}" data-ds-provisional="chip" aria-label="Deal stage: ${esc(d.stage)}">${esc(stageLabel(d.stage))}${GC.icon("chevron-down")}</button>
+          <button type="button" class="stage-chip" data-stage="${esc(d.stage)}" data-stage-menu="${d.id}" data-ds-provisional="chip" aria-haspopup="menu" aria-expanded="false" aria-label="Deal stage: ${esc(d.stage)}. Change stage">${esc(stageLabel(d.stage))}${GC.icon("chevron-down")}</button>
         </div>
         ${stats ? `<div class="row-card__stats">${stats}</div>` : ""}
       </div>
@@ -148,7 +153,7 @@ window.GC = window.GC || {};
       oldest: (a, b) => (a.dateReceived || "").localeCompare(b.dateReceived || ""),
       price: (a, b) => (b.price || -1) - (a.price || -1),
       deadline: (a, b) => (b.deadline ? 1 : 0) - (a.deadline ? 1 : 0),
-    }[view.sort === "stage" ? "newest" : view.sort];
+    }[view.sort === "stage" || view.sort === "archived" ? "newest" : view.sort];
     // newly added deals stay on top in date sorts
     return list.slice().sort((a, b) => (b.isNew ? 1 : 0) - (a.isNew ? 1 : 0) || by(a, b));
   }
@@ -161,11 +166,12 @@ window.GC = window.GC || {};
 
   function render() {
     const root = document.getElementById("deal-list");
-    const list = sorted(deals);
+    const list = sorted(source());
     const mode = view.layout === "board" ? "board" : view.sort === "stage" ? "grouped" : "list";
     root.dataset.view = mode;
     if (mode === "list") {
-      root.innerHTML = `<ul class="card-list">${list.map(cardHtml).join("")}</ul>`;
+      root.innerHTML = list.length ? `<ul class="card-list">${list.map(cardHtml).join("")}</ul>`
+        : `<div class="empty-state" data-ds-provisional="empty-state">${GC.icon("bookmark")}<p class="t-title">${view.sort === "archived" ? "No archived deals" : "No deals"}</p><p class="t-muted">${view.sort === "archived" ? "Deals you archive from the card menu show up here." : ""}</p></div>`;
     } else if (mode === "grouped") {
       root.innerHTML = STAGES.map((st) => {
         const items = list.filter((d) => d.stage === st.id);
@@ -254,6 +260,7 @@ window.GC = window.GC || {};
 
   function addDeal(deal) {
     deals.unshift(deal);
+    log(deal, "created the deal");
     summary.activeDeals += 1;
     if (deal.price > 0) summary.totalValue += deal.price; else summary.withoutPrice += 1;
     render();
@@ -272,8 +279,10 @@ window.GC = window.GC || {};
   }
 
   /** Deals in on-screen order (used by the details panel's up/down navigation). */
+  function find(id) { return deals.find((d) => d.id === id) || archived.find((d) => d.id === id); }
+
   function order() {
-    const list = sorted(deals);
+    const list = sorted(source());
     if (view.layout !== "board" && view.sort !== "stage") return list;
     return STAGES.flatMap((st) => list.filter((d) => d.stage === st.id));
   }
@@ -284,49 +293,56 @@ window.GC = window.GC || {};
     summary.totalValue = deals.reduce((a, d) => a + (d.price > 0 ? d.price : 0), 0);
   }
 
-  /** Archive / delete with Undo. */
+  /** Archive / restore / delete with Undo. */
   function removeDeal(id, verb) {
-    const idx = deals.findIndex((d) => d.id === id);
+    const from = deals.some((d) => d.id === id) ? deals : archived;
+    const idx = from.findIndex((d) => d.id === id);
     if (idx < 0) return;
-    const [deal] = deals.splice(idx, 1);
+    const [deal] = from.splice(idx, 1);
+    const to = verb === "archived" ? archived : verb === "restored" ? deals : null;
+    if (to) { to.unshift(deal); log(deal, verb === "archived" ? "archived the deal" : "restored the deal from the archive"); }
     recount();
     render();
     if (GC.dealPanel) GC.dealPanel.onRemoved(id);
     GC.toast(`Deal ${verb}`, `“${deal.name}” was ${verb}.`, "neutral", {
       label: "Undo",
-      onClick: () => { deals.splice(Math.min(idx, deals.length), 0, deal); recount(); render(); },
+      onClick: () => { if (to) to.splice(to.indexOf(deal), 1); from.splice(Math.min(idx, from.length), 0, deal); recount(); render(); },
     });
   }
 
-  // ---------- Deal actions menu (Archive / Delete) ----------
+  function setStage(id, stage) {
+    const d = find(id);
+    if (!d || d.stage === stage) return;
+    const prev = d.stage;
+    d.stage = stage;
+    log(d, `changed stage from ${prev} to ${stage}`);
+    render();
+    GC.toast("Stage updated", `“${d.name}” moved from ${prev} to ${stage}.`, "success");
+  }
+
+  // ---------- Popup menus: deal actions + stage picker (ds:provisional dropdown) ----------
   let menuEl = null, menuBtn = null;
   function closeMenu() {
     if (!menuEl) return;
     menuEl.remove(); menuEl = null;
     if (menuBtn) { menuBtn.setAttribute("aria-expanded", "false"); }
   }
-  function openMenu(btn) {
+  function popup(btn, html, onPick) {
     closeMenu();
     menuBtn = btn;
-    const id = btn.dataset.dealMenu;
     menuEl = document.createElement("div");
     menuEl.className = "deal-menu";
     menuEl.setAttribute("role", "menu");
     menuEl.dataset.dsProvisional = "dropdown";
-    menuEl.innerHTML = `<button type="button" role="menuitem" data-menu-act="archive" data-id="${id}">${GC.icon("bookmark")}Archive deal</button>
-      <button type="button" role="menuitem" class="is-danger" data-menu-act="delete" data-id="${id}">${GC.icon("bin")}Delete deal</button>`;
+    menuEl.innerHTML = html;
     document.body.appendChild(menuEl);
     const r = btn.getBoundingClientRect();
-    menuEl.style.top = r.bottom + 4 + "px";
+    const below = r.bottom + 4 + menuEl.offsetHeight < window.innerHeight;
+    menuEl.style.top = (below ? r.bottom + 4 : r.top - 4 - menuEl.offsetHeight) + "px";
     menuEl.style.left = Math.max(8, r.right - menuEl.offsetWidth) + "px";
     btn.setAttribute("aria-expanded", "true");
-    menuEl.querySelector("button").focus();
-    menuEl.addEventListener("click", (e) => {
-      const b = e.target.closest("[data-menu-act]");
-      if (!b) return;
-      closeMenu();
-      removeDeal(b.dataset.id, b.dataset.menuAct === "delete" ? "deleted" : "archived");
-    });
+    (menuEl.querySelector('[aria-checked="true"]') || menuEl.querySelector("button")).focus();
+    menuEl.addEventListener("click", (e) => { const b = e.target.closest("[data-pick]"); if (!b) return; const b0 = menuBtn; closeMenu(); onPick(b.dataset.pick); if (b0 && b0.isConnected) b0.focus(); });
     menuEl.addEventListener("keydown", (e) => {
       const items = [...menuEl.querySelectorAll("button")];
       const i = items.indexOf(document.activeElement);
@@ -334,7 +350,22 @@ window.GC = window.GC || {};
       if (e.key === "Escape" || e.key === "Tab") { e.preventDefault(); const b = menuBtn; closeMenu(); if (b) b.focus(); }
     });
   }
-  document.addEventListener("pointerdown", (e) => { if (menuEl && !e.target.closest(".deal-menu, [data-deal-menu]")) closeMenu(); });
+  function openMenu(btn) {
+    const id = btn.dataset.dealMenu;
+    const isArchived = archived.some((d) => d.id === id);
+    popup(btn, `${isArchived ? `<button type="button" role="menuitem" data-pick="restored">${GC.icon("refresh")}Restore deal</button>`
+        : `<button type="button" role="menuitem" data-pick="archived">${GC.icon("bookmark")}Archive deal</button>`}
+      <button type="button" role="menuitem" class="is-danger" data-pick="deleted">${GC.icon("bin")}Delete deal</button>`,
+      (verb) => removeDeal(id, verb));
+  }
+  function openStageMenu(btn) {
+    const id = btn.dataset.stageMenu;
+    const d = find(id);
+    popup(btn, `<p class="deal-menu__title">Deal stage</p>${GC.MOCK.stages.map((st) => `<button type="button" role="menuitemradio" aria-checked="${st === d.stage}" data-pick="${st}">
+        <span class="deal-menu__dot" data-stage="${st}"></span>${esc(st)}${st === d.stage ? GC.icon("check", "deal-menu__check") : ""}</button>`).join("")}`,
+      (stage) => setStage(id, stage));
+  }
+  document.addEventListener("pointerdown", (e) => { if (menuEl && !e.target.closest(".deal-menu, [data-deal-menu], [data-stage-menu]")) closeMenu(); });
   document.addEventListener("wheel", closeMenu, { passive: true }); // user scroll closes the menu
 
   function bindCardActions() {
@@ -343,12 +374,14 @@ window.GC = window.GC || {};
       if (open) { GC.dealPanel.open(open.dataset.open, open); return; }
       const edit = e.target.closest("[data-deal-edit]");
       if (edit) { GC.dealPanel.edit(edit.dataset.dealEdit, edit); return; }
+      const sm = e.target.closest("[data-stage-menu]");
+      if (sm) { menuEl && menuBtn === sm ? closeMenu() : openStageMenu(sm); return; }
       const menu = e.target.closest("[data-deal-menu]");
       if (menu) { menuEl && menuBtn === menu ? closeMenu() : openMenu(menu); return; }
       const slide = e.target.closest("[data-slide]");
       if (slide) {
         const box = slide.closest("[data-slider]");
-        const d = deals.find((x) => x.id === box.dataset.slider);
+        const d = find(box.dataset.slider);
         const n = d.images.length;
         slideIdx[d.id] = ((slideIdx[d.id] || 0) + +slide.dataset.slide + n) % n;
         box.outerHTML = sliderHtml(d);
@@ -358,7 +391,7 @@ window.GC = window.GC || {};
     });
   }
 
-  function update(deal) { const i = deals.findIndex((d) => d.id === deal.id); if (i >= 0) deals[i] = deal; recount(); render(); }
+  function update() { recount(); render(); }
 
-  GC.inbox = { render, addDeal, deals, bindLinking, view, fields, order, update, removeDeal, find: (id) => deals.find((d) => d.id === id) };
+  GC.inbox = { render, addDeal, deals, archived, bindLinking, view, fields, order, update, removeDeal, setStage, find, log };
 })();

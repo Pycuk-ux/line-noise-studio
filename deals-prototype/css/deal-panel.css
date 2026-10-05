@@ -96,3 +96,27 @@
   .dp-row-fin, .ep-grid { grid-template-columns: minmax(0, 1fr); }
   .dp__bar { flex-wrap: wrap; }
 }
+
+/* ---------- Details drawer: view tabs (Figma 18831:258397) ---------- */
+.dp__tabs { flex: 0 0 auto; padding: 0 var(--space-4); background: var(--surface-white); overflow-x: auto; scrollbar-width: none; }
+.dp__tabs .ds-tab { white-space: nowrap; }
+/* ds:provisional — DS tabs ship no disabled state; tabs not built yet are shown but inert. */
+.dp__tabs .ds-tab:disabled { color: var(--text-disabled); cursor: default; }
+.dp__tabs .ds-tab:disabled:hover { color: var(--text-disabled); }
+
+/* Comments (18831:260095) and Log activity (18831:260029) */
+.dp-feed { display: flex; flex-direction: column; gap: var(--space-4); max-width: 800px; width: 100%; margin: 0 auto; }
+.dp-feed__empty { padding: var(--space-6) 0; text-align: center; }
+.dp-thread, .dp-log { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.dp-thread { gap: var(--space-4); }
+.dp-thread__item { display: flex; gap: var(--space-3); align-items: flex-start; }
+.dp-thread__body { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: var(--space-1); }
+.dp-thread__meta { margin: 0; display: flex; align-items: baseline; gap: var(--space-2); }
+.dp-thread__body .dp-text { margin: 0; }
+.dp-composer { display: flex; align-items: center; gap: var(--space-3); padding-top: var(--space-4); border-top: 1px solid var(--border-default); }
+.dp-composer .ds-field { flex: 1 1 auto; min-width: 0; }
+.dp-log__item { position: relative; display: flex; align-items: center; gap: var(--space-3); padding: var(--space-3) 0; }
+.dp-log__item + .dp-log__item { border-top: 1px solid var(--border-default); }
+.dp-log__text { flex: 1 1 auto; min-width: 0; margin: 0; color: var(--text-secondary); }
+.dp-log__time { flex: none; }
+.dp-log__ai { background: var(--surface-positive); color: var(--text-positive); }

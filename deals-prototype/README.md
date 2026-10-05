@@ -161,6 +161,28 @@ TOKENS.md             token report: components, provisionals, off-system values
   with unsaved changes closes and shows a "Changes discarded" toast with **Undo**, which reopens the edit with them.
 - Mock metrics are now consistent: Rent/psm and NIY are derived from rent, area and price everywhere.
 
+## Iteration 6 changes
+
+- **Kanban spacing:** +4 px between cards in a column (now `--space-2`, 8 px) and +4 px between the info rows
+  (Area / Rent / Deal source…, now `--space-2`).
+- **Stage dropdown on cards:** the stage chip on list cards is a button; it opens a menu of all stages (current one
+  checked). Picking one moves the deal (also between stage groups), shows a toast and is written to the deal log.
+- **Sort → "Archived only":** lists archived deals (with an empty state when there are none); their menu offers
+  Restore deal / Delete deal.
+- **Per-asset metrics (New deal modal and Edit drawer):** every asset is a collapsible card. The header shows
+  "Asset N · type · address · price"; clicking it opens type, address, Area, Price, Occupancy, Rent and the auto
+  Rent/psm and NIY for that asset. In the modal, empty assets and assets with errors open automatically; filled
+  ones start collapsed. In the edit drawer, all cards start collapsed and a newly added asset opens. Per-asset
+  metrics are optional (the deal-level Key metrics stay required) and appear in the Preview and drawer asset tables.
+- **Autofill (prototype helper):** a ghost button at the end of the Deal name input fills every required Key Info
+  field (name, metrics, asset type and address) so you can click through the flow quickly. It only fills empty fields.
+- **Details drawer tabs** (Figma 18831:258397): Deal Details · Assets · Comps · AI Assistant · Documents · Comments ·
+  Logs. Assets, Comps, AI Assistant and Documents are shown but disabled for now. **Comments** (18831:260095): thread
+  with avatars and relative times, composer with Send (disabled while empty); posting updates the tab count and
+  the card's comment count. **Logs** (18831:260029): activity feed — stage changes, edits (lists the changed
+  sections), comments, archive/restore and creation, on top of mock history. ←/→/Home/End move between enabled tabs.
+- Figma was still rate-limited (Starter plan), so the tabs, Comments and Logs were built from the brief.
+
 ## Deviations from Figma
 
 1. **DS components win over Figma** when they disagree: the navbar is rounded, the tabs are 14px, the segmented

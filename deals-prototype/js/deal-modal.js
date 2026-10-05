@@ -193,36 +193,98 @@ window.GC = window.GC || {};
     });
   }
 
+  /** Per-asset Rent/psm and NIY (static, auto). */
+  function assetAutos(aid) {
+    const d = S().data, k = (f) => d[GC.assetKey(aid, f)];
+    const rent = k("a_rent"), area = k("a_area"), price = k("a_price");
+    const ok = (v) => v > 0 && !Number.isNaN(v);
+    const psm = ok(rent) && ok(area) ? GC.fmt.num(GC.fmt.rentPerArea({ rent_yearly: rent, area_sqm: area }, S().units.area), 2) : null;
+    const niy = ok(rent) && ok(price) ? GC.fmt.num((rent / price) * 100, 2) : null;
+    return { psm, niy };
+  }
+
+  function isAssetOpen(aid) {
+    const s = S();
+    if (s.assetOpen[aid] != null) return s.assetOpen[aid];
+    // New/empty assets start open so their required fields are visible.
+    return !s.data[GC.assetKey(aid, "type")] || !(s.data[GC.assetKey(aid, "address")] || "").trim();
+  }
+
   function assetRow(aid, i, n) {
     const s = S();
     const typeId = GC.assetKey(aid, "type"), addrId = GC.assetKey(aid, "address");
     const tErr = shownError(typeId), aErr = shownError(addrId);
+    const hasErr = tErr || aErr || Object.keys(GC.ASSET_KEY_FIELDS).some((f) => shownError(GC.assetKey(aid, f)));
+    const open = isAssetOpen(aid) || !!hasErr;
     const type = s.data[typeId] || "";
-    return `<fieldset class="asset-row" data-asset="${aid}">
+    const addr = (s.data[addrId] || "").trim();
+    const price = s.data[GC.assetKey(aid, "a_price")];
+    const summary = [type, addr, price > 0 ? GC.fmt.moneyShort(price, s.units.currency) : ""].filter(Boolean).join(" · ") || "Type and address required";
+    const a = assetAutos(aid);
+    const sym = GC.fmt.currencySymbol(s.units.currency), unit = GC.fmt.areaUnitLabel(s.units.area);
+    return `<div class="asset-row" role="group" aria-labelledby="ah-${aid}" data-asset="${aid}" data-open="${open}" data-ds-provisional="asset-row">
       <div class="asset-row__head">
-        <legend class="t-value">Asset ${i + 1}</legend>
+        <button type="button" class="asset-row__toggle" data-act="asset-toggle" data-asset="${aid}" aria-expanded="${open}" aria-controls="ab-${aid}">
+          ${GC.icon("chevron-down", "asset-row__chev")}<span class="t-value" id="ah-${aid}">Asset ${i + 1}</span><span class="t-muted asset-row__sum">${esc(summary)}</span>
+        </button>
         ${n > 1 ? `<button type="button" class="ds-btn" data-type="ghost" data-size="sm" data-act="asset-remove" data-asset="${aid}" aria-label="Remove asset ${i + 1}">${GC.icon("bin", "ds-btn__icon")}<span class="ds-btn__label">Remove</span></button>` : ""}
       </div>
-      <div class="asset-row__fields">
-        <div class="ds-field" data-size="medium" data-state="${tErr ? "error" : "default"}" data-wrap="${typeId}">
-          <label class="ds-field__label" for="f-${typeId}">Asset type <span class="ds-field__req" aria-hidden="true">*</span></label>
-          <div class="ds-field__box prov-select-wrap" data-ds-provisional="select">
-            <select class="ds-field__input prov-select" id="f-${typeId}" data-field="${typeId}" aria-required="true" aria-invalid="${!!tErr}" aria-describedby="h-${typeId}">
-              <option value="">Select type</option>
-              ${M.industries.map((ind) => `<option value="${ind.id}" ${type === ind.id ? "selected" : ""}>${esc(ind.id)}</option>`).join("")}
-            </select><span class="ds-field__icon">${DS_ICONS.get("chevron-down")}</span>
+      <div class="asset-row__body" id="ab-${aid}"${open ? "" : " hidden"}>
+        <div class="asset-row__fields">
+          <div class="ds-field" data-size="medium" data-state="${tErr ? "error" : "default"}" data-wrap="${typeId}">
+            <label class="ds-field__label" for="f-${typeId}">Asset type <span class="ds-field__req" aria-hidden="true">*</span></label>
+            <div class="ds-field__box prov-select-wrap" data-ds-provisional="select">
+              <select class="ds-field__input prov-select" id="f-${typeId}" data-field="${typeId}" aria-required="true" aria-invalid="${!!tErr}" aria-describedby="h-${typeId}">
+                <option value="">Select type</option>
+                ${M.industries.map((ind) => `<option value="${ind.id}" ${type === ind.id ? "selected" : ""}>${esc(ind.id)}</option>`).join("")}
+              </select><span class="ds-field__icon">${DS_ICONS.get("chevron-down")}</span>
+            </div>
+            <div class="ds-field__helper" id="h-${typeId}"${tErr ? "" : " hidden"}>${esc(tErr)}</div>
           </div>
-          <div class="ds-field__helper" id="h-${typeId}"${tErr ? "" : " hidden"}>${esc(tErr)}</div>
+          <div class="ds-field" data-size="medium" data-state="${aErr ? "error" : "default"}" data-wrap="${addrId}">
+            <label class="ds-field__label" for="f-${addrId}">Address <span class="ds-field__req" aria-hidden="true">*</span></label>
+            <div class="ds-field__box"><span class="ds-field__icon">${DS_ICONS.get("location")}</span>
+              <input class="ds-field__input" id="f-${addrId}" data-field="${addrId}" type="text" autocomplete="off" value="${esc(s.data[addrId] || "")}"
+                placeholder="Street, postcode, city" aria-required="true" aria-invalid="${!!aErr}" aria-describedby="h-${addrId}"></div>
+            <div class="ds-field__helper" id="h-${addrId}"${aErr ? "" : " hidden"}>${esc(aErr)}</div>
+          </div>
         </div>
-        <div class="ds-field" data-size="medium" data-state="${aErr ? "error" : "default"}" data-wrap="${addrId}">
-          <label class="ds-field__label" for="f-${addrId}">Address <span class="ds-field__req" aria-hidden="true">*</span></label>
-          <div class="ds-field__box"><span class="ds-field__icon">${DS_ICONS.get("location")}</span>
-            <input class="ds-field__input" id="f-${addrId}" data-field="${addrId}" type="text" autocomplete="off" value="${esc(s.data[addrId] || "")}"
-              placeholder="Street, postcode, city" aria-required="true" aria-invalid="${!!aErr}" aria-describedby="h-${addrId}"></div>
-          <div class="ds-field__helper" id="h-${addrId}"${aErr ? "" : " hidden"}>${esc(aErr)}</div>
+        <div class="form-grid asset-row__metrics">
+          ${numField(GC.assetKey(aid, "a_area"), { placeholder: "0" })}
+          ${numField(GC.assetKey(aid, "a_price"), { placeholder: "0" })}
+          ${numField(GC.assetKey(aid, "a_occupancy"), { placeholder: "0–100" })}
+          ${numField(GC.assetKey(aid, "a_rent"), { placeholder: "0" })}
+          ${readonlyField(GC.assetKey(aid, "a_psm"), { label: s.units.area === "sqf" ? "Rent/psf" : "Rent/psm", value: a.psm, prefix: sym, suffix: `/ ${unit} / yr`, helper: "Rent ÷ Area", empty: "Fills in from Rent and Area" })}
+          ${readonlyField(GC.assetKey(aid, "a_niy"), { label: "NIY", value: a.niy, suffix: "%", helper: "Rent ÷ Price × 100", empty: "Fills in from Rent and Price" })}
         </div>
       </div>
-    </fieldset>`;
+    </div>`;
+  }
+
+  /** Prototype helper: fill every required Key Info field so later steps can be reached quickly. */
+  function autofill() {
+    const s = S();
+    const set = (id, v) => { s.data[id] = v; delete s.raw[id]; };
+    if (!s.data.deal_name.trim()) set("deal_name", "Harbour Gate Logistics Park");
+    if (!(s.data.area_sqm > 0)) set("area_sqm", 12500);
+    if (!(s.data.price > 0)) set("price", 18400000);
+    if (!(s.data.occupancy >= 0 && s.data.occupancy <= 100) || s.data.occupancy == null) set("occupancy", 96.5);
+    if (!(s.data.rent_yearly > 0)) set("rent_yearly", 1150000);
+    const addresses = ["Hamngatan 12, Malmö", "Stortorget 3, Malmö", "Lundavägen 41, Malmö"];
+    s.assets.forEach((aid, i) => {
+      const k = (f) => GC.assetKey(aid, f);
+      if (!s.data[k("type")]) set(k("type"), i === 0 ? "Logistics" : "Office");
+      if (!(s.data[k("address")] || "").trim()) set(k("address"), addresses[i % addresses.length]);
+      if (s.assets.length === 1) {
+        if (!(s.data[k("a_area")] > 0)) set(k("a_area"), s.data.area_sqm);
+        if (!(s.data[k("a_price")] > 0)) set(k("a_price"), s.data.price);
+        if (s.data[k("a_occupancy")] == null) set(k("a_occupancy"), s.data.occupancy);
+        if (!(s.data[k("a_rent")] > 0)) set(k("a_rent"), s.data.rent_yearly);
+      }
+    });
+    if (!s.data.niy_manual) s.data.niy = GC.fmt.niyCalculated(s.data);
+    renderStep({ focus: false, scrollTop: false });
+    onAnyChange();
   }
 
   function dealNameField() {
@@ -230,7 +292,8 @@ window.GC = window.GC || {};
     return `<div class="ds-field" data-size="medium" data-state="${err ? "error" : "default"}" data-wrap="deal_name">
       <label class="ds-field__label" for="f-deal_name">Deal name <span class="ds-field__req" aria-hidden="true">*</span></label>
       <div class="ds-field__box"><input class="ds-field__input" id="f-deal_name" data-field="deal_name" type="text" autocomplete="off"
-        value="${esc(S().data.deal_name)}" placeholder="e.g. TechForward Industries HQ" aria-required="true" aria-invalid="${!!err}" aria-describedby="h-deal_name"></div>
+        value="${esc(S().data.deal_name)}" placeholder="e.g. TechForward Industries HQ" aria-required="true" aria-invalid="${!!err}" aria-describedby="h-deal_name">
+        <button type="button" class="ds-btn" data-type="ghost" data-size="sm" data-act="autofill" title="Prototype helper: fills the required fields">${GC.icon("ai", "ds-btn__icon")}<span class="ds-btn__label">Autofill</span></button></div>
       <div class="ds-field__helper" id="h-deal_name"${err ? "" : " hidden"}>${esc(err)}</div>
     </div>`;
   }
@@ -559,6 +622,12 @@ window.GC = window.GC || {};
       s.data[id] = n == null || Number.isNaN(n) ? n : fromDisplay(id, n);
       if (id === "niy") s.data.niy_manual = true; // an emptied NIY reverts to auto on blur
       if (s.step === 0) recalc();
+      const [aidIn, baseIn] = GC.splitKey(id);
+      if (aidIn && GC.ASSET_KEY_FIELDS[baseIn]) {
+        const a = assetAutos(aidIn);
+        setOutput(GC.assetKey(aidIn, "a_psm"), a.psm, "Fills in from Rent and Area");
+        setOutput(GC.assetKey(aidIn, "a_niy"), a.niy, "Fills in from Rent and Price");
+      }
       const wrap = dialog.querySelector(`[data-wrap="${id}"]`);
       if (shownError(id) || (wrap && wrap.dataset.state === "error")) setFieldErrorUI(id);
       crossCheck(id);
@@ -790,6 +859,14 @@ window.GC = window.GC || {};
           renderStep({ focus: false, scrollTop: false });
           const inp = dialog.querySelector("#f-niy"); if (inp) { inp.focus(); inp.select(); }
           onAnyChange();
+          break;
+        }
+        case "autofill": autofill(); break;
+        case "asset-toggle": {
+          const aid = act.dataset.asset;
+          S().assetOpen[aid] = !isAssetOpen(aid);
+          renderStep({ focus: false, scrollTop: false });
+          dialog.querySelector(`[data-act="asset-toggle"][data-asset="${aid}"]`).focus();
           break;
         }
         case "asset-add": {

@@ -30,15 +30,36 @@ window.GC = window.GC || {};
       ltv: 55,
     };
     Object.keys(def).forEach((k) => { if (!(k in x)) x[k] = def[k]; });
+    if (!x.assetList && d.record && d.record.assets && d.record.assets.length) {
+      x.assetList = d.record.assets.map((a) => ({
+        type: a.type || "", address: a.address || "",
+        area: a.a_area != null ? a.a_area : null, price: a.a_price != null ? a.a_price : null,
+        occupancy: a.a_occupancy != null ? a.a_occupancy : null, rent: a.a_rent != null ? a.a_rent : null,
+      }));
+    }
     if (!x.assetList) {
       const n = Math.max(1, Math.min(d.assets || 1, 4));
       const city = (d.location || "").split(",")[0] || "Malmö";
+      // Mock split of the deal totals across its assets (uneven, but sums back to the deal).
+      const w = [[1], [0.6, 0.4], [0.45, 0.35, 0.2], [0.4, 0.25, 0.2, 0.15]][n - 1];
+      const part = (v, i) => (v == null ? null : Math.round(v * w[i]));
       x.assetList = Array.from({ length: n }, (_, i) => ({
         type: d.industry && d.industry !== "Mixed-use" ? d.industry : ["Logistics", "Office", "Retail"][i % 3],
         address: `${["Innovationsallee", "Stratumseind", "Hamngatan", "Westbridge Road"][i]} ${12 + i * 7}, ${city}`,
+        area: part(d.areaSqm, i), price: part(d.price, i), rent: part(d.rentYearly, i),
+        occupancy: d.occupancy == null ? null : Math.min(100, Math.round((d.occupancy + [0, -2.5, 1.5, -4][i]) * 10) / 10),
       }));
     }
+    x.assetList.forEach((a) => ["area", "price", "occupancy", "rent"].forEach((k) => { if (!(k in a)) a[k] = null; }));
     return x;
+  }
+
+  /** Per-asset Rent/psm and NIY (auto, same formulas as the deal-level metrics). */
+  function assetMetrics(a) {
+    return {
+      psm: a.rent > 0 && a.area > 0 ? f().num(a.rent / a.area, 2) : null,
+      niy: a.rent > 0 && a.price > 0 ? f().num((a.rent / a.price) * 100, 2) : null,
+    };
   }
 
   function stageBar(stage) {
@@ -151,12 +172,12 @@ window.GC = window.GC || {};
       <section class="pv-card">
         ${heading("Asset", linkBtn("Explore asset"))}
         <div class="pv-table-wrap"><table class="pv-table">
-          <thead><tr><th>#</th><th>Assets</th><th>Address</th><th>Industry</th><th>Year built</th><th>Occupancy</th><th>Rent (€)</th><th>Area (sqm)</th></tr></thead>
-          <tbody>${x.assetList.map((a, i) => `<tr><td class="num">${i + 1}</td><td>${esc(d.name.split(",")[0])} ${i + 1}</td><td>${esc(a.address)}</td>
-            <td><span class="industry-chip" data-ds-provisional="chip">${esc(a.type)}</span></td><td>${x.yearBuilt || "—"}</td>
-            <td>${d.occupancy != null ? F.num(d.occupancy, 0) + "%" : "—"}</td>
-            <td>${d.rentYearly != null ? F.num(d.rentYearly / x.assetList.length, 0) : "—"}</td>
-            <td>${d.areaSqm != null ? F.num(d.areaSqm / x.assetList.length, 0) : "—"}</td></tr>`).join("")}</tbody></table></div>
+          <thead><tr><th>#</th><th>Assets</th><th>Address</th><th>Industry</th><th>Area (sqm)</th><th>Price (€)</th><th>Occupancy</th><th>Rent (€)</th><th>Rent/psm</th><th>NIY</th></tr></thead>
+          <tbody>${x.assetList.map((a, i) => { const m = assetMetrics(a); return `<tr><td class="num">${i + 1}</td><td>${esc(d.name.split(",")[0])} ${i + 1}</td><td>${esc(a.address || "—")}</td>
+            <td>${a.type ? `<span class="industry-chip" data-ds-provisional="chip">${esc(a.type)}</span>` : "—"}</td>
+            <td>${a.area != null ? F.num(a.area, 0) : "—"}</td><td>${a.price != null ? F.num(a.price, 0) : "—"}</td>
+            <td>${a.occupancy != null ? F.num(a.occupancy, 1) + "%" : "—"}</td><td>${a.rent != null ? F.num(a.rent, 0) : "—"}</td>
+            <td>${m.psm != null ? "€" + m.psm : "—"}</td><td>${m.niy != null ? m.niy + "%" : "—"}</td></tr>`; }).join("")}</tbody></table></div>
       </section>
 
       <section class="pv-card dp-map" aria-label="Map">
@@ -207,6 +228,85 @@ window.GC = window.GC || {};
       </section>`;
   }
 
+  // ============================================================
+  //  Drawer tabs (Figma 18831:258397) — Comments 18831:260095, Log activity 18831:260029
+  // ============================================================
+  const DP_TABS = [["details", "Deal Details"], ["assets", "Assets", true], ["comps", "Comps", true], ["ai", "AI Assistant", true],
+    ["documents", "Documents", true], ["comments", "Comments"], ["logs", "Logs"]];
+  let dpTab = "details";
+  const COMMENT_TEXT = [
+    "Shared the IM with the team — rent roll looks clean, two leases roll in 2027.",
+    "Broker confirmed the vendor is open to an off-market process if we move before the LOI deadline.",
+    "Can we get a second opinion on the roof condition? Survey photos are a few years old.",
+    "NIY is in line with the last two comps in the area. Happy to proceed to the next stage.",
+    "Added the updated rent schedule to Documents.",
+    "Flagging the tenant concentration — top tenant is ~38% of income.",
+  ];
+  const minsAgo = (m) => new Date(Date.now() - m * 60000).toISOString();
+  function ago(iso) {
+    const m = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000));
+    if (m < 1) return "Just now";
+    if (m < 60) return `${m} min ago`;
+    if (m < 60 * 24) return `${Math.round(m / 60)}h ago`;
+    const days = Math.round(m / 1440);
+    return days === 1 ? "Yesterday" : days < 7 ? `${days} days ago` : f().dateLong(iso.slice(0, 10));
+  }
+  function avatar(name) {
+    const u = GC.MOCK.users.find((x) => x.name === name);
+    const ini = u ? u.initials : name.split(" ").map((p) => p[0]).join("").slice(0, 2);
+    return `<span class="ds-avatar" data-size="md" aria-hidden="true">${esc(ini)}</span>`;
+  }
+  /** Mock comment thread — one entry per comment on the card, oldest first. */
+  function commentList(d) {
+    if (!d.commentList) {
+      const users = GC.MOCK.users;
+      const n = d.comments || 0;
+      d.commentList = Array.from({ length: n }, (_, i) => ({
+        who: users[(i * 2 + 1) % users.length].name, text: COMMENT_TEXT[i % COMMENT_TEXT.length], at: minsAgo((n - i) * 190),
+      }));
+    }
+    return d.commentList;
+  }
+  /** Activity log: user actions recorded this session (d.log) on top of mock history. */
+  function logList(d) {
+    const owner = (GC.MOCK.users.find((u) => u.initials === d.owner) || GC.MOCK.users[0]).name;
+    const base = d.isNew ? [] : [
+      { who: owner, text: `moved the deal to ${d.stage}`, at: minsAgo(60 * 26) },
+      { who: "Sarah Chen", text: "uploaded 2 documents to Sources", at: minsAgo(60 * 50) },
+      { who: "Gocanopy AI", text: "generated the AI summary and deal memo", at: minsAgo(60 * 51), ai: true },
+      { who: owner, text: "created the deal", at: d.dateReceived ? new Date(d.dateReceived + "T09:30:00").toISOString() : minsAgo(60 * 72) },
+    ];
+    return (d.log || []).concat(base);
+  }
+  function tabsHtml(d) {
+    const n = d.commentList ? d.commentList.length : d.comments || 0;
+    return DP_TABS.map(([id, l, off]) => `<button class="ds-tab" type="button" data-size="small" role="tab" id="dp-tab-${id}" data-dp-view="${id}"
+      aria-selected="${dpTab === id}" aria-controls="dp-panel" tabindex="${dpTab === id ? 0 : -1}"${off ? ' disabled aria-disabled="true" title="Coming soon"' : ""}>${l}${id === "comments" && n ? `<span class="ds-tab-chip">${n}</span>` : ""}</button>`).join("");
+  }
+  function commentsHtml(d) {
+    const list = commentList(d);
+    return `<section class="pv-card dp-feed" aria-labelledby="dp-title">
+      <h2 class="t-section-title" id="dp-title">Comments <span class="count">(${list.length})</span></h2>
+      ${list.length ? `<ul class="dp-thread">${list.map((c) => `<li class="dp-thread__item">${avatar(c.who)}<div class="dp-thread__body">
+          <p class="dp-thread__meta"><span class="t-value">${esc(c.who)}</span><span class="t-label">${esc(ago(c.at))}</span></p><p class="dp-text">${esc(c.text)}</p></div></li>`).join("")}</ul>`
+        : `<p class="t-muted dp-feed__empty">No comments yet. Start the conversation with your team.</p>`}
+      <form class="dp-composer" data-dp-composer>
+        ${avatar("Liam O'Connor")}
+        <div class="ds-field" data-size="medium" data-state="default"><label class="ds-field__label sr-only" for="dp-comment">Write a comment</label>
+          <div class="ds-field__box"><input class="ds-field__input" id="dp-comment" type="text" autocomplete="off" placeholder="Write a comment…"></div></div>
+        <button type="submit" class="ds-btn" data-type="primary" data-size="md" disabled><span class="ds-btn__label">Send</span></button>
+      </form>
+    </section>`;
+  }
+  function logsHtml(d) {
+    const list = logList(d);
+    return `<section class="pv-card dp-feed" aria-labelledby="dp-title">
+      <h2 class="t-section-title" id="dp-title">Log activity</h2>
+      <ol class="dp-log">${list.map((l) => `<li class="dp-log__item">${l.ai ? `<span class="ds-avatar dp-log__ai" data-size="md" aria-hidden="true">${GC.icon("ai")}</span>` : avatar(l.who)}
+        <p class="dp-log__text"><span class="t-value">${esc(l.who)}</span> ${esc(l.text)}</p><span class="t-label dp-log__time">${esc(ago(l.at))}</span></li>`).join("")}</ol>
+    </section>`;
+  }
+
   function navState() {
     const order = GC.inbox.order();
     const i = order.findIndex((x) => x.id === current);
@@ -217,7 +317,10 @@ window.GC = window.GC || {};
     const d = GC.inbox.find(current);
     if (!d) return;
     const { order, i } = navState();
-    panel.querySelector(".dp__scroll").innerHTML = contentHtml(d);
+    panel.querySelector(".dp__tabs").innerHTML = tabsHtml(d);
+    const sc = panel.querySelector(".dp__scroll");
+    sc.innerHTML = dpTab === "comments" ? commentsHtml(d) : dpTab === "logs" ? logsHtml(d) : contentHtml(d);
+    sc.setAttribute("aria-labelledby", `dp-tab-${dpTab}`);
     panel.querySelector("#dp-pos").textContent = `${i + 1} of ${order.length}`;
     panel.querySelector('[data-dp="prev"]').disabled = i <= 0;
     panel.querySelector('[data-dp="next"]').disabled = i >= order.length - 1;
@@ -238,7 +341,7 @@ window.GC = window.GC || {};
 
   function open(id, triggerEl) {
     if (layer) { current = id; photo = 0; renderDetails(); return; }
-    current = id; photo = 0; overviewTab = "overview";
+    current = id; photo = 0; overviewTab = "overview"; dpTab = "details";
     trigger = triggerEl || document.activeElement;
     layer = document.createElement("div");
     layer.className = "drawer-layer";
@@ -255,7 +358,8 @@ window.GC = window.GC || {};
           </div>
           <button type="button" class="ds-btn" data-type="secondary" data-size="md" data-dp="edit">${GC.icon("edit", "ds-btn__icon")}<span class="ds-btn__label">Edit</span></button>
         </div>
-        <div class="dp__scroll"></div>
+        <div class="ds-tabs dp__tabs" role="tablist" aria-label="Deal views"></div>
+        <div class="dp__scroll" id="dp-panel" role="tabpanel" tabindex="-1"></div>
       </aside>`;
     document.getElementById("drawer-root").appendChild(layer);
     panel = layer.querySelector(".dp");
@@ -278,6 +382,8 @@ window.GC = window.GC || {};
         } else if (act === "edit") edit(current, a);
         return;
       }
+      const vt = e.target.closest("[data-dp-view]");
+      if (vt) { selectTab(vt.dataset.dpView); return; }
       const ph = e.target.closest("[data-dp-photo]");
       if (ph) {
         const d = GC.inbox.find(current);
@@ -293,7 +399,43 @@ window.GC = window.GC || {};
         panel.querySelector(".dp-overview").innerHTML = overviewRows(GC.inbox.find(current), ext(GC.inbox.find(current)));
       }
     });
+    layer.addEventListener("keydown", (e) => {
+      const t = e.target.closest("[data-dp-view]");
+      if (!t || !["ArrowLeft", "ArrowRight", "Home", "End"].includes(e.key)) return;
+      e.preventDefault();
+      const on = DP_TABS.filter((x) => !x[2]).map((x) => x[0]);
+      const k = on.indexOf(t.dataset.dpView);
+      const nx = e.key === "Home" ? 0 : e.key === "End" ? on.length - 1 : (k + (e.key === "ArrowRight" ? 1 : -1) + on.length) % on.length;
+      selectTab(on[nx]);
+    });
+    layer.addEventListener("input", (e) => {
+      if (e.target.id === "dp-comment") e.target.form.querySelector('[type="submit"]').disabled = !e.target.value.trim();
+    });
+    layer.addEventListener("submit", (e) => {
+      if (!e.target.matches("[data-dp-composer]")) return;
+      e.preventDefault();
+      const inp = e.target.querySelector("#dp-comment");
+      const text = inp.value.trim();
+      if (!text) return;
+      const d = GC.inbox.find(current);
+      commentList(d).push({ who: "Liam O'Connor", text, at: new Date().toISOString() });
+      d.comments = d.commentList.length;
+      GC.inbox.log(d, "left a comment");
+      renderDetails();
+      GC.inbox.update(d);
+      const sc = panel.querySelector(".dp__scroll"); sc.scrollTop = sc.scrollHeight;
+      panel.querySelector("#dp-comment").focus();
+    });
     document.addEventListener("keydown", onKey);
+  }
+
+  function selectTab(id) {
+    const def = DP_TABS.find((x) => x[0] === id);
+    if (!def || def[2]) return;
+    dpTab = id;
+    renderDetails();
+    panel.querySelector(".dp__scroll").scrollTop = 0;
+    panel.querySelector(`#dp-tab-${id}`).focus();
   }
 
   function close() {
@@ -319,6 +461,9 @@ window.GC = window.GC || {};
   //  Edit drawer
   // ============================================================
   let editLayer = null, editPanel = null, editRelease = null, editTrigger = null, editId = null, original = null, form = null;
+  /** Expanded asset cards (indexes into form.assetList) — UI state only, not part of the dirty check. */
+  let openAssets = new Set();
+  const ASSET_NUM = { area: 1, price: 1, occupancy: 1, rent: 1 };
   const SECTIONS = [["key", "Key Info"], ["assets", "Assets"], ["general", "General Info"], ["physical", "Physical Info"], ["financial", "Financial Info"]];
 
   function snapshot(d) {
@@ -358,10 +503,31 @@ window.GC = window.GC || {};
   function card(id, title, body) {
     return `<section class="ep-card" id="ep-sec-${id}" aria-labelledby="ep-t-${id}"><h3 class="t-title ep-card__title" id="ep-t-${id}">${title}</h3>${body}</section>`;
   }
+  function assetSummary(a) {
+    return [a.type, (a.address || "").trim(), a.price > 0 ? f().moneyShort(a.price, "EUR") : ""].filter(Boolean).join(" · ") || "No details yet";
+  }
+  function assetRowHtml(a, i) {
+    const open = openAssets.has(i);
+    const m = assetMetrics(a);
+    return `<div class="asset-row" role="group" aria-labelledby="ep-ah-${i}" data-asset-idx="${i}" data-open="${open}" data-ds-provisional="asset-row">
+      <div class="asset-row__head">
+        <button type="button" class="asset-row__toggle" data-ep-act="asset-toggle" data-i="${i}" aria-expanded="${open}" aria-controls="ep-ab-${i}">
+          ${GC.icon("chevron-down", "asset-row__chev")}<span class="t-value" id="ep-ah-${i}">Asset ${i + 1}</span><span class="t-muted asset-row__sum" data-ep-sum="${i}">${esc(assetSummary(a))}</span>
+        </button>
+        ${form.assetList.length > 1 ? `<button type="button" class="ds-btn" data-type="ghost" data-size="sm" data-ep-act="asset-remove" data-i="${i}" aria-label="Remove asset ${i + 1}">${GC.icon("bin", "ds-btn__icon")}<span class="ds-btn__label">Remove</span></button>` : ""}
+      </div>
+      <div class="asset-row__body" id="ep-ab-${i}"${open ? "" : " hidden"}>
+        <div class="asset-row__fields">${fld(`asset-${i}-type`, "Asset type", { value: a.type, options: GC.MOCK.industries.map((x) => x.id), placeholder: "Select type" })}${fld(`asset-${i}-address`, "Address", { value: a.address })}</div>
+        <div class="ep-grid">
+          ${fld(`asset-${i}-area`, "Area", { value: a.area, type: "number", suffix: "sqm" })}${fld(`asset-${i}-price`, "Price", { value: a.price, type: "number", prefix: "€" })}
+          ${fld(`asset-${i}-occupancy`, "Occupancy", { value: a.occupancy, type: "number", suffix: "%" })}${fld(`asset-${i}-rent`, "Rent", { value: a.rent, type: "number", prefix: "€", suffix: "/ yr" })}
+          ${autoField(`asset-${i}-psm`, "Rent/psm", m.psm, "/ sqm / yr")}${autoField(`asset-${i}-niy`, "NIY", m.niy, "%")}
+        </div>
+      </div>
+    </div>`;
+  }
   function assetsBody() {
-    return `<div class="ep-assets">${form.assetList.map((a, i) => `<fieldset class="asset-row" data-asset-idx="${i}"><div class="asset-row__head"><legend class="t-value">Asset ${i + 1}</legend>
-        ${form.assetList.length > 1 ? `<button type="button" class="ds-btn" data-type="ghost" data-size="sm" data-ep-act="asset-remove" data-i="${i}">${GC.icon("bin", "ds-btn__icon")}<span class="ds-btn__label">Remove</span></button>` : ""}</div>
-        <div class="asset-row__fields">${fld(`asset-${i}-type`, "Asset type", { value: a.type, options: GC.MOCK.industries.map((x) => x.id), placeholder: "Select type" })}${fld(`asset-${i}-address`, "Address", { value: a.address })}</div></fieldset>`).join("")}</div>
+    return `<div class="ep-assets">${form.assetList.map(assetRowHtml).join("")}</div>
       <button type="button" class="ds-btn" data-type="secondary" data-size="sm" data-ep-act="asset-add">${GC.icon("plus", "ds-btn__icon")}<span class="ds-btn__label">Add asset</span></button>`;
   }
   function editBody() {
@@ -410,6 +576,7 @@ window.GC = window.GC || {};
     editTrigger = triggerEl || document.activeElement;
     original = snapshot(d);
     form = restore ? JSON.parse(JSON.stringify(restore)) : JSON.parse(JSON.stringify(original));
+    openAssets = new Set();
     editLayer = document.createElement("div");
     editLayer.className = "drawer-layer drawer-layer--edit";
     editLayer.innerHTML = `<div class="drawer-backdrop" data-ep-act="cancel"></div>
@@ -444,9 +611,15 @@ window.GC = window.GC || {};
     editLayer.addEventListener("input", (e) => {
       const key = e.target.dataset.ep;
       if (!key) return;
-      const m = /^asset-(\d+)-(type|address)$/.exec(key);
-      if (m) form.assetList[+m[1]][m[2]] = e.target.value;
-      else if (e.target.dataset.num === "true") { const n = f().parseNum(e.target.value); form[key] = n == null || Number.isNaN(n) ? (n === null ? null : form[key]) : n; }
+      const m = /^asset-(\d+)-(type|address|area|price|occupancy|rent)$/.exec(key);
+      if (m) {
+        const i = +m[1], a = form.assetList[i];
+        if (ASSET_NUM[m[2]]) { const n = f().parseNum(e.target.value); a[m[2]] = n == null || Number.isNaN(n) ? (n === null ? null : a[m[2]]) : n; }
+        else a[m[2]] = e.target.value;
+        const am = assetMetrics(a);
+        [["psm", am.psm], ["niy", am.niy]].forEach(([k, v]) => { const o = editPanel.querySelector(`#ep-asset-${i}-${k}`); o.textContent = v == null ? "—" : v; o.dataset.empty = v == null; });
+        editPanel.querySelector(`[data-ep-sum="${i}"]`).textContent = assetSummary(a);
+      } else if (e.target.dataset.num === "true") { const n = f().parseNum(e.target.value); form[key] = n == null || Number.isNaN(n) ? (n === null ? null : form[key]) : n; }
       else form[key] = e.target.value;
       if (["price", "areaSqm", "rentYearly"].includes(key)) {
         const a = autos();
@@ -471,8 +644,24 @@ window.GC = window.GC || {};
       const act = a.dataset.epAct;
       if (act === "cancel") cancelEdit();
       else if (act === "save") saveEdit();
-      else if (act === "asset-add") { form.assetList.push({ type: "", address: "" }); renderEdit(true); editPanel.querySelector(`#ep-asset-${form.assetList.length - 1}-type`).focus(); }
-      else if (act === "asset-remove") { form.assetList.splice(+a.dataset.i, 1); renderEdit(true); editPanel.querySelector('[data-ep-act="asset-add"]').focus(); }
+      else if (act === "asset-toggle") {
+        const i = +a.dataset.i, on = !openAssets.has(i);
+        if (on) openAssets.add(i); else openAssets.delete(i);
+        const row = a.closest(".asset-row");
+        row.dataset.open = on; a.setAttribute("aria-expanded", on);
+        row.querySelector(".asset-row__body").hidden = !on;
+      }
+      else if (act === "asset-add") {
+        form.assetList.push({ type: "", address: "", area: null, price: null, occupancy: null, rent: null });
+        openAssets.add(form.assetList.length - 1); // a new asset opens so it can be filled in
+        renderEdit(true); editPanel.querySelector(`#ep-asset-${form.assetList.length - 1}-type`).focus();
+      }
+      else if (act === "asset-remove") {
+        const r = +a.dataset.i;
+        form.assetList.splice(r, 1);
+        openAssets = new Set([...openAssets].filter((i) => i !== r).map((i) => (i > r ? i - 1 : i)));
+        renderEdit(true); editPanel.querySelector('[data-ep-act="asset-add"]').focus();
+      }
     });
     document.addEventListener("keydown", onEditKey);
   }
@@ -516,6 +705,11 @@ window.GC = window.GC || {};
     }
     const d = GC.inbox.find(editId);
     const x = ext(d);
+    const LABELS = { name: "Deal name", price: "Price", areaSqm: "Area", occupancy: "Occupancy", rentYearly: "Rent", assetList: "Assets", location: "Location", dateReceived: "Date received",
+      owner: "Owner", fund: "Fund", dealSource: "Deal source", gla: "GLA", yearBuilt: "Year built", condition: "Condition", wault: "WAULT", noi: "NOI", exitYield: "Exit yield", ltv: "LTV" };
+    const changed = Object.keys(LABELS).filter((k) => JSON.stringify(form[k]) !== JSON.stringify(original[k])).map((k) => LABELS[k]);
+    if (form.stage !== original.stage) GC.inbox.log(d, `changed stage from ${original.stage} to ${form.stage}`);
+    if (changed.length) GC.inbox.log(d, `edited ${changed.join(", ")}`);
     Object.assign(d, {
       name: form.name.trim(), price: form.price, areaSqm: form.areaSqm, occupancy: form.occupancy, rentYearly: form.rentYearly,
       location: form.location, stage: form.stage, dateReceived: form.dateReceived, owner: form.owner || null, dealSource: form.dealSource || null, wault: form.wault,

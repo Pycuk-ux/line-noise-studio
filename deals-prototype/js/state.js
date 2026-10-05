@@ -54,12 +54,19 @@ window.GC = window.GC || {};
     units_count:    { step: 2, label: "Units", kind: "int", min: 0 },
     parking:        { step: 2, label: "Parking", kind: "int", min: 0, suffix: "spaces" },
   };
+  /** Per-asset key metrics, entered on Key Info (optional; the deal-level metrics stay required). */
+  GC.ASSET_KEY_FIELDS = {
+    a_area:      { step: 0, label: "Area", kind: "area", gt: 0 },
+    a_price:     { step: 0, label: "Price", kind: "money", gt: 0 },
+    a_occupancy: { step: 0, label: "Occupancy", kind: "percent", min: 0, max: 100 },
+    a_rent:      { step: 0, label: "Rent", kind: "moneyPeriod", gt: 0 },
+  };
   GC.assetKey = (aid, field) => `${aid}__${field}`;
   GC.splitKey = (id) => { const i = id.indexOf("__"); return i < 0 ? [null, id] : [id.slice(0, i), id.slice(i + 2)]; };
   /** Field definition for a flat id ("price") or a per-asset id ("a1__gla_sqm"). */
   GC.fieldDef = function (id) {
     const [aid, base] = GC.splitKey(id);
-    return aid ? GC.ASSET_FIELDS[base] : GC.FIELDS[id];
+    return aid ? GC.ASSET_FIELDS[base] || GC.ASSET_KEY_FIELDS[base] : GC.FIELDS[id];
   };
 
   /** Deal industry comes from its assets: one type → that type, several types → Mixed-use. */
@@ -103,6 +110,7 @@ window.GC = window.GC || {};
       units: { area: "sqm", period: "yearly", currency: "EUR" },
       data: defaultData(),
       assets: [GC.newAssetId()],
+      assetOpen: {},
       images: [], // { id, name, size, status: 'uploading'|'done', progress, src, data }
       uploadErrors: [],
       ai: { summary: true, strengths: true, risks: true },
@@ -153,6 +161,7 @@ window.GC = window.GC || {};
       s.assets.forEach((aid) => {
         if (!s.data[GC.assetKey(aid, "type")]) errors[GC.assetKey(aid, "type")] = "Asset type is required";
         if (!(s.data[GC.assetKey(aid, "address")] || "").trim()) errors[GC.assetKey(aid, "address")] = "Address is required";
+        Object.keys(GC.ASSET_KEY_FIELDS).forEach((f) => { const id = GC.assetKey(aid, f); const m = GC.validateField(id); if (m) errors[id] = m; });
       });
     }
     if (step === 2) {

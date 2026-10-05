@@ -147,7 +147,7 @@ button { font-family: inherit; }
 /* Kanban board — ds:provisional board-column / board-card (Figma 18829:254538, from the brief) */
 .deal-list[data-view="board"] { flex-direction: row; overflow-x: auto; overflow-y: hidden; gap: var(--space-2); }
 .board-col { flex: 0 0 300px; display: flex; flex-direction: column; min-height: 0; overflow-y: auto; }
-.board-col .card-list { flex: 1 0 auto; }
+.board-col .card-list { flex: 1 0 auto; gap: var(--space-2); }
 .board-col .stage-group__sticky { top: 0; }
 .board-card {
   display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-3);
@@ -173,7 +173,7 @@ button { font-family: inherit; }
 .board-card__nav button:hover { background: var(--surface-white); }
 .board-card__nav button:focus-visible { outline: var(--focus-ring-width) solid var(--focus-ring); }
 .board-card__tags { flex-wrap: wrap; gap: var(--space-2); }
-.board-card__rows { display: flex; flex-direction: column; gap: var(--space-1); }
+.board-card__rows { display: flex; flex-direction: column; gap: var(--space-2); }
 .board-row { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-2); }
 .board-row__label { color: var(--text-tertiary); font-size: var(--text-label-md-size); line-height: var(--text-label-md-line); }
 .board-row__value { color: var(--text-primary); font-size: var(--text-label-md-size); line-height: var(--text-label-md-line); font-weight: var(--w-medium); text-align: right; }
@@ -424,3 +424,16 @@ button { font-family: inherit; }
   .row-card__stats { gap: var(--space-3); }
 }
 .list-footer[hidden] { display: none; }
+
+/* Stage picker additions to the deal menu */
+.deal-menu__title { margin: 0; padding: var(--space-1) var(--space-2); color: var(--text-tertiary); font-size: var(--type-caption-size); line-height: var(--type-caption-line); }
+.deal-menu__dot { width: var(--space-2); height: var(--space-2); border-radius: var(--radius-full); background: var(--stage-fg); flex: 0 0 auto; }
+.deal-menu__check { margin-left: auto; color: var(--icon-positive); }
+.deal-menu button[aria-checked="true"] { font-weight: var(--w-semibold); }
+.stage-chip[data-stage-menu] { cursor: pointer; }
+.stage-chip[data-stage-menu]:hover { border-color: var(--stage-fg); }
+.stage-chip:focus-visible { outline: var(--focus-ring-width) solid var(--focus-ring); outline-offset: var(--focus-ring-offset); }
+
+/* Empty list state (archived) — ds:provisional empty-state */
+.empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--space-2); padding: var(--space-12) var(--space-4); color: var(--icon-tertiary); text-align: center; }
+.empty-state p { margin: 0; }

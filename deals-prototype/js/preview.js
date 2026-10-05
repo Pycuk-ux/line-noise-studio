@@ -114,6 +114,8 @@ window.GC = window.GC || {};
         <td class="num">${i + 1}</td>
         ${cell((s.data[k("address")] || "").trim())}
         <td>${s.data[k("type")] ? `<span class="industry-chip" data-ds-provisional="chip">${esc(s.data[k("type")])}</span>` : "—"}</td>
+        ${cell(numVal(k("a_area")))}${cell(numVal(k("a_price")))}${cell(numVal(k("a_occupancy")))}${cell(numVal(k("a_rent")))}
+        ${cell((() => { const r = s.data[k("a_rent")], p = s.data[k("a_price")]; return r > 0 && p > 0 ? fmt().num((r / p) * 100, 2) + "%" : null; })())}
         ${cell(numVal(k("gla_sqm")))}${cell(numVal(k("nla_sqm")))}${cell(numVal(k("land_sqm")))}
         ${cell(built || ren ? [built || "—", ren].filter(Boolean).join(" / ") : null)}
         ${cell(numVal(k("floors")))}${cell(numVal(k("units_count")))}${cell(numVal(k("parking")))}
@@ -121,7 +123,7 @@ window.GC = window.GC || {};
       </tr>`;
     }).join("");
     return `<div class="pv-table-wrap" data-ds-provisional="table"><table class="pv-table">
-      <thead><tr><th scope="col">#</th><th scope="col">Address</th><th scope="col">Asset type</th><th scope="col">GLA</th><th scope="col">NLA</th><th scope="col">Land area</th>
+      <thead><tr><th scope="col">#</th><th scope="col">Address</th><th scope="col">Asset type</th><th scope="col">Area</th><th scope="col">Price</th><th scope="col">Occupancy</th><th scope="col">Rent</th><th scope="col">NIY</th><th scope="col">GLA</th><th scope="col">NLA</th><th scope="col">Land area</th>
         <th scope="col">Year built / renovated</th><th scope="col">Floors</th><th scope="col">Units</th><th scope="col">Parking</th><th scope="col">Condition</th></tr></thead>
       <tbody>${rows}</tbody></table></div>`;
   }
