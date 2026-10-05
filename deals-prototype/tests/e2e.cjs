@@ -73,6 +73,7 @@ function ok(cond, msg) { if (cond) { pass++; console.log('  ✓', msg); } else {
   ok(await page.$eval('.board-col[data-stage="SCR"] .stage-group__sticky', (e) => e.classList.contains('is-stuck')), 'board column header sticks on scroll');
   await page.screenshot({ path: OUT('board.png') });
   await page.click('#card-fields-btn');
+  ok(new Set(await page.$$eval('#card-fields-menu label', (els) => els.map((e) => Math.round(e.getBoundingClientRect().left)))).size === 1, 'card fields: checkboxes in one vertical column');
   await page.click('#card-fields-menu label:has([data-card-field="area"])');
   await page.click('#card-fields-menu label:has([data-card-field="niy"])');
   const labels = await page.$$eval('.board-card[data-id="d5"] .board-row__label', (els) => els.map((e) => e.textContent));

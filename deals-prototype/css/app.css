@@ -228,6 +228,9 @@ button { font-family: inherit; }
 /* Card fields menu (reuses the map dropdown styles) */
 .card-fields-wrap { position: relative; }
 .card-fields-menu { left: auto; right: 0; z-index: 20; }
+/* Card fields: one checkbox per row, left edges aligned */
+.map-menu__group { display: flex; flex-direction: column; align-items: stretch; }
+.card-fields-menu .map-menu__item { display: flex; align-items: center; gap: var(--space-2); }
 
 /* Row card — ds:provisional name="row-card" */
 .row-card {
