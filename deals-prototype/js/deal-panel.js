@@ -21,6 +21,7 @@ window.GC = window.GC || {};
       team: user ? [user.name] : [],
       broker: "CBRE · Pieter van de Wal",
       deadline: d.deadline ? "LOI submission · 14 Sep, 2026" : "",
+      deadlineDate: d.deadline ? "2026-09-14" : "",
       market: "On-Market",
       gla: d.areaSqm != null ? Math.round(d.areaSqm * 0.94) : null,
       yearBuilt: 2008,
@@ -62,19 +63,6 @@ window.GC = window.GC || {};
     };
   }
 
-  function stageBar(stage) {
-    const main = GC.MOCK.stages.filter((s) => s !== "Other");
-    const cur = main.indexOf(stage);
-    return `<ol class="prov-progress" data-ds-provisional="stepper" aria-label="Deal stage: ${esc(stage)}">
-      ${main.map((st, i) => {
-        const state = cur < 0 ? "upcoming" : i < cur ? "done" : i === cur ? "current" : "upcoming";
-        const icon = state === "done" ? GC.icon("circle-check") : state === "current" ? GC.icon("circle-dashed") : "";
-        return `<li><span class="prov-progress__item is-static" data-state="${state}">${icon}<span>${esc(st)}</span></span></li>`;
-      }).join("")}
-      <li class="is-other"><span class="prov-progress__item is-static" data-state="${stage === "Other" ? "current" : "upcoming"}">Other</span></li>
-    </ol>`;
-  }
-
   function metric(label, value, unit) {
     return `<div class="metric"><span class="t-label">${esc(label)}</span><span class="metric__value">${value == null ? `<span class="t-title is-empty">—</span>` : `<span class="t-title">${esc(value)}</span>`}${unit && value != null ? `<span class="metric__unit">${esc(unit)}</span>` : ""}</span></div>`;
   }
@@ -95,15 +83,16 @@ window.GC = window.GC || {};
   // ============================================================
   let layer = null, panel = null, release = null, trigger = null, current = null, photo = 0, overviewTab = "overview";
 
+  /** Header thumbnail with photo slider (Figma img-container 140×96). */
   function coverHtml(d) {
     const imgs = d.images || [];
-    if (!imgs.length) return `<div class="pv-cover"><div class="pv-cover__empty">${GC.icon("building")}<span>No photos</span></div></div>`;
+    if (!imgs.length) return `<div class="dp-thumb is-empty">${GC.icon("building")}</div>`;
     photo = Math.min(photo, imgs.length - 1);
-    return `<div class="pv-cover"><img src="${imgs[photo]}" alt="${esc(d.name)}, photo ${photo + 1} of ${imgs.length}">
-      <span class="pv-cover__counter">${photo + 1} / ${imgs.length}</span>
-      ${imgs.length > 1 ? `<div class="pv-cover__nav">
-        <button type="button" class="ds-btn is-icon-only" data-type="secondary" data-size="sm" data-dp-photo="-1" aria-label="Previous photo"><span class="ds-btn__icon">${DS_ICONS.get("chevron-left")}</span></button>
-        <button type="button" class="ds-btn is-icon-only" data-type="secondary" data-size="sm" data-dp-photo="1" aria-label="Next photo"><span class="ds-btn__icon">${DS_ICONS.get("chevron-right")}</span></button></div>` : ""}
+    return `<div class="dp-thumb"><img src="${imgs[photo]}" alt="${esc(d.name)}, photo ${photo + 1} of ${imgs.length}">
+      <span class="board-card__count">${photo + 1} / ${imgs.length}</span>
+      ${imgs.length > 1 ? `<span class="board-card__nav">
+        <button type="button" data-dp-photo="-1" aria-label="Previous photo">${GC.icon("chevron-left")}</button>
+        <button type="button" data-dp-photo="1" aria-label="Next photo">${GC.icon("chevron-right")}</button></span>` : ""}
     </div>`;
   }
 
@@ -123,95 +112,114 @@ window.GC = window.GC || {};
       row("Broker", x.broker), row("Deal Source", [x.market, d.dealSource].filter(Boolean).join(" · "))].join("");
   }
 
+  let assetSort = { key: "idx", dir: 1 };
+  const ASSET_COLS = [
+    ["idx", "#"], ["name", "Assets"], ["city", "City"], ["address", "Address"], ["type", "Industry"], ["area", "Area (sqm)"],
+    ["price", "Price (€)"], ["occupancy", "Occupancy"], ["rent", "Rent (€)"], ["psm", "Rent (€/sqm)"], ["niy", "Cap rate"],
+  ];
+  function assetRows(d, x) {
+    const base = d.name.split(",")[0];
+    const rows = x.assetList.map((a, i) => {
+      const m = assetMetrics(a);
+      const parts = (a.address || "").split(",").map((p) => p.trim());
+      return Object.assign({}, a, { idx: i + 1, name: `${base} ${i + 1}`, city: parts.length > 1 ? parts[parts.length - 1] : (d.location || "").split(",")[0],
+        address: parts[0] || "", psm: m.psm != null ? +m.psm.replace(/,/g, "") : null, niy: m.niy != null ? +m.niy.replace(/,/g, "") : null });
+    });
+    const { key, dir } = assetSort;
+    return rows.sort((p, q) => {
+      const a = p[key], b = q[key];
+      if (a == null) return 1; if (b == null) return -1;
+      return (typeof a === "number" ? a - b : String(a).localeCompare(String(b))) * dir;
+    });
+  }
+  function assetTableHtml(d, x) {
+    const F = f(), rows = assetRows(d, x);
+    const sum = (k) => rows.reduce((t, r) => t + (r[k] || 0), 0);
+    const area = sum("area"), price = sum("price"), rent = sum("rent");
+    const n = (v, dp) => (v == null ? "—" : F.num(v, dp));
+    return `<div class="pv-table-wrap"><table class="pv-table dp-assets">
+      <thead><tr>${ASSET_COLS.map(([k, l]) => {
+        const on = assetSort.key === k;
+        return `<th scope="col" aria-sort="${on ? (assetSort.dir > 0 ? "ascending" : "descending") : "none"}"><button type="button" class="dp-sort" data-dp-sort="${k}">${esc(l)}${k === "idx" ? "" : GC.icon("sort-icon")}</button></th>`;
+      }).join("")}</tr></thead>
+      <tbody>
+        <tr class="dp-assets__total"><td></td><td>Total</td><td></td><td></td><td></td><td>${area ? F.num(area, 0) : "—"}</td><td>${price ? F.num(price, 0) : "—"}</td>
+          <td>${d.occupancy != null ? F.num(d.occupancy, 1) + "%" : "—"}</td><td>${rent ? F.num(rent, 0) : "—"}</td>
+          <td>${rent && area ? "€" + F.num(rent / area, 1) : "—"}</td><td>${rent && price ? F.num((rent / price) * 100, 2) + "%" : "—"}</td></tr>
+        ${rows.map((r) => `<tr><td class="num">${r.idx}</td><td><button type="button" class="dp-asset-link">${esc(r.name)}</button></td><td>${esc(r.city || "—")}</td><td>${esc(r.address || "—")}</td>
+          <td>${r.type ? `<span class="industry-chip" data-ds-provisional="chip">${esc(r.type)}</span>` : "—"}</td>
+          <td>${n(r.area, 0)}</td><td>${n(r.price, 0)}</td><td>${r.occupancy != null ? F.num(r.occupancy, 1) + "%" : "—"}</td><td>${n(r.rent, 0)}</td>
+          <td>${r.psm != null ? "€" + F.num(r.psm, 1) : "—"}</td><td>${r.niy != null ? F.num(r.niy, 2) + "%" : "—"}</td></tr>`).join("")}
+      </tbody></table></div>`;
+  }
+
+  /** Mini map: assets as numbered dark pins, comps as numbered green pins (toggle "Show Comps"). */
+  let showComps = true;
+  function miniMapHtml(d, x) {
+    const assetPins = x.assetList.map((a, i) => {
+      const ang = (i / Math.max(1, x.assetList.length)) * Math.PI * 2;
+      return `<span class="dp-pin" data-kind="asset" style="left:${50 + Math.cos(ang) * 14}%;top:${50 + Math.sin(ang) * 18}%">${i + 1}</span>`;
+    }).join("");
+    const compPins = showComps ? [[22, 30], [68, 22], [78, 62], [30, 72], [58, 80], [14, 52], [86, 40], [44, 16]].map(([l, t], i) =>
+      `<span class="dp-pin" data-kind="comp" style="left:${l}%;top:${t}%">${i + 1}</span>`).join("") : "";
+    return `<section class="pv-card dp-map" aria-label="Map of assets and comps">
+      <div class="dp-map__view">${GC.map.baseSvg(d.map, { w: 760, h: 540 })}${compPins}${assetPins}</div>
+      <label class="ds-control ds-switch dp-map__comps"><span>Show Comps</span><input type="checkbox" role="switch" data-dp-comps ${showComps ? "checked" : ""}><span class="ds-switch__track"><span class="ds-switch__thumb"></span></span></label>
+      <div class="map-zoom dp-map__zoom" aria-hidden="true"><span>${GC.icon("plus")}</span><span class="map-zoom__divider"></span><span>${GC.icon("minus")}</span><span class="map-zoom__divider"></span><span>${GC.icon("layers")}</span></div>
+      <div class="dp-map__legend"><span><i data-kind="asset"></i>Assets</span><span><i data-kind="comp"></i>Comps</span></div>
+    </section>`;
+  }
+
+  // Figma "Deal Details | Viewport view" (16292:69643). Comps, Documents and the AI deal memo live on their own tabs.
   function contentHtml(d) {
     const F = f(), x = ext(d);
     const ind = d.industry;
-    const loc = `${d.location || "No location"}${d.assets != null ? `, ${d.assets} assets` : ""}`;
+    const addr = (x.assetList[0] && x.assetList[0].address) || d.location || "No location";
     const tags = [["Last-mile Logistics Investment", "positive"], ["12 min to rail terminal", "positive"], ["Excellent Multimodal Connectivity", "positive"], ["High-specification Warehouses", "negative"], ["High Vacancy Concentration Risk", "negative"]];
     const highlights = [["Attractive Entry Yield", "Portfolio comprises 3 logistics assets totalling 37,380 sqm within a 4 km radius."], ["35% Reversion Upside", "100% occupancy across DHL Supply Chain, Kuehne+Nagel and a Fortune 500 e-commerce tenant."], ["Value-Add Asset Management", "100% CPI-indexed leases provide strong inflation hedge over the 5-year hold."], ["Freehold, Diversified Income", "Estimated 8–14% mark-to-market upside on 38% of GLA over the next 4 years."]];
     const risks = [["Near-Term Lease Expiry Concentration", "The portfolio carries a WAULT to break of only 3.00 years."], ["Reversionary Execution Risk", "The investment thesis is predicated on closing a 35% reversion gap."], ["Tenant Covenant Quality", "The portfolio's 17 tenants are predominantly SMEs."], ["Structural & Repair Liability Exposure", "Steel truss and portal frame construction with pitched roofs."]];
-    const years = [1, 2, 3, 4, 5];
-    const fin = [["Gross rent", "13,640"], ["Operating expenses", "–3,652", "neg"], ["Net operating income", "7,490", "bold"], ["Debt service", "6,250", "neg"], ["Levered Cash Flow", "1,240", "pos"]];
+    const n = x.assetList.length;
     return `
       <div class="dp-head">
-        <div class="pv-head__title"><h2 class="t-page-title" id="dp-title">${esc(d.name)}</h2>
-          ${ind ? `<span class="industry-chip industry-chip--header" data-industry="${esc(ind)}" data-ds-provisional="chip"><span class="dot" aria-hidden="true"></span>${esc(ind)}</span>` : ""}
-          <span class="stage-chip stage-chip--static" data-stage="${esc(d.stage)}" data-ds-provisional="chip">${esc(d.stage)}</span></div>
-        <p class="t-muted pv-head__sub">${esc(loc)}</p>
-      </div>
-
-      <div class="pv-row">
         ${coverHtml(d)}
-        <div class="pv-stack">${stageBar(d.stage)}
-          <div class="metrics" data-ds-provisional="key-metrics">
-            ${metric("Area", d.areaSqm != null ? F.num(d.areaSqm, 0) : null, "sqm")}
-            ${metric("Price", d.price != null ? F.moneyShort(d.price, "EUR") : null)}
-            ${metric("Occupancy", d.occupancy != null ? F.num(d.occupancy, 1) : null, "%")}
-            ${metric("Rent", d.rentYearly != null ? F.money(d.rentYearly, "EUR") : null)}
-            ${metric("Rent/psm", d.rentPsm != null ? "€" + F.num(d.rentPsm, 1) : null)}
-            ${metric("NIY", d.niy != null ? F.num(d.niy, 1) : null, "%")}
+        <div class="dp-head__info">
+          <div class="dp-head__chips">
+            ${ind ? `<span class="industry-chip" data-ds-provisional="chip">${GC.icon("building")}${esc(ind)}</span>` : ""}
+            <button type="button" class="stage-chip" data-stage="${esc(d.stage)}" data-stage-menu="${d.id}" data-ds-provisional="chip" aria-haspopup="menu" aria-expanded="false" aria-label="Deal stage: ${esc(d.stage)}. Change stage">${esc(d.stage)}${GC.icon("chevron-down")}</button>
           </div>
+          <h2 class="dp-head__title" id="dp-title">${esc(d.name)}</h2>
+          <div class="dp-head__addr">${GC.icon("location")}<span>${esc(addr)}</span></div>
         </div>
       </div>
 
-      <div class="pv-row">
+      <div class="metrics dp-metrics" data-ds-provisional="key-metrics">
+        ${metric("Area", d.areaSqm != null ? F.num(d.areaSqm, 0) : null, "sqm")}
+        ${metric("Price", d.price != null ? F.moneyShort(d.price, "EUR") : null)}
+        ${metric("Occupancy", d.occupancy != null ? F.num(d.occupancy, 1) : null, "%")}
+        ${metric("Rent", d.rentYearly != null ? F.money(d.rentYearly, "EUR") : null)}
+        ${metric("Rent (€/sqm)", d.rentPsm != null ? "€" + F.num(d.rentPsm, 1) : null)}
+        ${metric("Total assets", String(n))}
+        ${metric("Cap rate", d.niy != null ? F.num(d.niy, 1) : null, "%")}
+      </div>
+
+      <div class="dp-grid">
         <section class="pv-card" aria-label="Overview">
           <div class="ds-segmented dp-tabs" role="group" aria-label="Overview sections">
             ${[["overview", "Overview"], ["physical", "Physical"], ["financial", "Financial"]].map(([id, l]) => `<button type="button" class="ds-segment" data-dp-tab="${id}" aria-pressed="${overviewTab === id}">${l}</button>`).join("")}
           </div>
           <div class="ov-rows dp-overview">${overviewRows(d, x)}</div>
         </section>
-        <section class="pv-card">
-          ${heading("AI Summary", linkBtn("Ask follow-up"), null, "ai")}
+        <section class="pv-card dp-summary">
+          ${heading("AI Summary", linkBtn("Ask follow-up"), null, "ai").replace("</h3>", ` <span class="count">(30 Sep 2026)</span></h3>`)}
           <div class="dp-tags">${tags.map(([t, k]) => `<span class="ds-badge" data-type="${k}">${esc(t)}</span>`).join("")}</div>
-          <p class="dp-text">${esc(d.name)} is a prime ${esc((ind || "commercial").toLowerCase())} investment in a key European hub. The asset comprises ${d.assets || 3} modern, high-specification buildings with ${d.occupancy != null ? F.num(d.occupancy, 1) + "%" : "high"} occupancy and long-term leases to creditworthy tenants. The location benefits from excellent multimodal connectivity — direct motorway access and 12 min to the rail terminal.</p>
+          <p class="dp-text" data-clamped="true" id="dp-summary-text">${esc(d.name)} is a prime ${esc((ind || "commercial").toLowerCase())} investment in a key European hub. The asset comprises ${n} modern, high-specification buildings with ${d.occupancy != null ? F.num(d.occupancy, 1) + "%" : "high"} occupancy and long-term leases to creditworthy tenants. The location benefits from excellent multimodal connectivity — direct motorway access and 12 min to the rail terminal. Occupancy and long-term leases to creditworthy tenants provide a resilient income profile, while the 35% reversion gap offers value-add upside over the hold period.</p>
+          <button type="button" class="dp-more" data-dp-more aria-controls="dp-summary-text" aria-expanded="false">Show more ...</button>
           <div class="dp-summary-foot"><span class="dp-icons">${["copy", "like", "dislike", "edit"].map((i) => `<button type="button" class="ds-btn is-icon-only" data-type="ghost" data-size="sm" aria-label="${i}"><span class="ds-btn__icon">${DS_ICONS.get(i)}</span></button>`).join("")}</span>${linkBtn("3 sources")}</div>
         </section>
-      </div>
-
-      <section class="pv-card">
-        ${heading("Asset", linkBtn("Explore asset"))}
-        <div class="pv-table-wrap"><table class="pv-table">
-          <thead><tr><th>#</th><th>Assets</th><th>Address</th><th>Industry</th><th>Area (sqm)</th><th>Price (€)</th><th>Occupancy</th><th>Rent (€)</th><th>Rent/psm</th><th>NIY</th></tr></thead>
-          <tbody>${x.assetList.map((a, i) => { const m = assetMetrics(a); return `<tr><td class="num">${i + 1}</td><td>${esc(d.name.split(",")[0])} ${i + 1}</td><td>${esc(a.address || "—")}</td>
-            <td>${a.type ? `<span class="industry-chip" data-ds-provisional="chip">${esc(a.type)}</span>` : "—"}</td>
-            <td>${a.area != null ? F.num(a.area, 0) : "—"}</td><td>${a.price != null ? F.num(a.price, 0) : "—"}</td>
-            <td>${a.occupancy != null ? F.num(a.occupancy, 1) + "%" : "—"}</td><td>${a.rent != null ? F.num(a.rent, 0) : "—"}</td>
-            <td>${m.psm != null ? "€" + m.psm : "—"}</td><td>${m.niy != null ? m.niy + "%" : "—"}</td></tr>`; }).join("")}</tbody></table></div>
-      </section>
-
-      <section class="pv-card dp-map" aria-label="Map">
-        <div class="dp-map__view">${GC.map.baseSvg(d.map)}<span class="map-pin" data-stage="${esc(d.stage)}" data-mode="pill" style="left:50%;top:50%"><span class="map-pin__label">${d.price != null ? F.moneyShort(d.price, "EUR") : "No price"}</span></span></div>
-      </section>
-
-      <section class="pv-card">
-        ${heading("Comps", "", 37)}
-        <div class="pv-row pv-row--half">
-          ${[["Rental comps", "16 included", "Price/sqm", "€1,240", "€990 – €1,440", "Equal to the market"], ["Invest comps", "21 included", "NIY", "10.6%", "8.9% – 11.4%", "−0.5% vs market"]].map(([t, n, k, v, r, note]) => `
-            <div class="dp-comp"><div class="dp-comp__head"><span class="t-title">${t}</span><span class="t-muted">(${n})</span></div>
-              <div class="dp-comp__body"><div><p class="t-title">${k}</p><p class="t-label">${note}</p></div><div class="dp-comp__vals"><span class="t-value">${v}</span><span class="t-label">${r}</span></div></div>
-              <div class="dp-range" aria-hidden="true"><span class="dp-range__bar"></span><span class="dp-range__dot"></span></div></div>`).join("")}
-        </div>
-      </section>
-
-      <div class="pv-row dp-row-fin">
-        <section class="pv-card">
-          ${heading("Financial Model", "", null)}
-          <div class="pv-table-wrap"><table class="pv-table dp-fin">
-            <thead><tr><th>€ 000s</th>${years.map((y) => `<th class="r">Year ${y}</th>`).join("")}</tr></thead>
-            <tbody>${fin.map(([l, v, k]) => `<tr class="${k || ""}"><td>${l}</td>${years.map(() => `<td class="r">${v}</td>`).join("")}</tr>`).join("")}
-              <tr class="bold"><td>Entry/Exit Value</td>${years.map((y) => `<td class="r">${y === 5 ? "+39,214" : ""}</td>`).join("")}</tr></tbody></table></div>
-          <div class="ov-cols dp-assume">
-            <p class="ov-subhead">Assumption</p>
-            ${row("Entry price", d.price != null ? F.moneyShort(d.price, "EUR") : null)}${row("Exit yield", x.exitYield != null ? `${F.num(x.exitYield, 1)}%` : null)}
-            ${row("Rent growth", "2.0% p.a.")}${row("Hold period", "5 years")}${row("LTV", x.ltv != null ? `${x.ltv}%` : null)}${row("Cost of debt", "4.2%")}
-          </div>
-        </section>
-        <section class="pv-card dp-memo">
-          ${heading("Deal Memo", `<span class="t-label">${GC.icon("ai")} AI generated</span>`)}
-          <div class="dp-memo__doc"><p class="t-value">Investment committee memo</p><p class="t-label">${esc(d.name)} · ${esc(d.stage)} Stage</p><span></span><span></span><span></span></div>
-          <button type="button" class="ds-btn" data-type="primary" data-size="md">${GC.icon("ai", "ds-btn__icon")}<span class="ds-btn__label">Iterate in Assistant</span></button>
-          <ul class="dp-checks">${["Executive Summary", "Market Analysis", "Financial Analysis", "Risks & Mitigants", "Recommendations"].map((t) => `<li>${GC.icon("check")}${t}</li>`).join("")}</ul>
+        ${miniMapHtml(d, x)}
+        <section class="pv-card dp-assets-card" aria-labelledby="dp-assets-t">
+          <div class="section-heading" data-ds-provisional="section-heading"><h3 class="section-heading__title t-section-title" id="dp-assets-t">Assets</h3></div>
+          ${assetTableHtml(d, x)}
         </section>
       </div>
 
@@ -220,90 +228,136 @@ window.GC = window.GC || {};
           <ul class="dp-list">${highlights.map(([t, s]) => `<li><span class="dp-list__dot is-pos"></span><div><p class="t-value">${t}</p><p class="t-label">${s}</p></div></li>`).join("")}</ul></section>
         <section class="pv-card">${heading("Investment Risks", linkBtn("See all"), 8)}
           <ul class="dp-list">${risks.map(([t, s]) => `<li>${GC.icon("risk-level")}<div><p class="t-value">${t}</p><p class="t-label">${s}</p></div></li>`).join("")}</ul></section>
-      </div>
-
-      <section class="pv-card">
-        ${heading("Sources", `<button type="button" class="ds-btn" data-type="secondary" data-size="sm"><span class="ds-btn__label">Add files</span>${GC.icon("plus", "ds-btn__icon")}</button>`, 2)}
-        <div class="dp-sources">${["Project Merlin IM.pdf", "Rent roll Q3 2026.xlsx"].map((n) => `<div class="dp-source">${GC.icon("document")}<p class="t-value">${n}</p><p class="t-label">963.31 kB</p></div>`).join("")}</div>
-      </section>`;
+      </div>`;
   }
 
   // ============================================================
   //  Drawer tabs (Figma 18831:258397) — Comments 18831:260095, Log activity 18831:260029
   // ============================================================
-  const DP_TABS = [["details", "Deal Details"], ["assets", "Assets", true], ["comps", "Comps", true], ["ai", "AI Assistant", true],
-    ["documents", "Documents", true], ["comments", "Comments"], ["logs", "Logs"]];
+  // Order and labels from Figma 16292:69643 tab-bar; Assets/Comps/Documents/AI Assistant are not built yet.
+  const DP_TABS = [["details", "Deal Details"], ["assets", "Assets", true], ["comps", "Comps", true], ["documents", "Documents", true],
+    ["ai", "AI Assistant", true], ["comments", "Comments"], ["logs", "Log"]];
   let dpTab = "details";
   const COMMENT_TEXT = [
-    "Shared the IM with the team — rent roll looks clean, two leases roll in 2027.",
+    "Shared the IM with the team — rent roll looks clean, two leases roll in 2027. @{Sarah Chen} can you check the break options?",
     "Broker confirmed the vendor is open to an off-market process if we move before the LOI deadline.",
-    "Can we get a second opinion on the roof condition? Survey photos are a few years old.",
-    "NIY is in line with the last two comps in the area. Happy to proceed to the next stage.",
-    "Added the updated rent schedule to Documents.",
+    "Can we get a second opinion on the roof condition? Survey photos are a few years old.\ncc. @{Yusuf Ali}",
+    "Cap rate is in line with the last two comps in the area. Happy to proceed to the next stage.",
+    "@{Liam O'Connor} added the updated rent schedule to Documents.",
     "Flagging the tenant concentration — top tenant is ~38% of income.",
   ];
   const minsAgo = (m) => new Date(Date.now() - m * 60000).toISOString();
+  const dayStart = (t) => { const x = new Date(t); x.setHours(0, 0, 0, 0); return x.getTime(); };
   function ago(iso) {
     const m = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000));
     if (m < 1) return "Just now";
     if (m < 60) return `${m} min ago`;
     if (m < 60 * 24) return `${Math.round(m / 60)}h ago`;
     const days = Math.round(m / 1440);
-    return days === 1 ? "Yesterday" : days < 7 ? `${days} days ago` : f().dateLong(iso.slice(0, 10));
+    return days === 1 ? "Yesterday" : days < 7 ? `${days} days ago` : f().dateShort(iso.slice(0, 10));
   }
-  function avatar(name) {
-    const u = GC.MOCK.users.find((x) => x.name === name);
-    const ini = u ? u.initials : name.split(" ").map((p) => p[0]).join("").slice(0, 2);
-    return `<span class="ds-avatar" data-size="md" aria-hidden="true">${esc(ini)}</span>`;
+  // Avatar tints per person (Figma comments: emerald / indigo circles with one initial)
+  const TINTS = ["emerald", "indigo", "yellow", "purple", "cyan", "red"];
+  function avatar(name, size) {
+    const users = GC.MOCK.users;
+    const i = Math.max(0, users.findIndex((x) => x.name === name));
+    return `<span class="dp-avatar" data-tint="${TINTS[i % TINTS.length]}"${size ? ` data-size="${size}"` : ""} aria-hidden="true">${esc((name || "?")[0])}</span>`;
   }
-  /** Mock comment thread — one entry per comment on the card, oldest first. */
+  /** Comment text → HTML with @mentions highlighted. Stored mentions are @{Full Name}; typed ones match a team member's name. */
+  function richText(text) {
+    const names = GC.MOCK.users.map((u) => u.name).sort((p, q) => q.length - p.length);
+    let html = esc(text).replace(/@\{([^}]+)\}/g, (_, n) => `<span class="mention">@${n}</span>`);
+    names.forEach((n) => {
+      const en = esc(n).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      html = html.replace(new RegExp(`(^|[\\s(])@(${en}|${esc(n.split(" ")[0])})(?![\\w])`, "g"), (_, pre, m) => `${pre}<span class="mention">@${m}</span>`);
+    });
+    return html.replace(/\n/g, "<br>");
+  }
+  /** Mock comment thread — one entry per comment on the card; shown newest first. */
   function commentList(d) {
     if (!d.commentList) {
       const users = GC.MOCK.users;
       const n = d.comments || 0;
       d.commentList = Array.from({ length: n }, (_, i) => ({
-        who: users[(i * 2 + 1) % users.length].name, text: COMMENT_TEXT[i % COMMENT_TEXT.length], at: minsAgo((n - i) * 190),
+        id: `c${i}`, who: users[(i * 2 + 1) % users.length].name, text: COMMENT_TEXT[i % COMMENT_TEXT.length], at: minsAgo((n - i) * 190),
       }));
     }
     return d.commentList;
   }
-  /** Activity log: user actions recorded this session (d.log) on top of mock history. */
+  /** Activity log (Figma 16292:70814): session actions (d.log) on top of mock history. */
+  const LOG_TYPES = [["all", "All event types"], ["stage", "Stage changes"], ["edit", "Edits"], ["comment", "Comments"],
+    ["status", "Archive & restore"], ["ai", "AI & highlights"], ["received", "Deal received"]];
+  let logFilter = "all";
   function logList(d) {
     const owner = (GC.MOCK.users.find((u) => u.initials === d.owner) || GC.MOCK.users[0]).name;
+    const recv = d.dateReceived ? new Date(d.dateReceived + "T12:45:00").toISOString() : minsAgo(60 * 72);
+    const atToday = (h) => minsAgo(h * 60);
+    const yesterday = (hh, mm) => { const x = new Date(dayStart(Date.now()) - 86400000); x.setHours(hh, mm); return x.toISOString(); };
     const base = d.isNew ? [] : [
-      { who: owner, text: `moved the deal to ${d.stage}`, at: minsAgo(60 * 26) },
-      { who: "Sarah Chen", text: "uploaded 2 documents to Sources", at: minsAgo(60 * 50) },
-      { who: "Gocanopy AI", text: "generated the AI summary and deal memo", at: minsAgo(60 * 51), ai: true },
-      { who: owner, text: "created the deal", at: d.dateReceived ? new Date(d.dateReceived + "T09:30:00").toISOString() : minsAgo(60 * 72) },
+      { who: "Sarah Chen", text: `updated Price: ${f().money(Math.round((d.price || 4200000) * 1.06), "EUR")} → ${f().money(d.price || 3950000, "EUR")}`, type: "edit", at: atToday(2) },
+      { who: GC.inbox.ME, text: "dismissed investment risk “High tenant concentration”", type: "ai", at: atToday(4) },
+      { who: "Maya Brooks", text: "added key highlight “Below-market rent, reversion potential”", type: "ai", at: yesterday(17, 41) },
+      { who: "Tomás Novak", text: "edited AI Summary · tag changed from AI generated to Edited", type: "ai", at: yesterday(16, 20) },
+      { who: owner, text: `changed stage: Received → ${d.stage}`, type: "stage", at: new Date(new Date(recv).getTime() + 86400000 * 2).toISOString() },
+      { who: null, text: "from CBRE (email import)", type: "received", at: recv },
     ];
-    return (d.log || []).concat(base);
+    const all = (d.log || []).concat(base).sort((p, q) => q.at.localeCompare(p.at));
+    return logFilter === "all" ? all : all.filter((l) => l.type === logFilter);
   }
   function tabsHtml(d) {
     const n = d.commentList ? d.commentList.length : d.comments || 0;
-    return DP_TABS.map(([id, l, off]) => `<button class="ds-tab" type="button" data-size="small" role="tab" id="dp-tab-${id}" data-dp-view="${id}"
-      aria-selected="${dpTab === id}" aria-controls="dp-panel" tabindex="${dpTab === id ? 0 : -1}"${off ? ' disabled aria-disabled="true" title="Coming soon"' : ""}>${l}${id === "comments" && n ? `<span class="ds-tab-chip">${n}</span>` : ""}</button>`).join("");
+    return DP_TABS.map(([id, l, off]) => `<button class="ds-tab" type="button" data-size="large" role="tab" id="dp-tab-${id}" data-dp-view="${id}"
+      aria-selected="${dpTab === id}" aria-controls="dp-panel" tabindex="${dpTab === id ? 0 : -1}"${off ? ' aria-disabled="true" title="Coming soon"' : ""}>${l}${id === "comments" && n ? `<span class="ds-tab-chip">${n}</span>` : ""}</button>`).join("");
   }
   function commentsHtml(d) {
-    const list = commentList(d);
-    return `<section class="pv-card dp-feed" aria-labelledby="dp-title">
-      <h2 class="t-section-title" id="dp-title">Comments <span class="count">(${list.length})</span></h2>
-      ${list.length ? `<ul class="dp-thread">${list.map((c) => `<li class="dp-thread__item">${avatar(c.who)}<div class="dp-thread__body">
-          <p class="dp-thread__meta"><span class="t-value">${esc(c.who)}</span><span class="t-label">${esc(ago(c.at))}</span></p><p class="dp-text">${esc(c.text)}</p></div></li>`).join("")}</ul>`
-        : `<p class="t-muted dp-feed__empty">No comments yet. Start the conversation with your team.</p>`}
-      <form class="dp-composer" data-dp-composer>
-        ${avatar("Liam O'Connor")}
-        <div class="ds-field" data-size="medium" data-state="default"><label class="ds-field__label sr-only" for="dp-comment">Write a comment</label>
-          <div class="ds-field__box"><input class="ds-field__input" id="dp-comment" type="text" autocomplete="off" placeholder="Write a comment…"></div></div>
-        <button type="submit" class="ds-btn" data-type="primary" data-size="md" disabled><span class="ds-btn__label">Send</span></button>
+    const list = commentList(d).slice().reverse();
+    return `<section class="pv-card dp-feed dp-feed--comments" aria-labelledby="dp-title">
+      <h2 class="sr-only" id="dp-title">Comments on ${esc(d.name)}</h2>
+      <form class="dp-composer" data-dp-composer data-ds-provisional="comment-composer">
+        <label class="sr-only" for="dp-comment">Leave a comment</label>
+        <textarea class="dp-composer__input" id="dp-comment" rows="1" placeholder="Start typing to leave a comment"></textarea>
+        <div class="dp-composer__row">
+          <button type="button" class="dp-composer__at" data-dp-at aria-label="Mention someone" title="Mention someone">@</button>
+          <button type="submit" class="ds-btn" data-type="primary" data-size="md" disabled><span class="ds-btn__label">Send</span></button>
+        </div>
       </form>
+      ${list.length ? `<ul class="dp-thread">${list.map((c) => {
+        const mine = c.who === GC.inbox.ME;
+        return `<li class="dp-thread__item" data-comment="${c.id}">
+          <div class="dp-thread__meta">${avatar(c.who)}<span class="dp-thread__name">${esc(c.who)}</span><span class="dp-thread__time">${esc(ago(c.at))}</span></div>
+          <div class="dp-thread__text">${richText(c.text)}</div>
+          <div class="dp-thread__actions">
+            <button type="button" class="dp-icon-btn" data-dp-copy="${c.id}" aria-label="Copy comment" title="Copy">${GC.icon("copy")}</button>
+            ${mine ? `<button type="button" class="dp-icon-btn" data-dp-edit-comment="${c.id}" aria-label="Edit comment" title="Edit">${GC.icon("edit")}</button>`
+              : `<button type="button" class="dp-icon-btn dp-reply" data-dp-reply="${esc(c.who)}">${GC.icon("message-text")}<span>Reply</span></button>`}
+          </div></li>`;
+      }).join("")}</ul>` : `<p class="t-muted dp-feed__empty">No comments yet. Start the conversation with your team.</p>`}
     </section>`;
   }
   function logsHtml(d) {
     const list = logList(d);
-    return `<section class="pv-card dp-feed" aria-labelledby="dp-title">
-      <h2 class="t-section-title" id="dp-title">Log activity</h2>
-      <ol class="dp-log">${list.map((l) => `<li class="dp-log__item">${l.ai ? `<span class="ds-avatar dp-log__ai" data-size="md" aria-hidden="true">${GC.icon("ai")}</span>` : avatar(l.who)}
-        <p class="dp-log__text"><span class="t-value">${esc(l.who)}</span> ${esc(l.text)}</p><span class="t-label dp-log__time">${esc(ago(l.at))}</span></li>`).join("")}</ol>
+    const now = Date.now(), today = dayStart(now), yday = today - 86400000;
+    const groups = [];
+    list.forEach((l) => {
+      const t = new Date(l.at).getTime(), ds = dayStart(t);
+      const lx = new Date(t), localIso = `${lx.getFullYear()}-${String(lx.getMonth() + 1).padStart(2, "0")}-${String(lx.getDate()).padStart(2, "0")}`;
+      const label = ds === today ? "Today" : ds === yday ? "Yesterday" : f().dateShort(localIso);
+      let g = groups[groups.length - 1];
+      if (!g || g.label !== label) groups.push(g = { label, items: [] });
+      const hhmm = new Date(t).toTimeString().slice(0, 5);
+      g.items.push(Object.assign({ time: ds === today ? ago(l.at) : hhmm }, l));
+    });
+    const type = LOG_TYPES.find((x) => x[0] === logFilter);
+    return `<section class="pv-card dp-feed dp-feed--log" aria-labelledby="dp-title">
+      <h2 class="sr-only" id="dp-title">Activity log for ${esc(d.name)}</h2>
+      <div><button type="button" class="ds-btn dp-log__filter" data-type="secondary" data-size="md" data-dp-logfilter aria-haspopup="menu" aria-expanded="false"><span class="ds-btn__label">${esc(type[1])}</span>${GC.icon("chevron-down", "ds-btn__icon")}</button></div>
+      <table class="dp-log">
+        <thead><tr><th scope="col" class="dp-log__time">Time</th><th scope="col">Log text</th></tr></thead>
+        ${groups.length ? groups.map((g) => `<tbody><tr class="dp-log__group"><th scope="rowgroup" colspan="2">${esc(g.label)}</th></tr>
+          ${g.items.map((l) => `<tr class="dp-log__row"><td class="dp-log__time">${esc(l.time)}</td>
+            <td><span class="dp-log__who">${l.type === "received" && !l.who ? "Deal received" : l.who === GC.inbox.ME ? "You" : esc(l.who)}</span> <span class="dp-log__what">${esc(l.text)}</span></td></tr>`).join("")}</tbody>`).join("")
+          : `<tbody><tr><td colspan="2" class="dp-feed__empty t-muted">No events of this type yet.</td></tr></tbody>`}
+      </table>
     </section>`;
   }
 
@@ -339,9 +393,9 @@ window.GC = window.GC || {};
     setTimeout(end, 400);
   }
 
-  function open(id, triggerEl) {
-    if (layer) { current = id; photo = 0; renderDetails(); return; }
-    current = id; photo = 0; overviewTab = "overview"; dpTab = "details";
+  function open(id, triggerEl, tab) {
+    if (layer) { current = id; photo = 0; if (tab) dpTab = tab; renderDetails(); return; }
+    current = id; photo = 0; overviewTab = "overview"; dpTab = tab || "details"; logFilter = "all"; assetSort = { key: "idx", dir: 1 };
     trigger = triggerEl || document.activeElement;
     layer = document.createElement("div");
     layer.className = "drawer-layer";
@@ -351,12 +405,14 @@ window.GC = window.GC || {};
           <div class="dp__bar-left">
             <button type="button" class="ds-btn is-icon-only" data-type="ghost" data-size="md" data-dp="close" aria-label="Close panel" title="Close"><span class="ds-btn__icon ico--flip">${DS_ICONS.get("chevrons-left")}</span></button>
             <button type="button" class="ds-btn is-icon-only" data-type="ghost" data-size="md" data-dp="full" aria-label="Open full page" aria-pressed="false" title="Full page"><span class="ds-btn__icon">${DS_ICONS.get("full-page")}</span></button>
-            <span class="dp__divider" aria-hidden="true"></span>
             <button type="button" class="ds-btn is-icon-only" data-type="ghost" data-size="md" data-dp="prev" aria-label="Previous deal" title="Previous deal"><span class="ds-btn__icon">${DS_ICONS.get("arrow-up")}</span></button>
             <button type="button" class="ds-btn is-icon-only" data-type="ghost" data-size="md" data-dp="next" aria-label="Next deal" title="Next deal"><span class="ds-btn__icon">${DS_ICONS.get("arrow-down")}</span></button>
-            <span class="t-label" id="dp-pos" aria-live="polite"></span>
+            <span class="sr-only" id="dp-pos" aria-live="polite"></span>
           </div>
-          <button type="button" class="ds-btn" data-type="secondary" data-size="md" data-dp="edit">${GC.icon("edit", "ds-btn__icon")}<span class="ds-btn__label">Edit</span></button>
+          <div class="dp__bar-right">
+            <button type="button" class="ds-btn" data-type="ghost" data-size="sm" data-dp="edit"><span class="ds-btn__label">Edit</span>${GC.icon("edit", "ds-btn__icon")}</button>
+            <button type="button" class="ds-btn is-icon-only" data-type="ghost" data-size="sm" data-dp="more" aria-haspopup="menu" aria-expanded="false" aria-label="More actions"><span class="ds-btn__icon">${DS_ICONS.get("more-vertical")}</span></button>
+          </div>
         </div>
         <div class="ds-tabs dp__tabs" role="tablist" aria-label="Deal views"></div>
         <div class="dp__scroll" id="dp-panel" role="tabpanel" tabindex="-1"></div>
@@ -380,6 +436,26 @@ window.GC = window.GC || {};
           const nx = order[i + (act === "next" ? 1 : -1)];
           if (nx) { current = nx.id; photo = 0; renderDetails(); panel.querySelector(".dp__scroll").scrollTop = 0; }
         } else if (act === "edit") edit(current, a);
+        else if (act === "more") { a.dataset.dealMenu = current; GC.inbox.openMenu(a); }
+        return;
+      }
+      const sm = e.target.closest("[data-stage-menu]");
+      if (sm) { GC.inbox.openStageMenu(sm); return; }
+      const so = e.target.closest("[data-dp-sort]");
+      if (so) {
+        const k = so.dataset.dpSort;
+        assetSort = assetSort.key === k ? { key: k, dir: -assetSort.dir } : { key: k, dir: 1 };
+        const d = GC.inbox.find(current);
+        panel.querySelector(".dp-assets").closest(".pv-table-wrap").outerHTML = assetTableHtml(d, ext(d));
+        panel.querySelector(`[data-dp-sort="${k}"]`).focus();
+        return;
+      }
+      const more = e.target.closest("[data-dp-more]");
+      if (more) {
+        const t = panel.querySelector("#dp-summary-text"), open = t.dataset.clamped === "true";
+        t.dataset.clamped = open ? "false" : "true";
+        more.textContent = open ? "Show less" : "Show more ...";
+        more.setAttribute("aria-expanded", open);
         return;
       }
       const vt = e.target.closest("[data-dp-view]");
@@ -388,7 +464,7 @@ window.GC = window.GC || {};
       if (ph) {
         const d = GC.inbox.find(current);
         photo = (photo + +ph.dataset.dpPhoto + d.images.length) % d.images.length;
-        panel.querySelector(".pv-cover").outerHTML = coverHtml(d);
+        panel.querySelector(".dp-thumb").outerHTML = coverHtml(d);
         const again = panel.querySelector(`[data-dp-photo="${ph.dataset.dpPhoto}"]`); if (again) again.focus();
         return;
       }
@@ -408,22 +484,81 @@ window.GC = window.GC || {};
       const nx = e.key === "Home" ? 0 : e.key === "End" ? on.length - 1 : (k + (e.key === "ArrowRight" ? 1 : -1) + on.length) % on.length;
       selectTab(on[nx]);
     });
+    layer.addEventListener("change", (e) => {
+      if (!e.target.matches("[data-dp-comps]")) return;
+      showComps = e.target.checked;
+      const d = GC.inbox.find(current);
+      const mp = panel.querySelector(".dp-map");
+      mp.outerHTML = miniMapHtml(d, ext(d));
+      panel.querySelector("[data-dp-comps]").focus();
+    });
+    const sendState = () => { const t = panel.querySelector("#dp-comment"); if (t) t.form.querySelector('[type="submit"]').disabled = !t.value.trim(); };
     layer.addEventListener("input", (e) => {
-      if (e.target.id === "dp-comment") e.target.form.querySelector('[type="submit"]').disabled = !e.target.value.trim();
+      if (e.target.id !== "dp-comment") return;
+      sendState();
+      e.target.style.height = "auto"; e.target.style.height = e.target.scrollHeight + "px"; // grow with the text
+    });
+    layer.addEventListener("keydown", (e) => {
+      if (e.target.id === "dp-comment" && e.key === "Enter" && (e.metaKey || e.ctrlKey)) { e.preventDefault(); e.target.form.requestSubmit(); }
+    });
+    const insertAt = (txt) => {
+      const t = panel.querySelector("#dp-comment");
+      const pos = t.selectionStart != null ? t.selectionStart : t.value.length;
+      t.value = t.value.slice(0, pos) + txt + t.value.slice(t.selectionEnd || pos);
+      t.focus(); t.selectionStart = t.selectionEnd = pos + txt.length;
+      sendState();
+    };
+    layer.addEventListener("click", (e) => {
+      if (e.target.closest("[data-dp-at]")) { insertAt("@"); return; }
+      const rp = e.target.closest("[data-dp-reply]");
+      if (rp) { const t = panel.querySelector("#dp-comment"); t.value = ""; insertAt(`@${rp.dataset.dpReply} `); return; }
+      const cp = e.target.closest("[data-dp-copy]");
+      if (cp) {
+        const c = commentList(GC.inbox.find(current)).find((x) => x.id === cp.dataset.dpCopy);
+        const plain = c.text.replace(/@\{([^}]+)\}/g, "@$1");
+        if (navigator.clipboard) navigator.clipboard.writeText(plain).catch(() => {});
+        GC.toast("Copied to clipboard", "", "neutral");
+        return;
+      }
+      const ed = e.target.closest("[data-dp-edit-comment]");
+      if (ed) {
+        const li = ed.closest(".dp-thread__item");
+        const c = commentList(GC.inbox.find(current)).find((x) => x.id === ed.dataset.dpEditComment);
+        li.querySelector(".dp-thread__text").innerHTML = `<label class="sr-only" for="dp-edit-${c.id}">Edit comment</label><textarea class="dp-composer__input dp-edit" id="dp-edit-${c.id}">${esc(c.text.replace(/@\{([^}]+)\}/g, "@$1"))}</textarea>
+          <div class="dp-edit__row"><button type="button" class="ds-btn" data-type="secondary" data-size="sm" data-dp-edit-cancel>Cancel</button><button type="button" class="ds-btn" data-type="primary" data-size="sm" data-dp-edit-save="${c.id}">Save</button></div>`;
+        li.querySelector(".dp-thread__actions").hidden = true;
+        li.querySelector("textarea").focus();
+        return;
+      }
+      if (e.target.closest("[data-dp-edit-cancel]")) { renderDetails(); return; }
+      const sv = e.target.closest("[data-dp-edit-save]");
+      if (sv) {
+        const d = GC.inbox.find(current);
+        const c = commentList(d).find((x) => x.id === sv.dataset.dpEditSave);
+        const v = sv.closest(".dp-thread__item").querySelector("textarea").value.trim();
+        if (v && v !== c.text) { c.text = v; GC.inbox.log(d, "edited a comment", "comment"); }
+        renderDetails();
+        return;
+      }
+      const lf = e.target.closest("[data-dp-logfilter]");
+      if (lf) {
+        GC.inbox.popup(lf, `<p class="deal-menu__title">Event type</p>${LOG_TYPES.map(([k, l]) => `<button type="button" role="menuitemradio" aria-checked="${logFilter === k}" data-pick="${k}">${esc(l)}${logFilter === k ? GC.icon("check", "deal-menu__check") : ""}</button>`).join("")}`,
+          (k) => { logFilter = k; renderDetails(); panel.querySelector("[data-dp-logfilter]").focus(); });
+      }
     });
     layer.addEventListener("submit", (e) => {
       if (!e.target.matches("[data-dp-composer]")) return;
       e.preventDefault();
-      const inp = e.target.querySelector("#dp-comment");
-      const text = inp.value.trim();
+      const text = e.target.querySelector("#dp-comment").value.trim();
       if (!text) return;
       const d = GC.inbox.find(current);
-      commentList(d).push({ who: "Liam O'Connor", text, at: new Date().toISOString() });
-      d.comments = d.commentList.length;
-      GC.inbox.log(d, "left a comment");
+      const list = commentList(d);
+      list.push({ id: `c${Date.now().toString(36)}`, who: GC.inbox.ME, text, at: new Date().toISOString() });
+      d.comments = list.length;
+      GC.inbox.log(d, "left a comment", "comment");
       renderDetails();
       GC.inbox.update(d);
-      const sc = panel.querySelector(".dp__scroll"); sc.scrollTop = sc.scrollHeight;
+      panel.querySelector(".dp__scroll").scrollTop = 0;
       panel.querySelector("#dp-comment").focus();
     });
     document.addEventListener("keydown", onKey);
@@ -464,7 +599,9 @@ window.GC = window.GC || {};
   /** Expanded asset cards (indexes into form.assetList) — UI state only, not part of the dirty check. */
   let openAssets = new Set();
   const ASSET_NUM = { area: 1, price: 1, occupancy: 1, rent: 1 };
-  const SECTIONS = [["key", "Key Info"], ["assets", "Assets"], ["general", "General Info"], ["physical", "Physical Info"], ["financial", "Financial Info"]];
+  // Figma "Edit deal Drawer V.2" (16292:70298): pill tabs + collapsible single-column sections.
+  const SECTIONS = [["key", "Key info"], ["assets", "Assets"], ["overview", "Overview"], ["physical", "Physical"], ["financial", "Financial"]];
+  let collapsed = new Set();
 
   function snapshot(d) {
     const x = ext(d);
@@ -472,6 +609,7 @@ window.GC = window.GC || {};
       name: d.name, price: d.price, areaSqm: d.areaSqm, occupancy: d.occupancy, rentYearly: d.rentYearly,
       assetList: x.assetList.map((a) => Object.assign({}, a)),
       location: d.location || "", stage: d.stage, dateReceived: d.dateReceived || "", owner: d.owner || "", fund: x.fund, dealSource: d.dealSource || "",
+      deadlineDate: x.deadlineDate || "",
       gla: x.gla, yearBuilt: x.yearBuilt, condition: x.condition || "",
       wault: d.wault, noi: x.noi, exitYield: x.exitYield, ltv: x.ltv,
     };
@@ -487,7 +625,7 @@ window.GC = window.GC || {};
           ${o.placeholder != null ? `<option value="">${esc(o.placeholder)}</option>` : ""}${o.options.map((op) => { const [val, lab] = Array.isArray(op) ? op : [op, op]; return `<option value="${esc(val)}" ${val === v ? "selected" : ""}>${esc(lab)}</option>`; }).join("")}
         </select><span class="ds-field__icon">${DS_ICONS.get("chevron-down")}</span></div>`
       : `<div class="ds-field__box">${o.prefix ? `<span class="prov-affix">${o.prefix}</span>` : ""}<input class="ds-field__input" id="ep-${key}" data-ep="${key}" data-num="${num}" type="${o.type === "date" ? "date" : "text"}" ${num ? 'inputmode="decimal"' : ""} autocomplete="off" value="${esc(display)}">${o.suffix ? `<span class="prov-affix">${o.suffix}</span>` : ""}</div>`;
-    return `<div class="ds-field${o.cls ? " " + o.cls : ""}" data-size="medium" data-state="default" data-ep-wrap="${key}">
+    return `<div class="ds-field${o.cls ? " " + o.cls : ""}" data-size="small" data-state="default" data-ep-wrap="${key}">
       <label class="ds-field__label" for="ep-${key}">${esc(label)}${o.required ? ' <span class="ds-field__req" aria-hidden="true">*</span>' : ""}</label>${control}
       <div class="ds-field__helper" id="ep-h-${key}" hidden></div></div>`;
   }
@@ -501,7 +639,11 @@ window.GC = window.GC || {};
     return { psm, niy };
   }
   function card(id, title, body) {
-    return `<section class="ep-card" id="ep-sec-${id}" aria-labelledby="ep-t-${id}"><h3 class="t-title ep-card__title" id="ep-t-${id}">${title}</h3>${body}</section>`;
+    const open = !collapsed.has(id);
+    return `<section class="ep-card" id="ep-sec-${id}" data-open="${open}" aria-labelledby="ep-t-${id}">
+      <h3 class="ep-card__title"><button type="button" class="ep-card__toggle" id="ep-t-${id}" data-ep-act="section-toggle" data-sec="${id}" aria-expanded="${open}" aria-controls="ep-b-${id}">
+        <span>${title}</span>${GC.icon("chevron-up", "ep-card__chev")}</button></h3>
+      <div class="ep-card__body" id="ep-b-${id}"${open ? "" : " hidden"}>${body}</div></section>`;
   }
   function assetSummary(a) {
     return [a.type, (a.address || "").trim(), a.price > 0 ? f().moneyShort(a.price, "EUR") : ""].filter(Boolean).join(" · ") || "No details yet";
@@ -534,21 +676,26 @@ window.GC = window.GC || {};
     const a = autos();
     const users = GC.MOCK.users.map((u) => [u.initials, u.name]);
     return [
-      card("key", "Key Info", `<div class="ep-grid">${fld("name", "Deal name", { required: true, cls: "span-all" })}${fld("price", "Price", { type: "number", prefix: "€" })}${fld("areaSqm", "Area", { type: "number", suffix: "sqm" })}
-        ${fld("occupancy", "Occupancy", { type: "number", suffix: "%" })}${fld("rentYearly", "Rent", { type: "number", prefix: "€", suffix: "/ yr" })}
-        ${autoField("psm", "Rent/psm", a.psm, "/ sqm / yr")}${autoField("niy", "NIY", a.niy, "%")}</div>`),
+      // Key info order and labels follow Figma 16292:70316; Rent (€/sqm), Total assets and Cap rate are computed.
+      card("key", "Key info", `<div class="ep-grid">${fld("areaSqm", "Area", { type: "number", suffix: "sqm" })}${autoField("psm", "Rent (€/sqm)", a.psm, "/ sqm / yr")}
+        ${fld("price", "Price", { type: "number", prefix: "€" })}${fld("rentYearly", "Rent", { type: "number", prefix: "€", suffix: "/ yr" })}
+        ${autoField("total", "Total assets", String(form.assetList.length))}${fld("occupancy", "Occupancy", { type: "number", suffix: "%" })}
+        ${autoField("niy", "Cap rate", a.niy, "%")}</div>`),
       card("assets", `Assets <span class="count">(${form.assetList.length})</span>`, assetsBody()),
-      card("general", "General Info", `<div class="ep-grid">${fld("location", "Location / Region")}${fld("dateReceived", "Date received", { type: "date" })}
-        ${fld("stage", "Deal stage", { options: GC.MOCK.stages })}${fld("owner", "Owner", { options: users, placeholder: "Unassigned" })}
-        ${fld("fund", "Fund", { options: GC.MOCK.funds, placeholder: "Select fund" })}${fld("dealSource", "Deal source", { options: GC.MOCK.processTypes.concat(["Off-Market"]), placeholder: "Select source" })}</div>`),
-      card("physical", "Physical Info", `<div class="ep-grid">${fld("gla", "GLA", { type: "number", suffix: "sqm" })}${fld("yearBuilt", "Year built", { type: "number" })}
+      card("overview", "Overview", `<div class="ep-grid">${fld("name", "Deal name", { required: true })}${fld("dateReceived", "Date received", { type: "date" })}
+        ${fld("deadlineDate", "Next deadline", { type: "date" })}${fld("stage", "Deal stage", { options: GC.MOCK.stages })}
+        ${fld("owner", "Owner", { options: users, placeholder: "Unassigned" })}${fld("fund", "Fund", { options: GC.MOCK.funds, placeholder: "Select fund" })}
+        ${fld("dealSource", "Deal source", { options: GC.MOCK.processTypes.concat(["Off-Market"]), placeholder: "Select source" })}${fld("location", "Location / Region")}</div>`),
+      card("physical", "Physical", `<div class="ep-grid">${fld("gla", "GLA", { type: "number", suffix: "sqm" })}${fld("yearBuilt", "Year built", { type: "number" })}
         ${fld("condition", "Condition", { options: GC.MOCK.conditions, placeholder: "Select condition" })}</div>`),
-      card("financial", "Financial Info", `<div class="ep-grid">${fld("noi", "Net operating income", { type: "number", prefix: "€", suffix: "/ yr" })}${fld("wault", "WAULT", { type: "number", suffix: "years" })}
+      card("financial", "Financial", `<div class="ep-grid">${fld("noi", "Net operating income", { type: "number", prefix: "€", suffix: "/ yr" })}${fld("wault", "WAULT", { type: "number", suffix: "years" })}
         ${fld("exitYield", "Exit yield", { type: "number", suffix: "%" })}${fld("ltv", "LTV", { type: "number", suffix: "%" })}</div>`),
     ].join("");
   }
 
   function isEditDirty() { return JSON.stringify(form) !== JSON.stringify(original); }
+  /** Save stays disabled until something changed (Figma: disabled primary in the footer). */
+  function syncSave() { if (editPanel) editPanel.querySelector('[data-ep-act="save"]').disabled = !isEditDirty(); }
 
   function renderEdit(keepScroll) {
     const sc = editPanel.querySelector(".ep__scroll");
@@ -565,7 +712,11 @@ window.GC = window.GC || {};
     let active = SECTIONS[0][0];
     SECTIONS.forEach(([id]) => { const el = sc.querySelector(`#ep-sec-${id}`); if (el && el.getBoundingClientRect().top <= line) active = id; });
     if (sc.scrollTop + sc.clientHeight >= sc.scrollHeight - 2) active = SECTIONS[SECTIONS.length - 1][0];
-    head.querySelectorAll("[data-ep-tab]").forEach((t) => t.setAttribute("aria-selected", t.dataset.epTab === active ? "true" : "false"));
+    head.querySelectorAll("[data-ep-tab]").forEach((t) => {
+      const on = t.dataset.epTab === active;
+      if (on && t.getAttribute("aria-selected") !== "true") t.scrollIntoView({ block: "nearest", inline: "nearest" });
+      t.setAttribute("aria-selected", on ? "true" : "false");
+    });
   }
 
   function edit(id, triggerEl, restore) {
@@ -577,32 +728,34 @@ window.GC = window.GC || {};
     original = snapshot(d);
     form = restore ? JSON.parse(JSON.stringify(restore)) : JSON.parse(JSON.stringify(original));
     openAssets = new Set();
+    collapsed = new Set();
     editLayer = document.createElement("div");
     editLayer.className = "drawer-layer drawer-layer--edit";
     editLayer.innerHTML = `<div class="drawer-backdrop" data-ep-act="cancel"></div>
       <aside class="ep drawer" role="dialog" aria-modal="true" aria-labelledby="ep-title" data-ds-provisional="drawer" tabindex="-1">
         <div class="ep__scroll">
           <div class="ep__head">
-            <div class="ep__title-row"><div class="dm__title"><h2 class="t-section-title" id="ep-title">Edit deal</h2><span class="dm__deal-name">${esc(d.name)}</span></div>
+            <div class="ep__title-row"><h2 class="ep__title" id="ep-title">Edit deal</h2>
               <button type="button" class="ds-btn is-icon-only" data-type="ghost" data-size="md" data-ep-act="cancel" aria-label="Close"><span class="ds-btn__icon">${DS_ICONS.get("x-close")}</span></button></div>
-            <div class="ds-tabs" role="tablist" aria-label="Deal sections">
-              ${SECTIONS.map(([sid, l], i) => `<button class="ds-tab" type="button" data-size="small" role="tab" aria-selected="${i === 0}" aria-controls="ep-sec-${sid}" data-ep-tab="${sid}">${l}</button>`).join("")}
+            <div class="ep-pills" role="tablist" aria-label="Deal sections" data-ds-provisional="pill-tabs">
+              ${SECTIONS.map(([sid, l], i) => `<button class="ep-pill" type="button" role="tab" aria-selected="${i === 0}" aria-controls="ep-sec-${sid}" data-ep-tab="${sid}">${l}</button>`).join("")}
             </div>
           </div>
           <div class="ep__cards"></div>
         </div>
         <div class="ep__foot">
           <button type="button" class="ds-btn" data-type="secondary" data-size="lg" data-ep-act="cancel">Cancel</button>
-          <button type="button" class="ds-btn" data-type="primary" data-size="lg" data-ep-act="save">Save changes</button>
+          <button type="button" class="ds-btn" data-type="primary" data-size="lg" data-ep-act="save" disabled>Save changes</button>
         </div>
       </aside>`;
     document.getElementById("drawer-root").appendChild(editLayer);
     editPanel = editLayer.querySelector(".ep");
     renderEdit();
+    syncSave();
     if (layer) layer.inert = true; else document.querySelector(".page").inert = true;
     slideIn(editPanel);
     editRelease = GC.trapFocus(editPanel);
-    editPanel.querySelector("#ep-name").focus();
+    editPanel.querySelector("#ep-areaSqm").focus();
 
     const sc = editPanel.querySelector(".ep__scroll");
     sc.addEventListener("scroll", updateSpy, { passive: true });
@@ -630,10 +783,12 @@ window.GC = window.GC || {};
         if (wrap.dataset.state === "error" && e.target.value.trim()) { wrap.dataset.state = "default"; wrap.querySelector(".ds-field__helper").hidden = true; }
       }
     });
+    editLayer.addEventListener("input", syncSave);
     editLayer.addEventListener("change", (e) => { if (e.target.tagName === "SELECT") e.target.dispatchEvent(new Event("input", { bubbles: true })); });
     editLayer.addEventListener("click", (e) => {
       const tab = e.target.closest("[data-ep-tab]");
       if (tab) {
+        if (collapsed.delete(tab.dataset.epTab)) renderEdit(true);
         const el = editPanel.querySelector(`#ep-sec-${tab.dataset.epTab}`);
         const headH = editPanel.querySelector(".ep__head").offsetHeight;
         sc.scrollTo({ top: el.offsetTop - headH - 8, behavior: reduceMotion() ? "auto" : "smooth" });
@@ -644,6 +799,14 @@ window.GC = window.GC || {};
       const act = a.dataset.epAct;
       if (act === "cancel") cancelEdit();
       else if (act === "save") saveEdit();
+      else if (act === "section-toggle") {
+        const id = a.dataset.sec, on = collapsed.has(id);
+        if (on) collapsed.delete(id); else collapsed.add(id);
+        const sec = a.closest(".ep-card");
+        sec.dataset.open = on; a.setAttribute("aria-expanded", on);
+        sec.querySelector(".ep-card__body").hidden = !on;
+        updateSpy();
+      }
       else if (act === "asset-toggle") {
         const i = +a.dataset.i, on = !openAssets.has(i);
         if (on) openAssets.add(i); else openAssets.delete(i);
@@ -654,13 +817,13 @@ window.GC = window.GC || {};
       else if (act === "asset-add") {
         form.assetList.push({ type: "", address: "", area: null, price: null, occupancy: null, rent: null });
         openAssets.add(form.assetList.length - 1); // a new asset opens so it can be filled in
-        renderEdit(true); editPanel.querySelector(`#ep-asset-${form.assetList.length - 1}-type`).focus();
+        renderEdit(true); syncSave(); editPanel.querySelector(`#ep-asset-${form.assetList.length - 1}-type`).focus();
       }
       else if (act === "asset-remove") {
         const r = +a.dataset.i;
         form.assetList.splice(r, 1);
         openAssets = new Set([...openAssets].filter((i) => i !== r).map((i) => (i > r ? i - 1 : i)));
-        renderEdit(true); editPanel.querySelector('[data-ep-act="asset-add"]').focus();
+        renderEdit(true); syncSave(); editPanel.querySelector('[data-ep-act="asset-add"]').focus();
       }
     });
     document.addEventListener("keydown", onEditKey);
@@ -697,6 +860,7 @@ window.GC = window.GC || {};
 
   function saveEdit() {
     if (!form.name || !form.name.trim()) {
+      if (collapsed.delete("overview")) renderEdit(true);
       const wrap = editPanel.querySelector('[data-ep-wrap="name"]');
       wrap.dataset.state = "error";
       const h = wrap.querySelector(".ds-field__helper"); h.textContent = "Deal name is required"; h.hidden = false;
@@ -705,11 +869,23 @@ window.GC = window.GC || {};
     }
     const d = GC.inbox.find(editId);
     const x = ext(d);
-    const LABELS = { name: "Deal name", price: "Price", areaSqm: "Area", occupancy: "Occupancy", rentYearly: "Rent", assetList: "Assets", location: "Location", dateReceived: "Date received",
+    const LABELS = { name: "Deal name", price: "Price", areaSqm: "Area", occupancy: "Occupancy", rentYearly: "Rent", assetList: "Assets", location: "Location", dateReceived: "Date received", deadlineDate: "Next deadline",
       owner: "Owner", fund: "Fund", dealSource: "Deal source", gla: "GLA", yearBuilt: "Year built", condition: "Condition", wault: "WAULT", noi: "NOI", exitYield: "Exit yield", ltv: "LTV" };
-    const changed = Object.keys(LABELS).filter((k) => JSON.stringify(form[k]) !== JSON.stringify(original[k])).map((k) => LABELS[k]);
-    if (form.stage !== original.stage) GC.inbox.log(d, `changed stage from ${original.stage} to ${form.stage}`);
-    if (changed.length) GC.inbox.log(d, `edited ${changed.join(", ")}`);
+    if (form.stage !== original.stage) GC.inbox.log(d, `changed stage: ${original.stage} → ${form.stage}`, "stage");
+    // One entry per changed field, Figma style: "updated Price: €61,200,000 → €65,000,000"
+    const show = (k, v) => {
+      if (v == null || v === "") return "—";
+      if (k === "assetList") return `${v.length} asset${v.length === 1 ? "" : "s"}`;
+      if (["price", "rentYearly", "noi"].includes(k)) return f().money(v, "EUR");
+      if (k === "areaSqm" || k === "gla") return `${f().num(v, 0)} sqm`;
+      if (["occupancy", "exitYield", "ltv"].includes(k)) return `${f().num(v, 2)}%`;
+      if (k === "owner") { const u = GC.MOCK.users.find((x) => x.initials === v); return u ? u.name : v; }
+      return String(v);
+    };
+    Object.keys(LABELS).filter((k) => JSON.stringify(form[k]) !== JSON.stringify(original[k])).forEach((k) => {
+      const same = k === "assetList" && form[k].length === original[k].length;
+      GC.inbox.log(d, same ? "updated Assets" : `updated ${LABELS[k]}: ${show(k, original[k])} → ${show(k, form[k])}`, "edit");
+    });
     Object.assign(d, {
       name: form.name.trim(), price: form.price, areaSqm: form.areaSqm, occupancy: form.occupancy, rentYearly: form.rentYearly,
       location: form.location, stage: form.stage, dateReceived: form.dateReceived, owner: form.owner || null, dealSource: form.dealSource || null, wault: form.wault,
@@ -719,7 +895,8 @@ window.GC = window.GC || {};
     d.niy = d.rentYearly > 0 && d.price > 0 ? (d.rentYearly / d.price) * 100 : null;
     const types = [...new Set(form.assetList.map((a) => a.type).filter(Boolean))];
     if (types.length) d.industry = types.length === 1 ? types[0] : "Mixed-use";
-    Object.assign(x, { fund: form.fund, gla: form.gla, yearBuilt: form.yearBuilt, condition: form.condition, noi: form.noi, exitYield: form.exitYield, ltv: form.ltv,
+    if (form.deadlineDate !== original.deadlineDate) x.deadline = form.deadlineDate ? `${(x.deadline || "Next deadline").split(" · ")[0]} · ${f().dateLong(form.deadlineDate)}` : "";
+    Object.assign(x, { deadlineDate: form.deadlineDate, fund: form.fund, gla: form.gla, yearBuilt: form.yearBuilt, condition: form.condition, noi: form.noi, exitYield: form.exitYield, ltv: form.ltv,
       assetList: form.assetList.map((a) => Object.assign({}, a)) });
     closeEdit();
     GC.inbox.update(d);
@@ -732,5 +909,13 @@ window.GC = window.GC || {};
     if (layer && current === id) close();
   }
 
-  GC.dealPanel = { open, close, edit, onRemoved };
+  /** Re-render the details drawer when its deal changed elsewhere (e.g. stage picked from a card). */
+  function refresh(id) {
+    if (!layer || current !== id) return;
+    const sc = panel.querySelector(".dp__scroll"), top = sc.scrollTop;
+    renderDetails();
+    sc.scrollTop = top;
+  }
+
+  GC.dealPanel = { open, close, edit, onRemoved, refresh };
 })();

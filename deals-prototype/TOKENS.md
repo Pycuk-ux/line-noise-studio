@@ -64,8 +64,8 @@ stacked avatars, `vertical-align`). No colour, radius, padding or type of a DS c
 | `map` | Map-container | static image cropped from the user's screenshot |
 | `notification-button` | navbar bell | `--icon-inverse`, badge `--icon-negative` / `--text-inverse` |
 
-| `map-pin` | pin-qual-office-sqm (16281:65599) | stage palette (below), `--radius-full`, padding `--space-none`/`--space-1`, min-h `--space-5`, divider `--border-default`, shadow `--color-alpha-light-200`; dot mode `--space-3` |
-| `dropdown` (map pin settings) | Map "Price ▾" control | `--surface-white`, `--border-default`, `--radius-4`; contents are DS **Radio** + DS **Toggle** |
+| `map-pin` | pin-qual-office-sqm (16281:65599), Map variation 16292:71767 | stage palette (below), 1px border `--stage-fg`, `--radius-full`, padding `--space-none`/`--space-1`, min-h `--space-5`, divider `--border-default`, shadow `--color-alpha-light-200`; icon-only when the description is off; both off → ring `--space-4`, 2px `--stage-fg` on `--surface-white`; card hover → filled `--brand-primary` / `--text-inverse` |
+| `dropdown` (map pin settings) | Dropdown-menu 16292:72100 | 264px, `--surface-white`, `--radius-4`, p `--space-1`, modal shadow `--color-alpha-light-100/200`; title `--text-label-md` 600; rows p `--space-2`; DS **Toggle** ×2 + DS **Segmented** (Price / Yield); button label `--text-tertiary` (EUR / EUR/sqm, icon-only when the description is off) |
 | map base (inside `map`) | Map-container | drawn as SVG: land `--color-grey-100`, water `--color-cyan-100`, parks `--color-emerald-100`, streets `--surface-white`, motorways `--color-orange-200`, ring `--color-yellow-200`, labels `--text-tertiary`; overlays `--color-alpha-dark-600` |
 | `readonly-field` (auto-filled Rent/psm, NIY) | — | box `--surface-secondary` + `--border-default` + `--radius-4`, padding `--space-3`/`--space-2` (same box as DS field), **no hover, not focusable**, value `--text-body-md-*`, error `--border-negative` |
 | `asset-row` | — (CEO: "each asset starts with asset type, address") | fill `--color-grey-100` (#F3F4F6, no border), `--radius-8`, p `--space-3`, gap `--space-3`/`--space-4`; fields are DS Text field + provisional select. Collapsible (modal + edit drawer): toggle row with DS `chevron-down` (rotated −90° when closed), title `--text-body-md` 600, summary `--text-tertiary`, focus `--focus-ring`; body gap `--space-4`; per-asset metrics grid of DS fields + `readonly-field` |
@@ -73,7 +73,12 @@ stacked avatars, `vertical-align`). No colour, radius, padding or type of a DS c
 | `stage-group` / `board-column` | 18829:253921 / 18829:254538 (built from the brief) | container `--surface-secondary`, `--radius-8`, p `--space-1`, groups `--space-4` apart; header fill = stage palette, h `--space-8`, `--text-label-md-*` 600; stuck: ring `--surface-main` + shadow `--color-alpha-light-100` |
 | `board-card` | — | `--surface-white`, `--radius-8`, p `--space-3`, stats grid gap `--space-2`/`--space-3` |
 | `toast` (Undo, in-modal) | — | `--surface-white`, `--border-default`, `--radius-8`, shadow `--color-alpha-light-200`; DS ghost buttons |
-| `drawer` (details + edit) | 18830:256700 / 18830:255890 (built from the brief) | details `--surface-main`, top bar `--surface-white` + `--border-default`; edit `--surface-main`, cards `--surface-white` `--radius-8` p `--space-4`, sticky head pb `--space-4` + shadow `--color-alpha-light-100`; backdrop `--color-alpha-light-200`; content reuses key-metrics, overview rows, table, DS Badge (AI tags), DS Tabs (edit sections), DS Switch (overview tabs) |
+| `drawer` (details) | 16292:69643 | 1152px, `--surface-main`; bar `--surface-white` p `--space-2`; DS **Tabs** `large` at 16px semibold; header thumb 140×96 `--radius-4`, title `--type-h4-*`, address `--text-tertiary`; key-metrics ×7; grid 365px + 1fr, gap `--space-2`; mini map pins `--brand-primary` (assets) / `--brand-secondary` (comps); asset table total row `--surface-secondary`, links `--text-positive-hover` |
+| `drawer` (edit, V.2) | 16292:70298 | 420px, `--surface-main`, modal shadow; title `--type-h5-size`; sections `--surface-white` `--radius-8` p `--space-3` gap `--space-4`, title 16px 600 `--text-secondary` + DS `chevron-up`; DS Text field `small` (≈40px), labels `--text-tertiary`; footer `--surface-white` + `--border-default`, two equal DS Buttons `lg`, Save disabled until dirty |
+| `pill-tabs` (edit drawer sections) | 16292:70305 | p `--space-2`, `--radius-16`, gap `--space-3`, `--text-label-md-*`; active `--surface-positive` / `--text-positive-hover`; inactive `--text-secondary` |
+| `assign-button` | "+" on cards | `--space-6` circle, 1px `--border-strong`, `--surface-white`, icon `--icon-secondary` |
+| `comment-composer` / comment thread | 16292:70876 | composer 708px, 1px `--border-default`, `--radius-4`, p `--space-3`; Send = DS primary `md`; avatars 28px tints `emerald/indigo/yellow/purple/cyan/red-50` + `-800`; name 14px 600, time `--text-placeholder`; mention `--surface-positive` / `--text-positive-hover` `--radius-12` |
+| `log table` | 16292:70814 | 946px; filter = DS secondary Button `md` in `--brand-primary`; header `--text-tertiary` 12px; day rows + times `--brand-primary`; actor `--text-primary` 600, action `--text-tertiary`; row dividers `--border-default` |
 | `dropdown` (deal menu) | — | `--surface-white`, `--border-default`, `--radius-4`; Delete in `--text-negative-hover` |
 | `drawer-tabs` (details drawer views) | 18831:258397 | DS **Tabs** (`small`) on `--surface-white`, padding `--space-4`, Comments count = DS `ds-tab-chip`; disabled tabs (Assets, Comps, AI Assistant, Documents) `--text-disabled` — **the DS Tabs ship no disabled state** |
 | `comments` / `log` feed | 18831:260095 / 18831:260029 (built from the brief, Figma rate-limited) | card `--surface-white` `--radius-8`; DS Avatar; item gap `--space-4`; meta `--text-label-*`; composer = DS Text field + DS primary Button, top rule `--border-default`; log rows divided by `--border-default`, p `--space-3`; AI avatar `--surface-positive`/`--text-positive` |
@@ -127,6 +132,9 @@ to the DS or migrate Figma to 12/14.**
 | Map pin text 10/12/500–600 | map pins, legend | `--label-xs-*` 12/14 | +2px — no 10px step |
 | Map overlay `backdrop-blur 10px` | zoom, legend | literal `blur(10px)` | no blur/elevation tokens |
 | Map base | map | vector drawing from tokens | Figma map raster can't be downloaded here, and Artifact CSP blocks tile servers |
+| Owner avatar fill `#e5ebef` (kanban/list) | owner avatar | `--surface-main` #e9edee | Δ4.6, no token |
+| Pin settings switch: grey track + white thumb | Price / Yield | DS Segmented (white track, `--surface-positive` thumb) | DS component wins |
+| Card shadow "sm" `#0000000F` + `#0000000A` | kanban card | `--color-alpha-light-50` ×2 | second layer is 4% in Figma, 6% here |
 | Only Logistics has industry colours (lime) | preview header chip | `--color-lime-50/900` | Other industries fall back to neutral |
 
 Non-CSS literals: the brand mark's `#fff` / `#339989` fills (copied verbatim from the DS),
@@ -136,4 +144,4 @@ and a `#fff` canvas backdrop used when JPEG-encoding uploaded PNGs (not UI colou
 Modal 960px (input steps) / 1200px (Preview) / 480px (confirm), height `min(780px, 100vh − 2×--space-8)`;
 inbox map column 400px; card media 120×136; preview cover column 350px, cover 144px tall;
 search 340px, sort 200px, per-page 72px, units currency 96px; listbox max-height 240px;
-dropzone min-height 120px (72px once photos exist); stage "Other" column 128px; comments/log feed max-width 800px.
+dropzone min-height 120px (72px once photos exist); stage "Other" column 128px; comments column 708px, log column 946px, edit drawer 420px, details drawer 1152px (grid column 365px), board column 264px / card 256px, thumbnails 140×96, comment avatar 28px, pin-settings menu 264px.

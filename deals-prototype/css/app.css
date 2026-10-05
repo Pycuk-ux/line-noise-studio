@@ -142,46 +142,63 @@ button { font-family: inherit; }
   font-size: var(--text-label-md-size); line-height: var(--text-label-md-line); font-weight: var(--w-semibold);
 }
 .stage-group__count { font-weight: var(--w-medium); }
-.stage-group__total { font-variant-numeric: tabular-nums; }
+.stage-group__total { font-variant-numeric: tabular-nums; color: var(--text-primary); font-weight: var(--w-regular); }
+.board-col .stage-group__total { font-weight: var(--w-medium); }
 
 /* Kanban board — ds:provisional board-column / board-card (Figma 18829:254538, from the brief) */
 .deal-list[data-view="board"] { flex-direction: row; overflow-x: auto; overflow-y: hidden; gap: var(--space-2); }
-.board-col { flex: 0 0 300px; display: flex; flex-direction: column; min-height: 0; overflow-y: auto; }
+.board-col { flex: 0 0 264px; display: flex; flex-direction: column; min-height: 0; overflow-y: auto; }
 .board-col .card-list { flex: 1 0 auto; gap: var(--space-2); }
 .board-col .stage-group__sticky { top: 0; }
 .board-card {
+  /* Figma 16292:70977: radius 4, shadow "sm", p 12; sections 12 apart, header items 8 apart */
   display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-3);
-  background: var(--surface-white); border-radius: var(--radius-8); transition: background-color .12s ease;
+  background: var(--surface-white); border-radius: var(--radius-4);
+  box-shadow: 0 1px 2px var(--color-alpha-light-50), 0 1px 3px var(--color-alpha-light-50);
+  transition: background-color .12s ease, box-shadow .12s ease;
 }
+.board-card:hover, .board-card.is-linked { box-shadow: 0 var(--space-1) var(--space-2) var(--color-alpha-light-100); }
 .board-card__top { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); min-height: var(--space-6); }
 .board-card__name { margin: 0; }
 .board-card__media {
-  position: relative; height: 128px; border-radius: var(--radius-8); overflow: hidden; background: var(--surface-main);
+  position: relative; height: 120px; border-radius: var(--radius-4); overflow: hidden; background: var(--surface-main);
   display: flex; align-items: center; justify-content: center; color: var(--icon-tertiary);
 }
 .board-card__media img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .board-card__media.is-empty .ico { transform: scale(2.5); }
 .board-card__count {
-  position: absolute; left: var(--space-2); bottom: var(--space-2); padding: var(--space-1) var(--space-2); border-radius: var(--radius-4);
-  background: var(--color-alpha-light-600); color: var(--text-inverse); font-size: var(--text-label-sm-size); line-height: var(--text-label-sm-line);
+  position: absolute; left: var(--space-1); bottom: var(--space-1); padding: var(--space-1) var(--space-2); border-radius: var(--radius-4);
+  background: var(--color-alpha-light-500); backdrop-filter: blur(3px); color: var(--text-inverse);
+  font-size: var(--label-xs-size); line-height: var(--label-xs-line); font-weight: var(--w-medium);
 }
-.board-card__nav { position: absolute; right: var(--space-2); bottom: var(--space-2); display: flex; gap: var(--space-1); }
+.board-card__nav { position: absolute; right: var(--space-1); bottom: var(--space-1); display: flex; gap: var(--space-1); }
 .board-card__nav button {
   width: var(--space-6); height: var(--space-6); display: inline-flex; align-items: center; justify-content: center; padding: 0;
-  border: none; border-radius: var(--radius-full); background: var(--color-alpha-dark-600); color: var(--icon-primary); cursor: pointer;
+  border: none; border-radius: var(--radius-full); background: var(--color-alpha-dark-500); backdrop-filter: blur(3px); color: var(--icon-primary); cursor: pointer;
 }
 .board-card__nav button:hover { background: var(--surface-white); }
 .board-card__nav button:focus-visible { outline: var(--focus-ring-width) solid var(--focus-ring); }
 .board-card__tags { flex-wrap: wrap; gap: var(--space-2); }
-.board-card__rows { display: flex; flex-direction: column; gap: var(--space-2); }
+.board-card__rows { display: flex; flex-direction: column; gap: var(--space-2); margin-top: var(--space-1); }
 .board-row { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-2); }
 .board-row__label { color: var(--text-tertiary); font-size: var(--text-label-md-size); line-height: var(--text-label-md-line); }
 .board-row__value { color: var(--text-primary); font-size: var(--text-label-md-size); line-height: var(--text-label-md-line); font-weight: var(--w-medium); text-align: right; }
 .board-card__foot {
-  display: flex; align-items: center; justify-content: space-between; margin-top: var(--space-2);
+  display: flex; align-items: center; justify-content: flex-end; gap: var(--space-2); margin-top: var(--space-1);
   padding-top: var(--space-2); border-top: 1px solid var(--border-default);
 }
-.board-card__actions { display: flex; align-items: center; }
+.board-card__comments { gap: var(--space-1); }
+
+/* Owner avatar (Figma: 24px circle, grey fill (off-system, snapped to --surface-main), link-colour initials) and "assign" ring */
+.owner-avatar { background: var(--surface-main); color: var(--text-link); font-weight: var(--w-semibold); }
+.assign-btn {
+  /* ds:provisional name="assign-button" */
+  display: inline-flex; align-items: center; justify-content: center; flex: 0 0 auto;
+  width: var(--space-6); height: var(--space-6); padding: 0; border: 1px solid var(--border-strong); border-radius: var(--radius-full);
+  background: var(--surface-white); color: var(--icon-secondary); cursor: pointer;
+}
+.assign-btn:hover { background: var(--surface-white-hover); }
+.assign-btn:focus-visible { outline: var(--focus-ring-width) solid var(--focus-ring); outline-offset: var(--focus-ring-offset); }
 
 /* Clickable deal title — link-like underline on hover */
 .deal-link {
@@ -326,7 +343,7 @@ button { font-family: inherit; }
   /* ds:provisional name="map-pin" — Figma pin-qual-office-sqm */
   position: absolute; transform: translate(-50%, -50%); pointer-events: auto; cursor: pointer;
   display: inline-flex; align-items: center; gap: var(--space-1); padding: var(--space-none) var(--space-1);
-  min-height: var(--space-5); border: none; border-radius: var(--radius-full);
+  min-height: var(--space-5); border: 1px solid var(--stage-fg); border-radius: var(--radius-full);
   background: var(--stage-bg); color: var(--stage-fg); white-space: nowrap;
   font-family: var(--font-sans); font-size: var(--label-xs-size); line-height: var(--label-xs-line); font-weight: var(--w-semibold);
   box-shadow: 0 var(--space-1) var(--space-2) var(--color-alpha-light-200);
@@ -334,10 +351,15 @@ button { font-family: inherit; }
 }
 .map-pin__divider { width: 1px; height: var(--space-4); background: var(--border-default); }
 .map-pin[data-mode="dot"] {
-  min-height: 0; width: var(--space-3); height: var(--space-3); padding: 0;
-  background: var(--stage-fg); border: 1px solid var(--surface-white);
+  /* Figma variation 5: white ring in the stage colour */
+  min-height: 0; width: var(--space-4); height: var(--space-4); padding: 0;
+  background: var(--surface-white); border: 2px solid var(--stage-fg);
 }
-.map-pin:hover, .map-pin.is-linked { transform: translate(-50%, -50%) scale(1.12); z-index: 2; box-shadow: 0 0 0 var(--focus-ring-width) var(--stage-fg), 0 var(--space-1) var(--space-2) var(--color-alpha-light-200); }
+.map-pin:hover { transform: translate(-50%, -50%) scale(1.12); z-index: 2; }
+/* Card hover → pin reacts (Figma "Kanban, hover on card | Pin on map reacts"): filled dark pin */
+.map-pin.is-linked { z-index: 4; background: var(--brand-primary); border-color: var(--brand-primary); color: var(--text-inverse); }
+.map-pin.is-linked .map-pin__divider { background: var(--color-alpha-dark-300); }
+.map-pin.is-linked[data-mode="dot"] { background: var(--brand-primary); border-color: var(--surface-white); }
 .map-pin:focus-visible { outline: var(--focus-ring-width) solid var(--focus-ring); outline-offset: var(--focus-ring-offset); z-index: 2; }
 .map-pin.is-new { z-index: 3; animation: pin-pulse 1.2s ease-out 3; }
 @keyframes pin-pulse { 0% { box-shadow: 0 0 0 0 var(--brand-secondary); } 100% { box-shadow: 0 0 0 var(--space-3) var(--color-alpha-light-50); } }
@@ -350,20 +372,23 @@ button { font-family: inherit; }
   box-shadow: 0 var(--space-1) var(--space-2) var(--color-alpha-light-100);
 }
 .map-ctl:focus-visible { outline: var(--focus-ring-width) solid var(--focus-ring); }
+.map-ctl__label { color: var(--text-tertiary); font-size: var(--text-label-sm-size); padding: 0 var(--space-1); }
+.map-ctl[data-icon-only="true"] .map-ctl__divider, .map-ctl[data-icon-only="true"] .map-ctl__label { display: none; }
 .map-ctl__divider { width: 1px; height: var(--space-4); background: var(--border-default); }
 .map-menu {
-  position: absolute; left: 0; top: calc(100% + var(--space-1)); width: 240px; padding: var(--space-2);
+  /* Figma Dropdown-menu (16292:72100): 264 wide, p 4, modal-window shadow */
+  position: absolute; left: 0; top: calc(100% + var(--space-1)); width: 264px; padding: var(--space-1);
   display: flex; flex-direction: column; gap: var(--space-1);
-  background: var(--surface-white); border: 1px solid var(--border-default); border-radius: var(--radius-4);
-  box-shadow: 0 var(--space-1) var(--space-2) var(--color-alpha-light-100);
+  background: var(--surface-white); border-radius: var(--radius-4);
+  box-shadow: 0 var(--space-1) var(--space-1) var(--color-alpha-light-100), 0 2px var(--space-2) var(--color-alpha-light-200);
 }
 .map-menu[hidden] { display: none; }
-.map-menu__title { margin: 0 0 var(--space-1); color: var(--text-tertiary); font-size: var(--type-caption-size); line-height: var(--type-caption-line); }
-.map-menu__group { display: flex; flex-direction: column; }
-.map-menu__item { padding: var(--space-1) 0; }
+.map-menu__title { margin: 0; padding: var(--space-2); color: var(--text-primary); font-size: var(--text-label-md-size); line-height: var(--text-label-md-line); font-weight: var(--w-semibold); }
+.map-menu__item { padding: var(--space-2); color: var(--text-primary); font-size: var(--text-label-sm-size); font-weight: var(--w-medium); }
 .map-menu__toggle { justify-content: space-between; }
-.map-menu__divider { height: 1px; margin: var(--space-1) 0; background: var(--border-default); }
-.map-menu__hint { margin: var(--space-1) 0 0; color: var(--text-tertiary); font-size: var(--type-caption-size); line-height: var(--type-caption-line); }
+.map-menu__row { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); padding-block: var(--space-1); }
+.map-menu__row[hidden] { display: none; }
+.map-menu__seg .ds-segment { width: var(--space-16); }
 
 .map-zoom {
   position: absolute; right: var(--space-1); bottom: var(--space-1); z-index: 4; display: flex; flex-direction: column;

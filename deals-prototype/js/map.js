@@ -20,10 +20,8 @@ window.GC = window.GC || {};
     { stage: "DD", label: "DD" }, { stage: "SPA", label: "SPA" }, { stage: "Completed", label: "CL" },
     { stage: "Declined", label: "DECL" },
   ];
-  const METRICS = [
-    { id: "price", label: "Price" }, { id: "rent", label: "Rent" }, { id: "psm", label: "Rent/psm" },
-    { id: "area", label: "Area" }, { id: "niy", label: "NIY" }, { id: "occupancy", label: "Occupancy" },
-  ];
+  // Pin description (Figma "Map variation" 16292:71767): Price → deal price in EUR, Yield → EUR per sqm.
+  const METRICS = [{ id: "price", label: "Price", unit: "EUR" }, { id: "yield", label: "Yield", unit: "EUR/sqm" }];
 
   // ---------- Base map (deterministic SVG) ----------
   function rng(seed) { return () => ((seed = (seed * 16807) % 2147483647) - 1) / 2147483646; }
@@ -80,18 +78,12 @@ window.GC = window.GC || {};
   }
   function metricLabel(d) {
     const f = GC.fmt;
-    switch (settings.metric) {
-      case "rent": return d.rentYearly == null ? "—" : f.moneyShort(d.rentYearly, d.currency || "EUR");
-      case "psm": return d.rentPsm == null ? "—" : f.currencySymbol(d.currency || "EUR") + f.num(d.rentPsm, 1);
-      case "area": return d.areaSqm == null ? "—" : f.num(d.areaSqm, 0) + " sqm";
-      case "niy": return d.niy == null ? "—" : f.num(d.niy, 1) + "%";
-      case "occupancy": return d.occupancy == null ? "—" : f.num(d.occupancy, 1) + "%";
-      default: return d.price == null ? "No price" : f.moneyShort(d.price, d.currency || "EUR");
-    }
+    if (settings.metric === "yield") return d.rentPsm == null ? "—" : f.currencySymbol(d.currency || "EUR") + f.num(d.rentPsm, 1, 1);
+    return d.price == null ? "No price" : f.moneyShort(d.price, d.currency || "EUR");
   }
 
   function pinsHtml() {
-    const mode = settings.showIcon || settings.showLabel ? "pill" : "dot";
+    const mode = settings.showIcon || settings.showLabel ? "pill" : "dot"; // both off → stage-coloured rings
     return GC.inbox.deals.filter((d) => d.map && !hiddenStages.has(d.stage)).map((d) => {
       const label = metricLabel(d);
       return `<button type="button" class="map-pin${d.isNew ? " is-new" : ""}" data-ds-provisional="map-pin" data-id="${d.id}" data-stage="${esc(d.stage)}" data-mode="${mode}"
@@ -156,25 +148,26 @@ window.GC = window.GC || {};
 
   // ---------- Settings menu ----------
   function menuHtml() {
-    return `<div class="map-menu" id="map-menu" role="dialog" aria-label="Map pin settings" data-ds-provisional="dropdown" hidden>
-      <p class="map-menu__title" id="map-metric-l">Show on pins</p>
-      <div class="map-menu__group" role="radiogroup" aria-labelledby="map-metric-l">
-        ${METRICS.map((m) => `<label class="ds-control ds-radio map-menu__item"><input type="radio" name="map-metric" value="${m.id}" ${settings.metric === m.id ? "checked" : ""}><span class="ds-radio__circle"></span><span>${m.label}</span></label>`).join("")}
-      </div>
-      <div class="map-menu__divider" role="separator"></div>
-      <label class="ds-control ds-switch map-menu__item map-menu__toggle"><span>Industry icon</span><input type="checkbox" role="switch" data-map-opt="showIcon" ${settings.showIcon ? "checked" : ""}><span class="ds-switch__track"><span class="ds-switch__thumb"></span></span></label>
-      <label class="ds-control ds-switch map-menu__item map-menu__toggle"><span>Value label</span><input type="checkbox" role="switch" data-map-opt="showLabel" ${settings.showLabel ? "checked" : ""}><span class="ds-switch__track"><span class="ds-switch__thumb"></span></span></label>
-      <p class="map-menu__hint">With both off, pins show as stage-coloured dots.</p>
+    return `<div class="map-menu" id="map-menu" role="dialog" aria-labelledby="map-menu-t" data-ds-provisional="dropdown" hidden>
+      <p class="map-menu__title" id="map-menu-t">Pin settings</p>
+      <label class="ds-control ds-switch map-menu__item map-menu__toggle"><span>Show industry icon</span><input type="checkbox" role="switch" data-map-opt="showIcon" ${settings.showIcon ? "checked" : ""}><span class="ds-switch__track"><span class="ds-switch__thumb"></span></span></label>
+      <label class="ds-control ds-switch map-menu__item map-menu__toggle"><span>Show description</span><input type="checkbox" role="switch" data-map-opt="showLabel" ${settings.showLabel ? "checked" : ""}><span class="ds-switch__track"><span class="ds-switch__thumb"></span></span></label>
+      <div class="map-menu__item map-menu__row" data-map-desc${settings.showLabel ? "" : " hidden"}><span id="map-desc-l">Description</span>
+        <div class="ds-segmented map-menu__seg" role="group" aria-labelledby="map-desc-l">${METRICS.map((m) => `<button type="button" class="ds-segment" data-map-metric="${m.id}" aria-pressed="${settings.metric === m.id}">${m.label}</button>`).join("")}</div></div>
     </div>`;
   }
   function openMenu(open) {
     menu.hidden = !open;
     menuBtn.setAttribute("aria-expanded", open ? "true" : "false");
-    if (open) (menu.querySelector("input:checked") || menu.querySelector("input")).focus();
+    if (open) menu.querySelector("input").focus();
   }
   function syncMenuButton() {
     const m = METRICS.find((x) => x.id === settings.metric);
-    menuBtn.querySelector(".map-ctl__label").textContent = settings.showLabel ? m.label : "Pins";
+    // With the description off the button is icon-only (Figma variations 4–5).
+    menuBtn.querySelector(".map-ctl__label").textContent = settings.showLabel ? m.unit : "";
+    menuBtn.dataset.iconOnly = !settings.showLabel;
+    menuBtn.setAttribute("aria-label", `Pin settings${settings.showLabel ? `: ${m.label} (${m.unit})` : ""}`);
+    menu.querySelector("[data-map-desc]").hidden = !settings.showLabel;
   }
 
   // ---------- Highlight link with the list ----------
@@ -196,7 +189,7 @@ window.GC = window.GC || {};
       <div class="map-ctl-wrap">
         <button type="button" class="map-ctl" aria-haspopup="dialog" aria-expanded="false" aria-controls="map-menu">
           <span class="map-ctl__icon">${GC.icon("table-settings")}</span><span class="map-ctl__divider" aria-hidden="true"></span>
-          <span class="map-ctl__label">Price</span>${GC.icon("chevron-down")}
+          <span class="map-ctl__label">EUR</span>
         </button>
         ${menuHtml()}
       </div>
@@ -253,6 +246,12 @@ window.GC = window.GC || {};
       const z = e.target.closest("[data-zoom]");
       if (z) { z.dataset.zoom === "reset" ? fit() : zoomAt(z.dataset.zoom === "in" ? 1.25 : 0.8); return; }
       if (e.target.closest(".map-ctl")) { openMenu(menu.hidden); return; }
+      const mm = e.target.closest("[data-map-metric]");
+      if (mm) {
+        settings.metric = mm.dataset.mapMetric;
+        menu.querySelectorAll("[data-map-metric]").forEach((b) => b.setAttribute("aria-pressed", b === mm));
+        syncMenuButton(); renderPins(); return;
+      }
       const leg = e.target.closest(".map-legend__item");
       if (leg) {
         const st = leg.dataset.stage;
@@ -274,7 +273,6 @@ window.GC = window.GC || {};
       }
     });
     root.addEventListener("change", (e) => {
-      if (e.target.name === "map-metric") settings.metric = e.target.value;
       if (e.target.dataset.mapOpt) settings[e.target.dataset.mapOpt] = e.target.checked;
       syncMenuButton();
       renderPins();
@@ -307,9 +305,11 @@ window.GC = window.GC || {};
   }
 
   /** Static crop of the base map centred on a point (used by the deal details drawer). */
-  function baseSvg(pt) {
-    const c = pt || { x: W / 2, y: H / 2 };
-    const vw = 640, vh = 300;
+  function baseSvg(pt, size) {
+    const c = Object.assign({}, pt || { x: W / 2, y: H / 2 });
+    const vw = (size && size.w) || 640, vh = (size && size.h) || 300;
+    // keep the crop inside the drawn world so no blank edge shows
+    c.x = Math.min(W - vw / 2, Math.max(vw / 2, c.x)); c.y = Math.min(H - vh / 2, Math.max(vh / 2, c.y));
     return baseMapSvg()
       .replace(`viewBox="0 0 ${W} ${H}" width="${W}" height="${H}"`, `viewBox="${c.x - vw / 2} ${c.y - vh / 2} ${vw} ${vh}" width="100%" height="100%" preserveAspectRatio="xMidYMid slice"`);
   }

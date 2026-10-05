@@ -8,7 +8,7 @@ window.GC = window.GC || {};
   const source = () => (view.sort === "archived" ? archived : deals);
   const ME = "Liam O'Connor";
   /** Activity log entry (shown in the details drawer → Logs). */
-  function log(d, text) { d.log = d.log || []; d.log.unshift({ who: ME, text, at: new Date().toISOString() }); }
+  function log(d, text, type) { d.log = d.log || []; d.log.unshift({ who: ME, text, type: type || "edit", at: new Date().toISOString() }); }
   const summary = Object.assign({}, GC.MOCK.inboxSummary);
 
   function industryIcon(id) {
@@ -54,8 +54,9 @@ window.GC = window.GC || {};
   }
 
   function ownerHtml(d) {
-    return d.owner ? `<span class="ds-avatar" data-size="md" title="Owner">${esc(d.owner)}</span>`
-      : `<button type="button" class="ds-btn is-icon-only" data-type="ghost" data-size="sm" aria-label="Assign owner"><span class="ds-btn__icon">${DS_ICONS.get("plus")}</span></button>`;
+    // Figma: 24px tinted circle with initials; unassigned = outlined "+" circle.
+    return d.owner ? `<span class="ds-avatar owner-avatar" data-size="md" title="Owner">${esc(d.owner)}</span>`
+      : `<button type="button" class="assign-btn" data-ds-provisional="assign-button" aria-label="Assign owner" title="Assign owner">${GC.icon("plus")}</button>`;
   }
   function tagsHtml(d) {
     return `${d.industry ? `<span class="industry-chip" data-ds-provisional="chip">${industryIcon(d.industry)}${esc(d.industry)}</span>` : ""}
@@ -65,8 +66,9 @@ window.GC = window.GC || {};
   function locText(d) {
     return [d.location, d.assets != null ? `${d.assets} asset${d.assets === 1 ? "" : "s"}` : ""].filter(Boolean).join(", ") || "No location";
   }
-  function actionsHtml(d) {
+  function actionsHtml(d, comments) {
     return `<button type="button" class="ds-btn is-icon-only" data-type="ghost" data-size="sm" data-deal-edit="${d.id}" aria-label="Edit ${esc(d.name)}"><span class="ds-btn__icon">${DS_ICONS.get("edit")}</span></button>
+      ${comments && d.comments ? `<button type="button" class="ds-btn board-card__comments" data-type="ghost" data-size="sm" data-open-comments="${d.id}" aria-label="${d.comments} comments"><span class="ds-btn__icon">${DS_ICONS.get("message-text")}</span><span class="ds-btn__label">${d.comments}</span></button>` : ""}
       <button type="button" class="ds-btn is-icon-only" data-type="ghost" data-size="sm" data-deal-menu="${d.id}" aria-haspopup="menu" aria-expanded="false" aria-label="More actions for ${esc(d.name)}"><span class="ds-btn__icon">${DS_ICONS.get("more-vertical")}</span></button>`;
   }
   function titleHtml(d, cls) {
@@ -87,7 +89,7 @@ window.GC = window.GC || {};
     </div>`;
   }
 
-  function cardHtml(d) {
+  function cardHtml(d, grouped) {
     const f = GC.fmt, cur = d.currency || "EUR";
     const stats = statsHtml(d);
     return `<li class="row-card deal-card${d.isNew ? " is-new" : ""}" data-ds-provisional="row-card" data-id="${d.id}" aria-label="${esc(d.name)}">
@@ -105,7 +107,7 @@ window.GC = window.GC || {};
         <div class="row-card__owner">
           ${d.comments ? `<span class="comments t-value">${GC.icon("message-text")}${d.comments}</span>` : ""}
           ${ownerHtml(d)}
-          <button type="button" class="stage-chip" data-stage="${esc(d.stage)}" data-stage-menu="${d.id}" data-ds-provisional="chip" aria-haspopup="menu" aria-expanded="false" aria-label="Deal stage: ${esc(d.stage)}. Change stage">${esc(stageLabel(d.stage))}${GC.icon("chevron-down")}</button>
+          ${grouped ? "" : `<button type="button" class="stage-chip" data-stage="${esc(d.stage)}" data-stage-menu="${d.id}" data-ds-provisional="chip" aria-haspopup="menu" aria-expanded="false" aria-label="Deal stage: ${esc(d.stage)}. Change stage">${esc(stageLabel(d.stage))}${GC.icon("chevron-down")}</button>`}
         </div>
         ${stats ? `<div class="row-card__stats">${stats}</div>` : ""}
       </div>
@@ -113,12 +115,22 @@ window.GC = window.GC || {};
     </li>`;
   }
 
+  const COUNTRY = { "United Kingdom": "UK", "United States": "US", Netherlands: "NL", Germany: "DE", Sweden: "SE", Spain: "ES", France: "FR", Denmark: "DK" };
+  /** "Wakefield, United Kingdom" → "Wakefield, UK" (Figma kanban card). */
+  function shortLoc(loc) {
+    if (!loc) return "";
+    const parts = loc.split(",").map((x) => x.trim());
+    const last = parts.length - 1;
+    if (COUNTRY[parts[last]]) parts[last] = COUNTRY[parts[last]];
+    return parts.join(", ");
+  }
+
   /** Kanban card — layout from the provided screenshot (ds:provisional board-card). */
   function boardCardHtml(d) {
     const f = GC.fmt, cur = d.currency || "EUR";
     const rows = rowsHtml(d);
     const n = d.assets;
-    const loc = `${d.location || "No location"}${n != null ? ` (${n} asset${n === 1 ? "" : "s"})` : ""}`;
+    const loc = `${shortLoc(d.location) || "No location"}${n != null ? ` (${n} asset${n === 1 ? "" : "s"})` : ""}`;
     return `<li class="board-card deal-card${d.isNew ? " is-new" : ""}" data-ds-provisional="board-card" data-id="${d.id}" aria-label="${esc(d.name)}">
       <div class="board-card__top">${ownerHtml(d)}<span class="t-title">${d.price != null ? f.moneyShort(d.price, cur) : "—"}</span></div>
       ${titleHtml(d, "board-card__name")}
@@ -126,10 +138,7 @@ window.GC = window.GC || {};
       ${sliderHtml(d)}
       <div class="row-card__tags board-card__tags">${tagsHtml(d)}</div>
       ${rows ? `<div class="board-card__rows">${rows}</div>` : ""}
-      <div class="board-card__foot">
-        ${d.comments ? `<span class="comments t-value">${GC.icon("message-text")}${d.comments}</span>` : "<span></span>"}
-        <span class="board-card__actions">${actionsHtml(d)}</span>
-      </div>
+      <div class="board-card__foot">${actionsHtml(d, true)}</div>
     </li>`;
   }
 
@@ -139,11 +148,12 @@ window.GC = window.GC || {};
     { id: "DD", short: "DD" }, { id: "SPA", short: "SPA" }, { id: "Completed", short: "CL" }, { id: "Declined", short: "DECL" },
   ];
   function stageLabel(id) { return id; }
-  function stageHead(st, list) {
+  function stageHead(st, list, board) {
     const total = list.reduce((sum, d) => sum + (d.price > 0 ? d.price : 0), 0);
+    const amount = total > 0 ? GC.fmt.moneyShort(total, "EUR") : "";
     return `<div class="stage-group__sticky"><div class="stage-group__head" data-stage="${st.id}">
       <span class="stage-group__name" title="${esc(st.id)}">${esc(st.short)} <span class="stage-group__count">(${list.length})</span></span>
-      <span class="stage-group__total">${total > 0 ? GC.fmt.moneyShort(total, "EUR") : ""}</span>
+      <span class="stage-group__total">${amount && !board ? `Total amount: ${amount}` : amount}</span>
     </div></div>`;
   }
 
@@ -170,19 +180,19 @@ window.GC = window.GC || {};
     const mode = view.layout === "board" ? "board" : view.sort === "stage" ? "grouped" : "list";
     root.dataset.view = mode;
     if (mode === "list") {
-      root.innerHTML = list.length ? `<ul class="card-list">${list.map(cardHtml).join("")}</ul>`
+      root.innerHTML = list.length ? `<ul class="card-list">${list.map((d) => cardHtml(d)).join("")}</ul>`
         : `<div class="empty-state" data-ds-provisional="empty-state">${GC.icon("bookmark")}<p class="t-title">${view.sort === "archived" ? "No archived deals" : "No deals"}</p><p class="t-muted">${view.sort === "archived" ? "Deals you archive from the card menu show up here." : ""}</p></div>`;
     } else if (mode === "grouped") {
       root.innerHTML = STAGES.map((st) => {
         const items = list.filter((d) => d.stage === st.id);
         return `<section class="stage-group" data-ds-provisional="stage-group" data-stage="${st.id}" aria-label="${esc(st.id)}, ${items.length} deals">
-          ${stageHead(st, items)}${items.length ? `<ul class="card-list">${items.map(cardHtml).join("")}</ul>` : ""}</section>`;
+          ${stageHead(st, items)}${items.length ? `<ul class="card-list">${items.map((d) => cardHtml(d, true)).join("")}</ul>` : ""}</section>`;
       }).join("");
     } else {
       root.innerHTML = STAGES.map((st) => {
         const items = list.filter((d) => d.stage === st.id);
         return `<section class="board-col stage-group" data-ds-provisional="board-column" data-stage="${st.id}" aria-label="${esc(st.id)}, ${items.length} deals">
-          ${stageHead(st, items)}<ul class="card-list">${items.map(boardCardHtml).join("")}</ul></section>`;
+          ${stageHead(st, items, true)}<ul class="card-list">${items.map(boardCardHtml).join("")}</ul></section>`;
       }).join("");
       root.querySelectorAll(".board-col").forEach((col) => col.addEventListener("scroll", () => updateStuck(col), { passive: true }));
     }
@@ -260,7 +270,7 @@ window.GC = window.GC || {};
 
   function addDeal(deal) {
     deals.unshift(deal);
-    log(deal, "created the deal");
+    log(deal, "created the deal", "received");
     summary.activeDeals += 1;
     if (deal.price > 0) summary.totalValue += deal.price; else summary.withoutPrice += 1;
     render();
@@ -300,7 +310,7 @@ window.GC = window.GC || {};
     if (idx < 0) return;
     const [deal] = from.splice(idx, 1);
     const to = verb === "archived" ? archived : verb === "restored" ? deals : null;
-    if (to) { to.unshift(deal); log(deal, verb === "archived" ? "archived the deal" : "restored the deal from the archive"); }
+    if (to) { to.unshift(deal); log(deal, verb === "archived" ? "archived the deal" : "restored the deal from the archive", "status"); }
     recount();
     render();
     if (GC.dealPanel) GC.dealPanel.onRemoved(id);
@@ -315,8 +325,9 @@ window.GC = window.GC || {};
     if (!d || d.stage === stage) return;
     const prev = d.stage;
     d.stage = stage;
-    log(d, `changed stage from ${prev} to ${stage}`);
+    log(d, `changed stage: ${prev} → ${stage}`, "stage");
     render();
+    if (GC.dealPanel) GC.dealPanel.refresh(id);
     GC.toast("Stage updated", `“${d.name}” moved from ${prev} to ${stage}.`, "success");
   }
 
@@ -370,6 +381,8 @@ window.GC = window.GC || {};
 
   function bindCardActions() {
     document.getElementById("deal-list").addEventListener("click", (e) => {
+      const oc = e.target.closest("[data-open-comments]");
+      if (oc) { GC.dealPanel.open(oc.dataset.openComments, oc, "comments"); return; }
       const open = e.target.closest("[data-open]");
       if (open) { GC.dealPanel.open(open.dataset.open, open); return; }
       const edit = e.target.closest("[data-deal-edit]");
@@ -393,5 +406,5 @@ window.GC = window.GC || {};
 
   function update() { recount(); render(); }
 
-  GC.inbox = { render, addDeal, deals, archived, bindLinking, view, fields, order, update, removeDeal, setStage, find, log };
+  GC.inbox = { render, addDeal, deals, archived, bindLinking, view, fields, order, update, removeDeal, setStage, find, log, openMenu, openStageMenu, popup, ME };
 })();

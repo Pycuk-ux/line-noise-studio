@@ -183,6 +183,48 @@ TOKENS.md             token report: components, provisionals, off-system values
   sections), comments, archive/restore and creation, on top of mock history. ←/→/Home/End move between enabled tabs.
 - Figma was still rate-limited (Starter plan), so the tabs, Comments and Logs were built from the brief.
 
+## Iteration 7 — matched to the Figma screens (file NGftdU9JMlH3iYtVmwPQaW)
+
+Screens compared: Sorted by stage (16292:70411), Kanban + hover (16292:70931), Edit deal Drawer V.2 (16292:69875),
+Deal Details viewport (16292:69220 / 68565), Log and Comments (16292:70814 / 70876), Map variation (16292:71767).
+
+- **Map / pin settings:** "Pin settings" menu with *Show industry icon*, *Show description* and *Description: Price | Yield*.
+  The map button shows `EUR` (price) or `EUR/sqm` (yield) and becomes icon-only when the description is off; pins go
+  icon + value → icon-only → stage-coloured rings. Pins now have the stage-coloured border; hovering a card turns its
+  pin dark (`--brand-primary`), as in the "Pin on map reacts" frame.
+- **Grouped list:** header reads `Total amount: €…`; cards inside a stage group drop the stage chip (the group already
+  says it). Owners are tinted 24px circles; unassigned deals show an outlined "+" circle.
+- **Kanban:** 264px columns / 256px cards, radius 4 with the "sm" shadow, 120px photo with the 1 / N counter and round
+  arrows, label-left / value-right rows, and a footer with edit · comments · more aligned right. Locations use country
+  codes ("Wakefield, UK (12 assets)").
+- **Edit deal drawer V.2:** 420px; "Edit deal" title; pill tabs (Key info, Assets, Overview, Physical, Financial);
+  every section is a collapsible white card; single-column 40px fields. Key info follows Figma: Area, Rent (€/sqm),
+  Price, Rent, Total assets, Occupancy, Cap rate (the three computed ones stay read-only). Deal name, dates, stage,
+  owner, fund and source moved to Overview; Next deadline is now editable. Footer has two equal buttons; Save stays
+  disabled until something changes.
+- **Deal details drawer:** 1152px; top bar with », full page, ↑/↓, then **Edit** and **⋮** (Archive / Delete). Tabs
+  in Figma order — Deal Details, Assets, Comps, Documents, AI Assistant, Comments, Log — at the large size. Header:
+  photo thumbnail with slider, industry chip + **stage dropdown**, title, address. Seven key metrics (… Rent (€/sqm),
+  Total assets, Cap rate). Overview + AI Summary (dated, one-line tags, "Show more"), mini map with **Show Comps**
+  and numbered asset / comp pins, sortable **Assets** table with a Total row, then Key Highlights / Investment Risks.
+  The stage bar, Comps, Financial Model, Deal Memo and Sources blocks were removed — they are not on this screen in
+  Figma and belong to the Comps / AI Assistant / Documents tabs.
+- **Comments:** composer on top ("Start typing to leave a comment", @ button, Send), newest first, tinted initial
+  avatars, time on the right, @mentions highlighted, Copy + Reply (prefills @name) for others, Copy + Edit for your own.
+- **Log:** "All event types" filter (stage changes, edits, comments, archive & restore, AI & highlights, deal received),
+  Time | Log text table grouped by Today / Yesterday / date, relative times today and HH:MM before, "You" for the
+  current user. Edits are logged per field ("updated Price: €61,200,000 → €65,000,000").
+
+Not matched on purpose / still open:
+- The Figma map is a raster tile image; Figma assets can't be downloaded through this environment's proxy (and the
+  Artifact blocks tile servers), so the token-drawn vector map stays.
+- Industry glyphs (bed, box, briefcase) are not in the DS icon set — `building` is used everywhere.
+- 13px Figma text is snapped to 12/14; the DS Segmented control is used where Figma draws a grey-track switch.
+- Figma copy slips fixed: "Finiancial" → Financial, the duplicated "Physical" pill → Assets, "Date received" showing
+  "Structured Process" → a date.
+- The Add New Deal modal still says Rent/psm and NIY; the drawers now say Rent (€/sqm) and Cap rate as in Figma. Tell
+  me if the modal should switch too.
+
 ## Deviations from Figma
 
 1. **DS components win over Figma** when they disagree: the navbar is rounded, the tabs are 14px, the segmented
