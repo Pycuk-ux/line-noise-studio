@@ -62,6 +62,18 @@ window.GC = window.GC || {};
     return aid ? GC.ASSET_FIELDS[base] : GC.FIELDS[id];
   };
 
+  /** Deal industry comes from its assets: one type → that type, several types → Mixed-use. */
+  GC.dealIndustry = function (st) {
+    st = st || GC.state;
+    const types = [...new Set(st.assets.map((aid) => st.data[GC.assetKey(aid, "type")]).filter(Boolean))];
+    return types.length === 0 ? "" : types.length === 1 ? types[0] : "Mixed-use";
+  };
+
+  /** Put a previously deleted draft back (Undo). */
+  GC.putDraft = function (payload) {
+    try { window.localStorage.setItem(DRAFT_KEY, JSON.stringify(payload)); return true; } catch (e) { return false; }
+  };
+
   let assetSeq = 0;
   GC.newAssetId = () => "a" + (++assetSeq).toString(36) + Date.now().toString(36).slice(-3);
 
@@ -107,6 +119,7 @@ window.GC = window.GC || {};
   // ---------- Validation ----------
   GC.validateField = function (id, d) {
     d = d || GC.state.data;
+    if (id === "deal_name") return (d.deal_name || "").trim() ? "" : "Deal name is required";
     const [aidReq, baseReq] = GC.splitKey(id);
     if (aidReq && baseReq === "type") return d[id] ? "" : "Asset type is required";
     if (aidReq && baseReq === "address") return (d[id] || "").trim() ? "" : "Address is required";
@@ -129,6 +142,7 @@ window.GC = window.GC || {};
 
   GC.validateStep = function (step) {
     const errors = {};
+    if (step === 0 && GC.validateField("deal_name")) errors.deal_name = GC.validateField("deal_name"); // first on the page
     Object.keys(GC.FIELDS).forEach((id) => {
       if (GC.FIELDS[id].step !== step) return;
       const msg = GC.validateField(id);

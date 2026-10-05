@@ -52,7 +52,7 @@ window.GC = window.GC || {};
 
   function shownError(id) {
     const s = S(), f = def(id);
-    const step = f ? f.step : GC.splitKey(id)[0] ? 0 : null; // asset type/address live on Key Info
+    const step = f ? f.step : (GC.splitKey(id)[0] || id === "deal_name") ? 0 : null; // name + asset type/address live on Key Info
     if (step == null) return "";
     if (!(s.touched[id] || s.attempted[step])) return "";
     return GC.validateField(id);
@@ -123,15 +123,25 @@ window.GC = window.GC || {};
   // ============================================================
   function draftBanner() {
     const s = S();
+    if (s.undoDraft) {
+      return `<div class="draft-banner" data-ds-provisional="banner" role="status">
+        <span class="draft-banner__icon">${GC.icon("bin")}</span>
+        <div class="draft-banner__text"><p class="draft-banner__title">Draft deleted</p><p class="draft-banner__sub">The form is empty now.</p></div>
+        <div class="draft-banner__actions">
+          <button type="button" class="ds-btn" data-type="secondary" data-size="md" data-act="draft-undo">${GC.icon("refresh", "ds-btn__icon")}<span class="ds-btn__label">Undo</span></button>
+        </div>
+      </div>`;
+    }
     if (!s.restoredFrom) return "";
     const d = new Date(s.restoredFrom);
     const when = isNaN(d) ? "" : `Saved ${GC.fmt.dateLong(d.toISOString().slice(0, 10))}, ${d.toTimeString().slice(0, 5)}.`;
-    return `<div class="draft-banner">
-      <div class="ds-alert" data-status="neutral" role="status">
-        <div class="ds-alert__row"><span class="ds-alert__icon">${GC.icon("history")}</span><p class="ds-alert__msg">Draft restored</p></div>
-        <p class="ds-alert__subtext">${esc(when)} Continue where you left off.</p>
+    return `<div class="draft-banner" data-ds-provisional="banner" role="status">
+      <span class="draft-banner__icon">${GC.icon("history")}</span>
+      <div class="draft-banner__text"><p class="draft-banner__title">Draft restored</p><p class="draft-banner__sub">${esc(when)} Continue where you left off or start again.</p></div>
+      <div class="draft-banner__actions">
+        <button type="button" class="ds-btn" data-type="secondary" data-size="md" data-act="draft-continue">Continue</button>
+        <button type="button" class="ds-btn" data-type="ghost" data-size="md" data-act="draft-delete">${GC.icon("bin", "ds-btn__icon")}<span class="ds-btn__label">Delete draft</span></button>
       </div>
-      <button type="button" class="ds-btn" data-type="ghost" data-size="md" data-act="start-over">Start over</button>
     </div>`;
   }
 
@@ -224,16 +234,26 @@ window.GC = window.GC || {};
     </fieldset>`;
   }
 
+  function dealNameField() {
+    const err = shownError("deal_name");
+    return `<div class="ds-field" data-size="medium" data-state="${err ? "error" : "default"}" data-wrap="deal_name">
+      <label class="ds-field__label" for="f-deal_name">Deal name <span class="ds-field__req" aria-hidden="true">*</span></label>
+      <div class="ds-field__box"><input class="ds-field__input" id="f-deal_name" data-field="deal_name" type="text" autocomplete="off"
+        value="${esc(S().data.deal_name)}" placeholder="e.g. TechForward Industries HQ" aria-required="true" aria-invalid="${!!err}" aria-describedby="h-deal_name"></div>
+      <div class="ds-field__helper" id="h-deal_name"${err ? "" : " hidden"}>${esc(err)}</div>
+    </div>`;
+  }
+
   function stepKeyInfo() {
     const s = S();
     const n = s.assets.length;
     return `
+      <section class="form-section">${dealNameField()}</section>
       <section class="form-section" aria-labelledby="photos-title"><div id="upload-root"></div></section>
       <section class="form-section" aria-labelledby="ki-title">
         <div class="section-heading" data-ds-provisional="section-heading">
           <h3 class="section-heading__title t-title" id="ki-title">Key metrics</h3>${unitsInline()}
         </div>
-        <p class="req-note"><span class="ds-field__req">*</span> Required</p>
         <div class="form-grid">
           ${numField("area_sqm", { placeholder: "0" })}
           ${numField("price", { placeholder: "0" })}
@@ -251,16 +271,6 @@ window.GC = window.GC || {};
         <p class="req-note">A deal can include several assets. Each one starts with its type and address.</p>
         <div class="asset-list">${s.assets.map((aid, i) => assetRow(aid, i, n)).join("")}</div>
       </section>`;
-  }
-
-  function industryGroup() {
-    const cur = S().data.industry;
-    const first = cur || M.industries[0].id;
-    return `<div class="field-group span-all">
-      <span class="ds-field__label" id="l-industry">Industry</span>
-      <div class="chip-group" role="radiogroup" aria-labelledby="l-industry" data-ds-provisional="chip">
-        ${M.industries.map((ind) => `<button type="button" role="radio" class="chip-option" data-industry="${ind.id}" aria-checked="${cur === ind.id}" tabindex="${ind.id === first ? 0 : -1}">${GC.icon(ind.icon)}${esc(ind.id)}</button>`).join("")}
-      </div></div>`;
   }
 
   function locationCombo() {
@@ -294,10 +304,8 @@ window.GC = window.GC || {};
     return `
       ${sectionHeading("Overview")}
       <div class="form-grid form-grid--2">
-        <div class="span-all">${textField("deal_name", "Deal name", { placeholder: "e.g. TechForward Industries HQ" })}</div>
         ${locationCombo()}
         ${textField("date_received", "Date received", { type: "date" })}
-        ${industryGroup()}
         ${selectField("stage", "Deal stage", M.stages)}
         ${selectField("fund", "Fund", M.funds, { placeholder: "Select fund" })}
         ${teamCombo()}
@@ -478,7 +486,6 @@ window.GC = window.GC || {};
         }
       }
     }
-    if (i === 1 && !s.data.industry) s.data.industry = s.data[GC.assetKey(s.assets[0], "type")] || "";
     s.step = i;
     s.visited[i] = true;
     s.restoredFrom = null;
@@ -557,7 +564,7 @@ window.GC = window.GC || {};
       crossCheck(id);
     } else if (id !== "team") {
       s.data[id] = el.value;
-      if (GC.splitKey(id)[0]) {
+      if (GC.splitKey(id)[0] || id === "deal_name") {
         const wrap = dialog.querySelector(`[data-wrap="${id}"]`);
         if (wrap && wrap.dataset.state === "error") setFieldErrorUI(id);
       }
@@ -571,7 +578,7 @@ window.GC = window.GC || {};
     if (!id) return;
     const s = S();
     const [aidKey, baseKey] = GC.splitKey(id);
-    if (aidKey && (baseKey === "type" || baseKey === "address")) {
+    if (id === "deal_name" || (aidKey && (baseKey === "type" || baseKey === "address"))) {
       s.touched[id] = true; setFieldErrorUI(id); renderStepper(); return;
     }
     if (!def(id)) return;
@@ -725,23 +732,11 @@ window.GC = window.GC || {};
         }
         return;
       }
-      // Industry radiogroup: roving tabindex
-      const chip = e.target.closest && e.target.closest(".chip-option");
-      if (chip && ["ArrowRight", "ArrowDown", "ArrowLeft", "ArrowUp"].includes(e.key)) {
-        e.preventDefault();
-        const all = Array.from(dialog.querySelectorAll(".chip-option"));
-        const i = all.indexOf(chip);
-        const next = all[(i + (e.key === "ArrowRight" || e.key === "ArrowDown" ? 1 : -1) + all.length) % all.length];
-        selectIndustry(next.dataset.industry);
-        next.focus();
-      }
     });
 
     dialog.addEventListener("click", (e) => {
       const opt = e.target.closest(".prov-option");
       if (opt && !opt.matches('[aria-disabled="true"]')) { chooseOption(opt.closest(".prov-combo"), opt); return; }
-      const chip = e.target.closest(".chip-option");
-      if (chip) { selectIndustry(S().data.industry === chip.dataset.industry ? "" : chip.dataset.industry, chip.dataset.industry); return; }
       const seg = e.target.closest("[data-unit]");
       if (seg) { setUnit(seg.dataset.unit, seg.dataset.value); return; }
       const step = e.target.closest(".prov-progress__item");
@@ -754,7 +749,40 @@ window.GC = window.GC || {};
         case "back": goTo(S().step - 1); break;
         case "save-draft": saveDraftAndClose(); break;
         case "add": addDeal(); break;
-        case "start-over": GC.clearDraft(); GC.resetState(); S().open = true; renderStep(); break;
+        case "draft-continue": {
+          S().restoredFrom = null;
+          const b = dialog.querySelector(".draft-banner"); if (b) b.remove();
+          focusFirstField();
+          break;
+        }
+        case "draft-delete": {
+          const draft = GC.loadDraft();
+          GC.clearDraft();
+          GC.resetState();
+          S().open = true;
+          S().undoDraft = draft;
+          renderStep({ focus: false });
+          dialog.querySelector('[data-act="draft-undo"]').focus();
+          setTimeout(() => {
+            if (!dialog || S().undoDraft !== draft) return;
+            S().undoDraft = null;
+            const b = dialog.querySelector(".draft-banner");
+            const hadFocus = b && b.contains(document.activeElement);
+            if (b) b.remove();
+            if (hadFocus) focusFirstField();
+          }, 8000);
+          break;
+        }
+        case "draft-undo": {
+          const draft = S().undoDraft;
+          if (!draft) break;
+          GC.putDraft(draft);
+          GC.applyDraft(draft);
+          S().open = true;
+          renderStep({ focus: false });
+          const c = dialog.querySelector('[data-act="draft-continue"]'); if (c) c.focus();
+          break;
+        }
         case "niy-reset": {
           S().data.niy_manual = false; delete S().raw.niy; recalc();
           renderStep({ focus: false, scrollTop: false });
@@ -806,16 +834,6 @@ window.GC = window.GC || {};
 
     overlay.addEventListener("mousedown", (e) => { overlay._downOnSelf = e.target === overlay; });
     overlay.addEventListener("click", (e) => { if (e.target === overlay && overlay._downOnSelf) requestClose(); });
-  }
-
-  function selectIndustry(value, focusId) {
-    S().data.industry = value;
-    dialog.querySelectorAll(".chip-option").forEach((c) => {
-      const on = c.dataset.industry === value;
-      c.setAttribute("aria-checked", on ? "true" : "false");
-      c.tabIndex = (value ? on : c.dataset.industry === (focusId || GC.MOCK.industries[0].id)) ? 0 : -1;
-    });
-    onAnyChange();
   }
 
   function announceLocked() {

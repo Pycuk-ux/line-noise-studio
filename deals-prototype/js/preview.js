@@ -129,7 +129,8 @@ window.GC = window.GC || {};
   function html() {
     const s = GC.state, d = s.data, f = fmt();
     const name = d.deal_name.trim();
-    const industryChip = d.industry ? `<span class="industry-chip industry-chip--header" data-industry="${esc(d.industry)}" data-ds-provisional="chip"><span class="dot" aria-hidden="true"></span>${esc(d.industry)}</span>` : "";
+    const industry = GC.dealIndustry();
+    const industryChip = industry ? `<span class="industry-chip industry-chip--header" data-industry="${esc(industry)}" data-ds-provisional="chip"><span class="dot" aria-hidden="true"></span>${esc(industry)}</span>` : "";
     const n = s.assets.length;
     const assets = `${n} asset${n === 1 ? "" : "s"}`;
     return `<div class="pv">
@@ -217,7 +218,7 @@ window.GC = window.GC || {};
       name: d.deal_name.trim() || "Untitled deal",
       location: d.location.trim(),
       assets: s.assets.length,
-      industry: d.industry || null,
+      industry: GC.dealIndustry(s) || null,
       status: { label: "New", tone: "info" },
       owner: team[0] ? team[0].initials : null,
       stage: d.stage,

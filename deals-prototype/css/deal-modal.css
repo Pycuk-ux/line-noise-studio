@@ -104,24 +104,21 @@ fieldset.field-group > legend { padding: 0; margin-bottom: var(--space-1); }
 
 /* Units bar */
 
-/* Draft banner (DS Alert) */
-.draft-banner { display: flex; align-items: flex-start; gap: var(--space-3); margin-bottom: var(--space-4); }
+/* Draft banner — full modal width (ds:provisional banner; DS Alert is fixed at 360px) */
+.draft-banner {
+  display: flex; align-items: center; gap: var(--space-3); margin-bottom: var(--space-4);
+  padding: var(--space-3) var(--space-4); border-radius: var(--radius-4);
+  background: var(--color-grey-100); border-left: var(--space-1) solid var(--brand-primary);
+}
+.draft-banner__icon { color: var(--icon-primary); }
+.draft-banner__text { flex: 1 1 auto; min-width: 0; }
+.draft-banner__title { margin: 0; color: var(--text-primary); font-size: var(--text-label-md-size); line-height: var(--text-label-md-line); font-weight: var(--w-semibold); }
+.draft-banner__sub { margin: var(--space-1) 0 0; color: var(--text-tertiary); font-size: var(--type-caption-size); line-height: var(--type-caption-line); }
+.draft-banner__actions { display: flex; align-items: center; gap: var(--space-2); flex: 0 0 auto; }
 
 /* Required legend */
 .req-note { margin: 0 0 var(--space-3); color: var(--text-tertiary); font-size: var(--type-caption-size); line-height: var(--type-caption-line); }
 .req-note .ds-field__req { margin-left: 0; }
-
-/* ---------- Chip radio group (industry) ---------- */
-.chip-group { display: flex; flex-wrap: wrap; gap: var(--space-2); }
-.chip-option {
-  display: inline-flex; align-items: center; gap: var(--space-1); cursor: pointer;
-  padding: var(--space-1) var(--space-2) var(--space-1) var(--space-1); border-radius: var(--radius-4);
-  border: 1px solid var(--surface-secondary); background: var(--surface-secondary); color: var(--text-secondary);
-  font-family: var(--font-sans); font-size: var(--text-label-md-size); line-height: var(--text-label-md-line); font-weight: var(--w-medium);
-}
-.chip-option:hover { background: var(--surface-white-hover); }
-.chip-option[aria-checked="true"] { background: var(--surface-positive); border-color: var(--brand-secondary); color: var(--text-positive-hover); }
-.chip-option:focus-visible { outline: var(--focus-ring-width) solid var(--focus-ring); outline-offset: var(--focus-ring-offset); }
 
 /* ---------- Combobox / listbox (ds:provisional combobox) ---------- */
 .prov-combo { position: relative; }
@@ -291,7 +288,7 @@ fieldset.field-group > legend { padding: 0; margin-bottom: var(--space-1); }
 .asset-list { display: flex; flex-direction: column; gap: var(--space-3); }
 .asset-row {
   /* ds:provisional name="asset-row" */
-  margin: 0; min-width: 0; padding: var(--space-3); border: 1px solid var(--border-default); border-radius: var(--radius-8);
+  margin: 0; min-width: 0; padding: var(--space-3); border: none; border-radius: var(--radius-8); background: var(--color-grey-100);
   display: flex; flex-direction: column; gap: var(--space-3);
 }
 .asset-row__head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); min-height: var(--space-6); }
@@ -309,6 +306,7 @@ fieldset.field-group > legend { padding: 0; margin-bottom: var(--space-1); }
   .prov-progress { overflow-x: auto; }
   .prov-progress > li, .prov-progress > li.is-other { flex: 0 0 auto; }
   .asset-row__fields { grid-template-columns: minmax(0, 1fr); }
+  .draft-banner { flex-wrap: wrap; }
   .section-heading { flex-wrap: wrap; }
   .thumb-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .metrics { flex-wrap: wrap; row-gap: var(--space-4); }

@@ -18,7 +18,7 @@ No build step.
 
 **Tests (optional):** `bash tests/make-fixtures.sh && node tests/e2e.cjs` while the server runs. The test
 needs Playwright and serves the Vercel DS from a local clone (`GOCANOPY_DS_ROOT`, default `../../gocanopy-design-system`).
-It makes 72 checks (acceptance checklist + map + multi-asset); the latest run passed all 72 with 0 console errors or warnings.
+It makes 82 checks (acceptance checklist + map + multi-asset + draft undo); the latest run passed all 82 with 0 console errors or warnings.
 
 ## Structure
 
@@ -113,6 +113,16 @@ TOKENS.md             token report: components, provisionals, off-system values
   per asset, and Preview shows an assets table like the Deal Details "Asset" table. Deal-level Industry is prefilled
   from the first asset.
 - The inbox now lists all 11 active deals (2 without price), each with a pin.
+
+## Iteration 3 changes
+
+- Inbox cards: hover (and hovering the card's map pin) fills the card with `#F9FAFB` (`--surface-secondary`) instead of an outline.
+- Key metrics: the "* Required" note is gone; the asterisk next to each label is enough.
+- Asset container: no border, `#F3F4F6` fill (`--color-grey-100`).
+- **Deal name moved to Key Info** (top of the step, required). General Info no longer asks for Industry: the deal's
+  industry comes from its assets (one type → that type, several types → Mixed-use).
+- **Saved draft banner** spans the modal width with **Continue** and **Delete draft** on the right. Delete clears the
+  form and shows a "Draft deleted · Undo" bar (focus moves to Undo; it disappears after 8 s). Undo restores the draft.
 
 ## Deviations from Figma
 

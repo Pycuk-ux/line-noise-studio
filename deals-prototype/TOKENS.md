@@ -68,7 +68,8 @@ stacked avatars, `vertical-align`). No colour, radius, padding or type of a DS c
 | `dropdown` (map pin settings) | Map "Price ▾" control | `--surface-white`, `--border-default`, `--radius-4`; contents are DS **Radio** + DS **Toggle** |
 | map base (inside `map`) | Map-container | drawn as SVG: land `--color-grey-100`, water `--color-cyan-100`, parks `--color-emerald-100`, streets `--surface-white`, motorways `--color-orange-200`, ring `--color-yellow-200`, labels `--text-tertiary`; overlays `--color-alpha-dark-600` |
 | `readonly-field` (auto-filled Rent/psm, NIY) | — | box `--surface-secondary` + `--border-default` + `--radius-4`, padding `--space-3`/`--space-2` (same box as DS field), **no hover, not focusable**, value `--text-body-md-*`, error `--border-negative` |
-| `asset-row` | — (CEO: "each asset starts with asset type, address") | `--border-default`, `--radius-8`, p `--space-3`, gap `--space-3`/`--space-4`; fields are DS Text field + provisional select |
+| `asset-row` | — (CEO: "each asset starts with asset type, address") | fill `--color-grey-100` (#F3F4F6, no border), `--radius-8`, p `--space-3`, gap `--space-3`/`--space-4`; fields are DS Text field + provisional select |
+| `banner` (draft restored / deleted + Undo) | — | `--color-grey-100`, left rule `--space-1` `--brand-primary`, `--radius-4`, p `--space-3`/`--space-4`; DS Buttons |
 | `table` (preview assets) | Deal Details Asset table | header `--surface-secondary` / `--text-tertiary` caption, rows `--border-default`, values `--text-label-md-*` |
 
 **Stage palette** (Figma `stage/*` variables mapped to DS primitives, shared by stage chips, map pins and the map legend):

@@ -13,6 +13,7 @@ function ok(cond, msg) { if (cond) { pass++; console.log('  ✓', msg); } else {
   const fill = async (sel, v) => { await page.fill(sel, ''); await page.type(sel, String(v)); await page.press(sel, 'Tab'); };
   const asset = (i, f) => `.asset-row:nth-child(${i}) [id$="__${f}"]`;
   const fillKeyInfo = async (o) => {
+    await fill('#f-deal_name', o.name);
     await fill('#f-area_sqm', o.area); await fill('#f-price', o.price); await fill('#f-occupancy', o.occ); await fill('#f-rent_yearly', o.rent);
     await page.selectOption(asset(1, 'type'), o.type); await fill(asset(1, 'address'), o.address);
   };
@@ -48,8 +49,11 @@ function ok(cond, msg) { if (cond) { pass++; console.log('  ✓', msg); } else {
   await page.click('[data-zoom="in"]');
   ok((await page.$eval('.map-world', (e) => e.style.transform)) !== before, 'zoom in changes the view');
   await page.click('[data-zoom="reset"]');
-  await page.hover('.row-card[data-id="d7"]');
+  await page.hover('.row-card[data-id="d7"]'); await page.waitForTimeout(200);
   ok(await page.$eval('.map-pin[data-id="d7"]', (e) => e.classList.contains('is-linked')), 'hovering a card highlights its pin');
+  ok(await page.$eval('.row-card[data-id="d7"]', (e) => getComputedStyle(e).backgroundColor) === 'rgb(249, 250, 251)', 'hovered card fill is #F9FAFB');
+  await page.hover('.map-pin[data-id="d6"]'); await page.waitForTimeout(200);
+  ok(await page.$eval('.row-card[data-id="d6"]', (e) => getComputedStyle(e).backgroundColor) === 'rgb(249, 250, 251)', 'hovering a pin fills its card #F9FAFB');
   await page.click('.map-pin[data-id="d9"]');
   await page.waitForTimeout(200);
   ok(await page.$eval('.row-card[data-id="d9"]', (e) => e.classList.contains('is-flash')), 'clicking a pin highlights its card');
@@ -57,7 +61,8 @@ function ok(cond, msg) { if (cond) { pass++; console.log('  ✓', msg); } else {
   console.log('1. Open + empty close');
   await page.click('#add-deal-btn');
   ok(await page.isVisible('.dm[role="dialog"]'), 'modal opens from New deal');
-  ok(await page.evaluate(() => document.activeElement.id) === 'f-area_sqm', 'focus starts on Area');
+  ok(await page.evaluate(() => document.activeElement.id) === 'f-deal_name', 'focus starts on Deal name (Key Info)');
+  ok(!(await page.$('.dm .req-note:has(.ds-field__req)')), 'no "* Required" note');
   ok(!(await page.$('.dm [data-unit="period"]')), 'no Yearly/Monthly control in the modal');
   ok(await page.$eval('.section-heading:has(#ki-title) .units-inline', (e) => !!e.querySelector('[data-unit="area"]') && !!e.querySelector('[data-unit-select="currency"]')), 'SQM/SQF + currency sit in the Key metrics heading row');
   await page.keyboard.press('Escape');
@@ -75,8 +80,8 @@ function ok(cond, msg) { if (cond) { pass++; console.log('  ✓', msg); } else {
   ok(await page.$eval('[data-step="1"]', (e) => e.getAttribute('aria-disabled')) === 'true', 'upcoming steps locked');
   await page.click('[data-act="next"]');
   ok(await step() === 0, 'Next blocked on invalid Key Info');
-  ok((await page.$$('.ds-field[data-state="error"]')).length >= 6, 'required errors shown (metrics + asset type + address)');
-  ok(await page.evaluate(() => document.activeElement.id) === 'f-area_sqm', 'focus moved to first invalid field');
+  ok((await page.$$('.ds-field[data-state="error"]')).length >= 7, 'required errors shown (name + metrics + asset type + address)');
+  ok(await page.evaluate(() => document.activeElement.id) === 'f-deal_name', 'focus moved to first invalid field');
 
   console.log('3. Calculations + auto fields');
   ok(!(await page.$('input#f-rent_psm')) && !(await page.$('input#f-niy')), 'auto fields are not inputs');
@@ -84,7 +89,7 @@ function ok(cond, msg) { if (cond) { pass++; console.log('  ✓', msg); } else {
   const bgBefore = await page.$eval('.readonly-field[data-wrap="rent_psm"] .readonly-field__box', (e) => getComputedStyle(e).backgroundColor);
   await page.hover('.readonly-field[data-wrap="rent_psm"] .readonly-field__box');
   ok(await page.$eval('.readonly-field[data-wrap="rent_psm"] .readonly-field__box', (e) => getComputedStyle(e).backgroundColor) === bgBefore, 'no hover effect on auto field');
-  await fillKeyInfo({ area: 1000, price: 10000000, occ: 95, rent: 500000, type: 'Logistics', address: 'Hamngatan 12, Malmö' });
+  await fillKeyInfo({ name: 'Harbour Gate Logistics Park', area: 1000, price: 10000000, occ: 95, rent: 500000, type: 'Logistics', address: 'Hamngatan 12, Malmö' });
   ok(await txt('#v-rent_psm') === '500', `Rent/psm = 500 (got ${await txt('#v-rent_psm')})`);
   ok(await txt('#v-niy') === '5', `NIY = 5 (got ${await txt('#v-niy')})`);
   ok(await val('#f-price') === '10,000,000', 'price formatted on blur');
@@ -110,6 +115,7 @@ function ok(cond, msg) { if (cond) { pass++; console.log('  ✓', msg); } else {
   console.log('4. Assets (multi-asset deal)');
   await page.click('[data-act="asset-add"]');
   ok((await page.$$('.asset-row')).length === 2 && (await txt('#assets-count')) === '(2)', 'second asset added');
+  ok(await page.$eval('.asset-row', (e) => { const c = getComputedStyle(e); return c.backgroundColor === 'rgb(243, 244, 246)' && c.borderTopStyle === 'none'; }), 'asset container: #F3F4F6 fill, no border');
   ok(await page.evaluate(() => document.activeElement.id.endsWith('__type')), 'focus on the new asset type');
   await page.click('[data-act="next"]');
   ok(await step() === 0, 'empty second asset blocks Next');
@@ -140,8 +146,7 @@ function ok(cond, msg) { if (cond) { pass++; console.log('  ✓', msg); } else {
   console.log('6. General Info');
   await page.click('[data-act="next"]');
   ok(await step() === 1, 'moved to General Info');
-  ok(await page.$eval('.chip-option[data-industry="Logistics"]', (e) => e.getAttribute('aria-checked')) === 'true', 'industry prefilled from asset 1');
-  await page.fill('#f-deal_name', 'Harbour Gate Logistics Park');
+  ok(!(await page.$('.dm__body [data-industry], .dm__body #f-deal_name')), 'no industry or deal name on General Info');
   await page.click('#f-location'); await page.type('#f-location', 'mal');
   await page.keyboard.press('ArrowDown'); await page.keyboard.press('Enter');
   ok(await val('#f-location') === 'Malmö, Sweden', 'location picked with keyboard');
@@ -170,6 +175,7 @@ function ok(cond, msg) { if (cond) { pass++; console.log('  ✓', msg); } else {
   await page.click('[data-act="next"]');
   ok(await step() === 4, 'Preview reached');
   ok((await txt('.pv-head__sub')).endsWith('2 assets'), 'header shows 2 assets');
+  ok((await txt('.industry-chip--header')).includes('Mixed-use'), 'deal industry derived from assets (Logistics + Office → Mixed-use)');
   ok((await page.$$('.pv-table tbody tr')).length === 2, 'assets table has 2 rows');
   await page.screenshot({ path: OUT('preview.png') });
   await page.click('[data-edit="2"]');
@@ -187,9 +193,19 @@ function ok(cond, msg) { if (cond) { pass++; console.log('  ✓', msg); } else {
   await page.click('[data-choice="draft"]');
   ok(!(await page.$('.dm')), 'Save as Draft closes');
   await page.click('#add-deal-btn');
-  ok(await page.isVisible('.draft-banner'), 'draft restored');
+  ok(await page.isVisible('.draft-banner [data-act="draft-continue"]') && await page.isVisible('.draft-banner [data-act="draft-delete"]'), 'draft banner with Continue + Delete draft');
+  ok(await page.$eval('.draft-banner', (e) => e.getBoundingClientRect().width > 900), 'banner spans the modal width');
+  await page.screenshot({ path: OUT('draft-banner.png') });
+  await page.click('[data-act="draft-delete"]');
+  ok(await page.isVisible('[data-act="draft-undo"]') && (await page.evaluate(() => localStorage.getItem('gocanopy.addDeal.draft.v2'))) === null, 'delete → form cleared, Undo shown');
+  ok(await page.evaluate(() => document.activeElement.dataset.act) === 'draft-undo', 'focus on Undo');
+  await page.screenshot({ path: OUT('draft-undo.png') });
+  await page.click('[data-act="draft-undo"]');
+  ok(await page.isVisible('[data-act="draft-continue"]') && !!(await page.evaluate(() => localStorage.getItem('gocanopy.addDeal.draft.v2'))), 'Undo restores the draft');
+  await page.click('[data-act="draft-continue"]');
+  ok(!(await page.$('.draft-banner')), 'Continue dismisses the banner');
   await page.click('[data-step="0"]');
-  ok((await page.$$('.asset-row')).length === 2 && (await page.$$('.thumb')).length === 10 && (await txt('#v-niy')) === '8', 'assets, photos and NIY restored');
+  ok((await page.$$('.asset-row')).length === 2 && (await page.$$('.thumb')).length === 10 && (await txt('#v-niy')) === '8' && (await val('#f-deal_name')) === 'Harbour Gate Logistics Park', 'name, assets, photos and NIY restored');
   await page.click('[data-act="close"]');
   await page.click('[data-choice="discard"]');
   await page.click('#add-deal-btn');
@@ -198,9 +214,7 @@ function ok(cond, msg) { if (cond) { pass++; console.log('  ✓', msg); } else {
 
   console.log('12. Add Deal');
   await page.click('#add-deal-btn');
-  await fillKeyInfo({ area: 8269, price: 33710000, occ: 98.5, rent: 831058, type: 'Logistics', address: 'Venlo Trade Port 1' });
-  await page.click('[data-act="next"]');
-  await page.fill('#f-deal_name', 'Project Gateway - Venlo Logistics');
+  await fillKeyInfo({ name: 'Project Gateway - Venlo Logistics', area: 8269, price: 33710000, occ: 98.5, rent: 831058, type: 'Logistics', address: 'Venlo Trade Port 1' });
   await page.click('[data-step="4"]');
   await page.click('[data-act="add"]');
   ok(!(await page.$('.dm')), 'modal closed');

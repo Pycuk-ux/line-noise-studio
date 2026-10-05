@@ -126,7 +126,7 @@ button { font-family: inherit; }
   display: grid; grid-template-columns: 120px minmax(0, 1fr) auto; gap: var(--space-5);
   padding: var(--space-3) var(--space-2); background: var(--surface-white);
   border-radius: var(--radius-8);
-  transition: background-color .6s ease, outline-color .6s ease;
+  transition: background-color .12s ease;
 }
 .row-card__media {
   width: 120px; height: 136px; border-radius: var(--radius-4); overflow: hidden;
@@ -300,7 +300,7 @@ button { font-family: inherit; }
 .map-legend__item:focus-visible { outline: var(--focus-ring-width) solid var(--focus-ring); }
 
 /* Card ↔ pin link */
-.row-card.is-linked { outline: 1px solid var(--border-strong); outline-offset: calc(-1 * var(--focus-ring-width)); }
+.row-card:hover, .row-card.is-linked { background: var(--surface-secondary); }
 .row-card.is-flash { background: var(--surface-positive); }
 
 /* Board-view icon: the DS has no kanban glyph — rotate the "cards" glyph (flagged in TOKENS.md). */
