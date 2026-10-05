@@ -20,27 +20,32 @@ window.GC = window.GC || {};
   GC.CARD_FIELDS = [
     { id: "area", label: "Area" }, { id: "rent", label: "Rent" }, { id: "psm", label: "Rent/psm" },
     { id: "niy", label: "NIY" }, { id: "wault", label: "WAULT" }, { id: "occupancy", label: "Occupancy" },
-    { id: "source", label: "Deal source" },
+    { id: "source", label: "Deal source" }, { id: "received", label: "Received" },
   ];
-  const fields = { area: true, rent: true, psm: true, niy: false, wault: true, occupancy: true, source: true };
+  const fields = { area: true, rent: true, psm: true, niy: false, wault: true, occupancy: true, source: true, received: false };
   try { Object.assign(fields, JSON.parse(localStorage.getItem(FIELD_KEY) || "{}")); } catch (e) { /* storage unavailable */ }
 
   const view = { layout: "list", sort: "newest" };
 
-  function statsHtml(d) {
+  function statPairs(d) {
     const f = GC.fmt, sym = f.currencySymbol(d.currency || "EUR");
     const out = [];
-    if (fields.area) out.push(stat("Area", d.areaSqm != null ? `${f.num(d.areaSqm, 0)} sqm` : null));
+    if (fields.area) out.push(["Area", d.areaSqm != null ? `${f.num(d.areaSqm, 0)} sqm` : null]);
     const rentK = d.rentYearly != null ? `${sym}${f.num(d.rentYearly / 1000, 1, 1)}` : null;
     const psm = d.rentPsm != null ? `${sym}${f.num(d.rentPsm, 1, 1)}` : null;
-    if (fields.rent && fields.psm) out.push(stat(`Rent (k${sym} / ${sym}psm)`, rentK || psm ? `${rentK || "—"} / ${psm || "—"}` : null));
-    else if (fields.rent) out.push(stat(`Rent (k${sym})`, rentK));
-    else if (fields.psm) out.push(stat("Rent/psm", psm));
-    if (fields.niy) out.push(stat("NIY", d.niy != null ? `${f.num(d.niy, 1)}%` : null));
-    if (fields.wault) out.push(stat("WAULT", d.wault != null ? `${f.num(d.wault, 1, 1)} years` : null));
-    if (fields.occupancy) out.push(stat("Occupancy", d.occupancy != null ? `${f.num(d.occupancy, 1)}%` : null));
-    if (fields.source) out.push(stat("Deal source", d.dealSource));
-    return out.join("");
+    if (fields.rent && fields.psm) out.push([`Rent (k${sym} / ${sym}psm)`, rentK || psm ? `${rentK || "—"} / ${psm || "—"}` : null]);
+    else if (fields.rent) out.push([`Rent (k${sym})`, rentK]);
+    else if (fields.psm) out.push(["Rent/psm", psm]);
+    if (fields.niy) out.push(["NIY", d.niy != null ? `${f.num(d.niy, 1)}%` : null]);
+    if (fields.wault) out.push(["WAULT", d.wault != null ? `${f.num(d.wault, 1, 1)} years` : null]);
+    if (fields.occupancy) out.push(["Occupancy", d.occupancy != null ? `${f.num(d.occupancy, 1)}%` : null]);
+    if (fields.source) out.push(["Deal source", d.dealSource]);
+    if (fields.received) out.push(["Received", f.dateShort(d.dateReceived) || null]);
+    return out;
+  }
+  function statsHtml(d) { return statPairs(d).map(([l, v]) => stat(l, v)).join(""); }
+  function rowsHtml(d) {
+    return statPairs(d).map(([l, v]) => `<div class="board-row"><span class="board-row__label">${esc(l)}</span><span class="board-row__value">${v == null ? "—" : esc(v)}</span></div>`).join("");
   }
 
   function ownerHtml(d) {
@@ -56,18 +61,35 @@ window.GC = window.GC || {};
     return [d.location, d.assets != null ? `${d.assets} asset${d.assets === 1 ? "" : "s"}` : ""].filter(Boolean).join(", ") || "No location";
   }
   function actionsHtml(d) {
-    return `<button type="button" class="ds-btn is-icon-only" data-type="ghost" data-size="sm" aria-label="Edit ${esc(d.name)}"><span class="ds-btn__icon">${DS_ICONS.get("edit")}</span></button>
-      <button type="button" class="ds-btn is-icon-only" data-type="ghost" data-size="sm" aria-label="More actions for ${esc(d.name)}"><span class="ds-btn__icon">${DS_ICONS.get("more-vertical")}</span></button>`;
+    return `<button type="button" class="ds-btn is-icon-only" data-type="ghost" data-size="sm" data-deal-edit="${d.id}" aria-label="Edit ${esc(d.name)}"><span class="ds-btn__icon">${DS_ICONS.get("edit")}</span></button>
+      <button type="button" class="ds-btn is-icon-only" data-type="ghost" data-size="sm" data-deal-menu="${d.id}" aria-haspopup="menu" aria-expanded="false" aria-label="More actions for ${esc(d.name)}"><span class="ds-btn__icon">${DS_ICONS.get("more-vertical")}</span></button>`;
+  }
+  function titleHtml(d, cls) {
+    return `<h3 class="t-title ${cls}"><button type="button" class="deal-link" data-open="${d.id}">${esc(d.name)}</button></h3>`;
+  }
+  const slideIdx = {};
+  function sliderHtml(d) {
+    const imgs = d.images || [];
+    if (!imgs.length) return `<div class="board-card__media is-empty">${GC.icon("building")}</div>`;
+    const i = Math.min(slideIdx[d.id] || 0, imgs.length - 1);
+    return `<div class="board-card__media" data-slider="${d.id}">
+      <img src="${imgs[i]}" alt="${esc(d.name)} photo ${i + 1} of ${imgs.length}">
+      ${imgs.length > 1 ? `<span class="board-card__count">${i + 1} / ${imgs.length}</span>
+        <span class="board-card__nav">
+          <button type="button" data-slide="-1" aria-label="Previous photo">${GC.icon("chevron-left")}</button>
+          <button type="button" data-slide="1" aria-label="Next photo">${GC.icon("chevron-right")}</button>
+        </span>` : ""}
+    </div>`;
   }
 
   function cardHtml(d) {
     const f = GC.fmt, cur = d.currency || "EUR";
     const stats = statsHtml(d);
     return `<li class="row-card deal-card${d.isNew ? " is-new" : ""}" data-ds-provisional="row-card" data-id="${d.id}" aria-label="${esc(d.name)}">
-      <div class="row-card__media">${d.image ? `<img src="${d.image}" alt="">` : GC.icon("building")}</div>
+      <div class="row-card__media">${(d.images || [])[0] ? `<img src="${d.images[0]}" alt="">` : GC.icon("building")}</div>
       <div class="row-card__body">
         <div class="row-card__head">
-          <h3 class="t-title row-card__name">${esc(d.name)}</h3>
+          ${titleHtml(d, "row-card__name")}
           <span class="row-card__loc t-muted">${GC.icon("location")}${esc(locText(d))}</span>
         </div>
         <div class="row-card__price">
@@ -86,21 +108,23 @@ window.GC = window.GC || {};
     </li>`;
   }
 
-  /** Compact card for the kanban board (ds:provisional board-card). */
+  /** Kanban card — layout from the provided screenshot (ds:provisional board-card). */
   function boardCardHtml(d) {
     const f = GC.fmt, cur = d.currency || "EUR";
-    const stats = statsHtml(d);
+    const rows = rowsHtml(d);
+    const n = d.assets;
+    const loc = `${d.location || "No location"}${n != null ? ` (${n} asset${n === 1 ? "" : "s"})` : ""}`;
     return `<li class="board-card deal-card${d.isNew ? " is-new" : ""}" data-ds-provisional="board-card" data-id="${d.id}" aria-label="${esc(d.name)}">
-      ${d.image ? `<div class="board-card__media"><img src="${d.image}" alt=""></div>` : ""}
-      <div class="board-card__top">
-        <h3 class="t-title board-card__name">${esc(d.name)}</h3>
-        <div class="board-card__actions">${actionsHtml(d)}</div>
-      </div>
-      <span class="row-card__loc t-muted">${GC.icon("location")}${esc(locText(d))}</span>
-      <div class="board-card__price"><span class="t-title">${d.price != null ? f.moneyShort(d.price, cur) : "—"}</span><span class="t-muted">${esc(f.dateShort(d.dateReceived))}</span></div>
+      <div class="board-card__top">${ownerHtml(d)}<span class="t-title">${d.price != null ? f.moneyShort(d.price, cur) : "—"}</span></div>
+      ${titleHtml(d, "board-card__name")}
+      <span class="row-card__loc t-muted">${GC.icon("location")}${esc(loc)}</span>
+      ${sliderHtml(d)}
       <div class="row-card__tags board-card__tags">${tagsHtml(d)}</div>
-      ${stats ? `<div class="board-card__stats">${stats}</div>` : ""}
-      <div class="board-card__foot">${d.comments ? `<span class="comments t-value">${GC.icon("message-text")}${d.comments}</span>` : "<span></span>"}${ownerHtml(d)}</div>
+      ${rows ? `<div class="board-card__rows">${rows}</div>` : ""}
+      <div class="board-card__foot">
+        ${d.comments ? `<span class="comments t-value">${GC.icon("message-text")}${d.comments}</span>` : "<span></span>"}
+        <span class="board-card__actions">${actionsHtml(d)}</span>
+      </div>
     </li>`;
   }
 
@@ -225,6 +249,7 @@ window.GC = window.GC || {};
     list.addEventListener("mouseover", handler(true));
     list.addEventListener("mouseout", handler(false));
     bindControls();
+    bindCardActions();
   }
 
   function addDeal(deal) {
@@ -246,5 +271,94 @@ window.GC = window.GC || {};
     GC.inbox.lastAdded = deal; // handy for inspection in the console
   }
 
-  GC.inbox = { render, addDeal, deals, bindLinking, view, fields };
+  /** Deals in on-screen order (used by the details panel's up/down navigation). */
+  function order() {
+    const list = sorted(deals);
+    if (view.layout !== "board" && view.sort !== "stage") return list;
+    return STAGES.flatMap((st) => list.filter((d) => d.stage === st.id));
+  }
+
+  function recount() {
+    summary.activeDeals = deals.length;
+    summary.withoutPrice = deals.filter((d) => !(d.price > 0)).length;
+    summary.totalValue = deals.reduce((a, d) => a + (d.price > 0 ? d.price : 0), 0);
+  }
+
+  /** Archive / delete with Undo. */
+  function removeDeal(id, verb) {
+    const idx = deals.findIndex((d) => d.id === id);
+    if (idx < 0) return;
+    const [deal] = deals.splice(idx, 1);
+    recount();
+    render();
+    if (GC.dealPanel) GC.dealPanel.onRemoved(id);
+    GC.toast(`Deal ${verb}`, `“${deal.name}” was ${verb}.`, "neutral", {
+      label: "Undo",
+      onClick: () => { deals.splice(Math.min(idx, deals.length), 0, deal); recount(); render(); },
+    });
+  }
+
+  // ---------- Deal actions menu (Archive / Delete) ----------
+  let menuEl = null, menuBtn = null;
+  function closeMenu() {
+    if (!menuEl) return;
+    menuEl.remove(); menuEl = null;
+    if (menuBtn) { menuBtn.setAttribute("aria-expanded", "false"); }
+  }
+  function openMenu(btn) {
+    closeMenu();
+    menuBtn = btn;
+    const id = btn.dataset.dealMenu;
+    menuEl = document.createElement("div");
+    menuEl.className = "deal-menu";
+    menuEl.setAttribute("role", "menu");
+    menuEl.dataset.dsProvisional = "dropdown";
+    menuEl.innerHTML = `<button type="button" role="menuitem" data-menu-act="archive" data-id="${id}">${GC.icon("bookmark")}Archive deal</button>
+      <button type="button" role="menuitem" class="is-danger" data-menu-act="delete" data-id="${id}">${GC.icon("bin")}Delete deal</button>`;
+    document.body.appendChild(menuEl);
+    const r = btn.getBoundingClientRect();
+    menuEl.style.top = r.bottom + 4 + "px";
+    menuEl.style.left = Math.max(8, r.right - menuEl.offsetWidth) + "px";
+    btn.setAttribute("aria-expanded", "true");
+    menuEl.querySelector("button").focus();
+    menuEl.addEventListener("click", (e) => {
+      const b = e.target.closest("[data-menu-act]");
+      if (!b) return;
+      closeMenu();
+      removeDeal(b.dataset.id, b.dataset.menuAct === "delete" ? "deleted" : "archived");
+    });
+    menuEl.addEventListener("keydown", (e) => {
+      const items = [...menuEl.querySelectorAll("button")];
+      const i = items.indexOf(document.activeElement);
+      if (e.key === "ArrowDown" || e.key === "ArrowUp") { e.preventDefault(); items[(i + (e.key === "ArrowDown" ? 1 : -1) + items.length) % items.length].focus(); }
+      if (e.key === "Escape" || e.key === "Tab") { e.preventDefault(); const b = menuBtn; closeMenu(); if (b) b.focus(); }
+    });
+  }
+  document.addEventListener("pointerdown", (e) => { if (menuEl && !e.target.closest(".deal-menu, [data-deal-menu]")) closeMenu(); });
+  document.addEventListener("wheel", closeMenu, { passive: true }); // user scroll closes the menu
+
+  function bindCardActions() {
+    document.getElementById("deal-list").addEventListener("click", (e) => {
+      const open = e.target.closest("[data-open]");
+      if (open) { GC.dealPanel.open(open.dataset.open, open); return; }
+      const edit = e.target.closest("[data-deal-edit]");
+      if (edit) { GC.dealPanel.edit(edit.dataset.dealEdit, edit); return; }
+      const menu = e.target.closest("[data-deal-menu]");
+      if (menu) { menuEl && menuBtn === menu ? closeMenu() : openMenu(menu); return; }
+      const slide = e.target.closest("[data-slide]");
+      if (slide) {
+        const box = slide.closest("[data-slider]");
+        const d = deals.find((x) => x.id === box.dataset.slider);
+        const n = d.images.length;
+        slideIdx[d.id] = ((slideIdx[d.id] || 0) + +slide.dataset.slide + n) % n;
+        box.outerHTML = sliderHtml(d);
+        const again = document.querySelector(`[data-slider="${d.id}"] [data-slide="${slide.dataset.slide}"]`);
+        if (again) again.focus();
+      }
+    });
+  }
+
+  function update(deal) { const i = deals.findIndex((d) => d.id === deal.id); if (i >= 0) deals[i] = deal; recount(); render(); }
+
+  GC.inbox = { render, addDeal, deals, bindLinking, view, fields, order, update, removeDeal, find: (id) => deals.find((d) => d.id === id) };
 })();

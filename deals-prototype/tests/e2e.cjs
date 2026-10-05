@@ -74,7 +74,7 @@ function ok(cond, msg) { if (cond) { pass++; console.log('  ✓', msg); } else {
   await page.click('#card-fields-btn');
   await page.click('#card-fields-menu label:has([data-card-field="area"])');
   await page.click('#card-fields-menu label:has([data-card-field="niy"])');
-  const labels = await page.$$eval('.board-card[data-id="d5"] .stat .t-label', (els) => els.map((e) => e.textContent));
+  const labels = await page.$$eval('.board-card[data-id="d5"] .board-row__label', (els) => els.map((e) => e.textContent));
   ok(!labels.includes('Area') && labels.includes('NIY'), 'card fields toggle what cards show');
   await page.keyboard.press('Escape');
   await page.click('[data-layout="list"]');
@@ -252,6 +252,71 @@ function ok(cond, msg) { if (cond) { pass++; console.log('  ✓', msg); } else {
   ok((await txt('.deal-list .row-card:first-child .row-card__name')) === 'Project Gateway - Venlo Logistics', 'new deal at top of inbox');
   ok((await page.$$('.map-pin')).length === 12 && !!(await page.$('.map-pin.is-new')), 'new deal has a pin on the map');
   await page.screenshot({ path: OUT('success.png') });
+
+  console.log('13. Kanban card, actions menu, details + edit drawers');
+  await page.click('[data-layout="board"]');
+  const card = '.board-card[data-id="d1"]';
+  ok(await page.$eval(card, (e) => e.querySelector('.board-card__top .ds-avatar') && e.querySelector('.board-card__top .t-title').textContent === '€61.2M'), 'board card: assignee left, price right');
+  ok((await txt(card + ' .row-card__loc')).endsWith('(12 assets)'), 'location with asset count in brackets');
+  ok((await txt(card + ' .board-card__count')) === '1 / 4', 'photo counter 1 / 4');
+  await page.click(card + ' [data-slide="1"]');
+  ok((await txt(card + ' .board-card__count')) === '2 / 4', 'slider goes to the next photo');
+  ok(!!(await page.$('.board-card[data-id="d2"] .board-card__media img')) && !(await page.$('.board-card[data-id="d2"] .board-card__nav')), 'single photo: no navigation');
+  ok(!!(await page.$('.board-card[data-id="d3"] .board-card__media.is-empty')), 'no photos: empty placeholder');
+  ok(!!(await page.$('.board-card[data-id="d3"] .board-card__foot .comments')) && !(await page.$(card + ' .board-card__foot .comments')), 'comments shown only when there are any');
+  await page.click('.board-card[data-id="d7"] [data-deal-menu]');
+  ok(await page.isVisible('.deal-menu [data-menu-act="archive"]') && await page.isVisible('.deal-menu [data-menu-act="delete"]'), 'menu: Archive + Delete');
+  await page.click('.deal-menu [data-menu-act="archive"]');
+  ok(!(await page.$('.deal-card[data-id="d7"]')) && (await txt('#inbox-sub')).startsWith('11 active'), 'archived deal removed (12 → 11)');
+  await page.click('.toast-region [data-toast-act]');
+  ok(!!(await page.$('.deal-card[data-id="d7"]')) && (await txt('#inbox-sub')).startsWith('12 active'), 'Undo restores it');
+
+  await page.hover(card + ' .deal-link');
+  ok(await page.$eval(card + ' .deal-link', (e) => getComputedStyle(e).textDecorationLine) === 'underline', 'title underlines on hover');
+  await page.click(card + ' .deal-link'); await page.waitForTimeout(400);
+  ok(await page.isVisible('.dp') && (await txt('#dp-title')) === 'The Symphony Group PLC, Tuscany Way', 'details drawer opens');
+  ok(await page.$eval('.dp', (e) => getComputedStyle(e).transform === 'none' || getComputedStyle(e).transform === 'matrix(1, 0, 0, 1, 0, 0)'), 'drawer slid in');
+  for (const sec of ['AI Summary', 'Asset', 'Comps', 'Financial Model', 'Deal Memo', 'Key Highlights', 'Investment Risks', 'Sources']) {
+    if (!(await page.$(`.dp .section-heading__title:text-is("${sec}"), .dp .section-heading__title:has-text("${sec}")`))) ok(false, `section ${sec} present`);
+  }
+  ok(true, 'Deal Details sections present');
+  const pos1 = await txt('#dp-pos');
+  await page.click('[data-dp="next"]');
+  ok((await txt('#dp-pos')) !== pos1 && (await txt('#dp-title')) !== 'The Symphony Group PLC, Tuscany Way', 'down arrow → next deal without closing');
+  await page.click('[data-dp="prev"]');
+  await page.click('[data-dp="full"]'); await page.waitForTimeout(350);
+  ok(await page.$eval('.dp', (e) => Math.round(e.getBoundingClientRect().width)) === 1440, 'full page expands the drawer');
+  await page.click('[data-dp="full"]');
+  await page.click('.dp [data-dp-tab="financial"]');
+  ok((await txt('.dp-overview')).includes('Exit yield'), 'overview tabs switch content');
+
+  console.log('14. Edit drawer');
+  await page.click('[data-dp="edit"]'); await page.waitForTimeout(400);
+  ok(await page.isVisible('.ep') && await page.$eval('.ep', (e) => getComputedStyle(e).backgroundColor) === 'rgb(233, 237, 238)', 'edit drawer slides over, surface-main background');
+  ok((await page.$$('.ep-card')).length === 5, 'one card per section');
+  await page.$eval('.ep__scroll', (e) => (e.scrollTop = e.scrollHeight)); await page.waitForTimeout(150);
+  ok(await page.$eval('[data-ep-tab="financial"]', (e) => e.getAttribute('aria-selected')) === 'true', 'scrollspy: last tab active at the bottom');
+  ok(await page.$eval('.ep__head', (e) => e.classList.contains('is-scrolled') && getComputedStyle(e).position === 'sticky'), 'sticky header with shadow while scrolled');
+  await page.click('[data-ep-tab="general"]'); await page.waitForTimeout(700);
+  ok(await page.$eval('[data-ep-tab="general"]', (e) => e.getAttribute('aria-selected')) === 'true', 'clicking a tab scrolls to its card');
+  await page.fill('#ep-price', '65000000');
+  await page.click('[data-ep-act="save"]'); await page.waitForTimeout(400);
+  ok(!(await page.$('.ep')) && (await txt('.dp .metrics')).includes('€65.0M'), 'save updates the details drawer');
+  ok((await txt('.board-card[data-id="d1"] .board-card__top .t-title')) === '€65.0M', 'save updates the card');
+  await page.click('[data-dp="edit"]'); await page.waitForTimeout(400);
+  await page.fill('#ep-name', 'Symphony Renamed');
+  await page.click('.ep [data-ep-act="cancel"].ds-btn'); await page.waitForTimeout(400);
+  ok(!(await page.$('.ep')) && (await page.$$eval('.toast-region .ds-alert__msg', (e) => e.map((x) => x.textContent))).includes('Changes discarded'), 'cancel with changes → toast with Undo');
+  await page.click('.toast-region .ds-alert:has(.ds-alert__msg:text-is("Changes discarded")) [data-toast-act]'); await page.waitForTimeout(400);
+  ok(await val('#ep-name') === 'Symphony Renamed', 'Undo reopens the edit with the unsaved changes');
+  await page.keyboard.press('Escape'); await page.waitForTimeout(400);
+  await page.click('[data-dp="close"].ds-btn'); await page.waitForTimeout(400);
+  ok(!(await page.$('.dp')), '» closes the drawer');
+  await page.click('[data-layout="list"]');
+  await page.click('.row-card[data-id="d2"] [data-deal-edit]'); await page.waitForTimeout(400);
+  ok(await page.isVisible('.ep') && (await val('#ep-name')) === 'Project Stellar', 'card pencil opens the edit drawer directly');
+  await page.keyboard.press('Escape'); await page.waitForTimeout(400);
+  ok(!(await page.$('.ep')), 'Esc closes edit (no changes → no toast needed)');
 
   console.log('\nconsole errors/warnings:', errors.length ? errors : 'none');
   console.log(`\n${pass} passed, ${fail} failed`);

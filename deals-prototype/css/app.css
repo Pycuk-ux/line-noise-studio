@@ -153,16 +153,60 @@ button { font-family: inherit; }
   display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-3);
   background: var(--surface-white); border-radius: var(--radius-8); transition: background-color .12s ease;
 }
-.board-card__media { height: 96px; margin: calc(-1 * var(--space-3)) calc(-1 * var(--space-3)) 0; border-radius: var(--radius-8) var(--radius-8) 0 0; overflow: hidden; }
+.board-card__top { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); min-height: var(--space-6); }
+.board-card__name { margin: 0; }
+.board-card__media {
+  position: relative; height: 128px; border-radius: var(--radius-8); overflow: hidden; background: var(--surface-main);
+  display: flex; align-items: center; justify-content: center; color: var(--icon-tertiary);
+}
 .board-card__media img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.board-card__top { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-2); }
-.board-card__name { overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
-.board-card__actions { display: flex; flex: 0 0 auto; }
-.board-card__price { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-2); }
+.board-card__media.is-empty .ico { transform: scale(2.5); }
+.board-card__count {
+  position: absolute; left: var(--space-2); bottom: var(--space-2); padding: var(--space-1) var(--space-2); border-radius: var(--radius-4);
+  background: var(--color-alpha-light-600); color: var(--text-inverse); font-size: var(--text-label-sm-size); line-height: var(--text-label-sm-line);
+}
+.board-card__nav { position: absolute; right: var(--space-2); bottom: var(--space-2); display: flex; gap: var(--space-1); }
+.board-card__nav button {
+  width: var(--space-6); height: var(--space-6); display: inline-flex; align-items: center; justify-content: center; padding: 0;
+  border: none; border-radius: var(--radius-full); background: var(--color-alpha-dark-600); color: var(--icon-primary); cursor: pointer;
+}
+.board-card__nav button:hover { background: var(--surface-white); }
+.board-card__nav button:focus-visible { outline: var(--focus-ring-width) solid var(--focus-ring); }
 .board-card__tags { flex-wrap: wrap; gap: var(--space-2); }
-.board-card__stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-2) var(--space-3); }
-.board-card__stats .stat { min-width: 0; }
-.board-card__foot { display: flex; align-items: center; justify-content: space-between; }
+.board-card__rows { display: flex; flex-direction: column; gap: var(--space-1); }
+.board-row { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-2); }
+.board-row__label { color: var(--text-tertiary); font-size: var(--text-label-md-size); line-height: var(--text-label-md-line); }
+.board-row__value { color: var(--text-primary); font-size: var(--text-label-md-size); line-height: var(--text-label-md-line); font-weight: var(--w-medium); text-align: right; }
+.board-card__foot {
+  display: flex; align-items: center; justify-content: space-between; margin-top: var(--space-2);
+  padding-top: var(--space-2); border-top: 1px solid var(--border-default);
+}
+.board-card__actions { display: flex; align-items: center; }
+
+/* Clickable deal title — link-like underline on hover */
+.deal-link {
+  padding: 0; border: none; background: none; cursor: pointer; text-align: left; color: inherit; font: inherit;
+  overflow: hidden; text-overflow: ellipsis; max-width: 100%;
+}
+.board-card .deal-link { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; white-space: normal; }
+.row-card .deal-link { white-space: nowrap; display: block; }
+.deal-link:hover { text-decoration: underline; text-underline-offset: var(--space-1); }
+.deal-link:focus-visible { outline: var(--focus-ring-width) solid var(--focus-ring); outline-offset: var(--focus-ring-offset); border-radius: var(--radius-4); }
+
+/* Deal actions menu (Archive / Delete) — ds:provisional dropdown */
+.deal-menu {
+  position: fixed; z-index: 250; min-width: 180px; padding: var(--space-1); display: flex; flex-direction: column;
+  background: var(--surface-white); border: 1px solid var(--border-default); border-radius: var(--radius-4);
+  box-shadow: 0 var(--space-1) var(--space-2) var(--color-alpha-light-100);
+}
+.deal-menu button {
+  display: flex; align-items: center; gap: var(--space-2); padding: var(--space-2); border: none; border-radius: var(--radius-4);
+  background: transparent; cursor: pointer; color: var(--text-primary); text-align: left;
+  font-family: var(--font-sans); font-size: var(--text-label-md-size); font-weight: var(--w-medium);
+}
+.deal-menu button:hover, .deal-menu button:focus-visible { background: var(--surface-white-hover); outline: none; }
+.deal-menu button.is-danger { color: var(--text-negative-hover); }
+.toast-region .ds-alert [data-toast-act] { align-self: flex-start; }
 
 /* Card fields menu (reuses the map dropdown styles) */
 .card-fields-wrap { position: relative; }

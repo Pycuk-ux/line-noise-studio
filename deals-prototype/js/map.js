@@ -306,5 +306,13 @@ window.GC = window.GC || {};
     if (root && root.offsetParent) centerOn(deal.map.x, deal.map.y);
   }
 
-  GC.map = { mount, renderPins, fit, link, placeNewDeal };
+  /** Static crop of the base map centred on a point (used by the deal details drawer). */
+  function baseSvg(pt) {
+    const c = pt || { x: W / 2, y: H / 2 };
+    const vw = 640, vh = 300;
+    return baseMapSvg()
+      .replace(`viewBox="0 0 ${W} ${H}" width="${W}" height="${H}"`, `viewBox="${c.x - vw / 2} ${c.y - vh / 2} ${vw} ${vh}" width="100%" height="100%" preserveAspectRatio="xMidYMid slice"`);
+  }
+
+  GC.map = { mount, renderPins, fit, link, placeNewDeal, baseSvg };
 })();

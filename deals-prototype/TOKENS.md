@@ -73,6 +73,8 @@ stacked avatars, `vertical-align`). No colour, radius, padding or type of a DS c
 | `stage-group` / `board-column` | 18829:253921 / 18829:254538 (built from the brief) | container `--surface-secondary`, `--radius-8`, p `--space-1`, groups `--space-4` apart; header fill = stage palette, h `--space-8`, `--text-label-md-*` 600; stuck: ring `--surface-main` + shadow `--color-alpha-light-100` |
 | `board-card` | — | `--surface-white`, `--radius-8`, p `--space-3`, stats grid gap `--space-2`/`--space-3` |
 | `toast` (Undo, in-modal) | — | `--surface-white`, `--border-default`, `--radius-8`, shadow `--color-alpha-light-200`; DS ghost buttons |
+| `drawer` (details + edit) | 18830:256700 / 18830:255890 (built from the brief) | details `--surface-main`, top bar `--surface-white` + `--border-default`; edit `--surface-main`, cards `--surface-white` `--radius-8` p `--space-4`, sticky head pb `--space-4` + shadow `--color-alpha-light-100`; backdrop `--color-alpha-light-200`; content reuses key-metrics, overview rows, table, DS Badge (AI tags), DS Tabs (edit sections), DS Switch (overview tabs) |
+| `dropdown` (deal menu) | — | `--surface-white`, `--border-default`, `--radius-4`; Delete in `--text-negative-hover` |
 | `table` (preview assets) | Deal Details Asset table | header `--surface-secondary` / `--text-tertiary` caption, rows `--border-default`, values `--text-label-md-*` |
 
 **Stage palette** (Figma `stage/*` variables mapped to DS primitives, shared by stage chips, map pins and the map legend):
@@ -118,6 +120,8 @@ to the DS or migrate Figma to 12/14.**
 | `setting`, `contact` icons | Table settings button | DS glyph, repaired at load | **DS bug:** `top:calc(50%-0.5px)` (no spaces) is invalid CSS, so the glyph drifts up. Shim in `js/format.js` adds the spaces. |
 | `arrow-right` icon | Next button | DS glyph, repaired at load | **DS bug:** JSX leftover `style={{ containerType: "size" }}` (renders empty) **and** the path is the left arrow (flip lost). Shim fixes both. |
 | Kanban / board icon | View switch | DS `cards` rotated 90° | No board glyph in the DS |
+| Close drawer » | details drawer | DS `chevrons-left` mirrored | No `chevrons-right` glyph in the DS |
+| Archive icon | deal menu | DS `bookmark` | No archive glyph in the DS |
 | Map pin text 10/12/500–600 | map pins, legend | `--label-xs-*` 12/14 | +2px — no 10px step |
 | Map overlay `backdrop-blur 10px` | zoom, legend | literal `blur(10px)` | no blur/elevation tokens |
 | Map base | map | vector drawing from tokens | Figma map raster can't be downloaded here, and Artifact CSP blocks tile servers |

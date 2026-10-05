@@ -18,7 +18,7 @@ No build step.
 
 **Tests (optional):** `bash tests/make-fixtures.sh && node tests/e2e.cjs` while the server runs. The test
 needs Playwright and serves the Vercel DS from a local clone (`GOCANOPY_DS_ROOT`, default `../../gocanopy-design-system`).
-It makes 94 checks (acceptance checklist + map + multi-asset + draft undo + stage grouping/board/card fields); the latest run passed all 94 with 0 console errors or warnings.
+It makes 123 checks (acceptance checklist, map, multi-asset, draft undo, stage grouping, board, card fields, card menu, details and edit drawers); the latest run passed all 123 with 0 console errors or warnings.
 
 ## Structure
 
@@ -36,6 +36,8 @@ js/preview.js         Preview step (mirrors Deal Details), AI flags, deal object
 js/inbox.js           inbox list, add-deal + highlight
 assets/img/           deal photos cropped from the provided screenshots (Figma assets were unreachable)
 js/map.js             interactive map: vector base map, pins, pin settings, legend, pan/zoom
+js/deal-panel.js      deal details drawer + edit deal drawer
+css/deal-panel.css    drawer styles (DS tokens only)
 docs/screens/         screenshots of every state
 tests/                Playwright e2e (acceptance checklist)
 TOKENS.md             token report: components, provisionals, off-system values
@@ -139,6 +141,25 @@ TOKENS.md             token report: components, provisionals, off-system values
   sticky header behaviour (each column scrolls on its own), compact deal cards, horizontal scroll, no pagination.
 - **Card fields** (settings icon): choose what deal cards show — Area, Rent, Rent/psm, NIY, WAULT, Occupancy, Deal
   source. Applies to list and board cards and is remembered in the browser.
+
+## Iteration 5 changes
+
+- **Kanban card** rebuilt from the provided screenshot: assignee (left) and price (right), clickable title, location
+  with "(N assets)", photo slider (counter + prev/next; no navigation for a single photo; an empty placeholder when
+  there are no photos — same as the list), industry + status chips, the field rows chosen in card settings (new
+  option: Received), then a divider with comments (left, only if any) and Edit + "more" (right).
+- **More menu** (list and board cards): Archive deal / Delete deal. Both remove the card and show a toast with Undo.
+- **Clickable deal title** (underline on hover) opens the **deal details drawer**, sliding in from the right, with the
+  Deal Details | Full page content: header, photos, stage bar, key metrics, Overview/Physical/Financial tabs, AI
+  Summary, Asset table, map, Comps, Financial Model, Deal Memo, Key Highlights, Investment Risks, Sources.
+  Top bar: » closes with a slide-out, full-page icon expands to the whole window, ↑/↓ move between deals in the
+  current list/board order without closing (with "N of M"), Edit on the right.
+- **Edit deal drawer** (from the drawer's Edit or a card's pencil): slides in over the details drawer, `--surface-main`
+  background, one white card per section (Key Info, Assets, General, Physical, Financial). The header (title + tabs)
+  is sticky with 16 px bottom padding and a shadow once content scrolls under; the active tab follows the card in
+  view, and clicking a tab scrolls to its card. Save changes updates the card, map pin and drawer; Cancel / ✕ / Esc
+  with unsaved changes closes and shows a "Changes discarded" toast with **Undo**, which reopens the edit with them.
+- Mock metrics are now consistent: Rent/psm and NIY are derived from rent, area and price everywhere.
 
 ## Deviations from Figma
 

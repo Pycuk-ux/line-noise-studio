@@ -66,28 +66,28 @@ GC.MOCK = {
       id: "d1", name: "The Symphony Group PLC, Tuscany Way", location: "Wakefield, United Kingdom", assets: 12,
       industry: "Hotel", status: { label: "Processing", tone: "warning" }, deadline: "3d to deadline",
       owner: "YA", stage: "SCR", price: 61200000, dateReceived: "2026-08-28", image: "assets/img/deal-1.jpg",
-      areaSqm: 1130, rentYearly: 7000000, rentPsm: 58.5, wault: 4.1, occupancy: 98.7, niy: 5.1, dealSource: "Structured Process",
+      areaSqm: 53675, rentYearly: 3140000, rentPsm: 58.5, wault: 4.1, occupancy: 98.7, niy: 5.1, dealSource: "Structured Process",
       map: { x: 560, y: 640 },
     },
     {
       id: "d2", name: "Project Stellar", location: "Wakefield, United Kingdom", assets: 12,
       industry: "Office", status: { label: "New", tone: "info" },
       owner: null, stage: "LOI", price: 61200000, dateReceived: "2026-08-28", image: "assets/img/deal-2.jpg",
-      areaSqm: 1130, rentYearly: 7000000, rentPsm: 58.5, wault: 4.1, occupancy: 98.7, niy: 5.4, dealSource: "Structured Process",
+      areaSqm: 53675, rentYearly: 3140000, rentPsm: 58.5, wault: 4.1, occupancy: 98.7, niy: 5.4, dealSource: "Structured Process",
       map: { x: 330, y: 560 },
     },
     {
       id: "d3", name: "Great Bear Distribution, Bardon Stellar", location: "Wakefield, United Kingdom", assets: 12,
       industry: "Logistics", status: { label: "Review", tone: "review" }, comments: 3,
       owner: "IO", stage: "SCR", price: 61200000, dateReceived: "2026-08-28", image: null,
-      areaSqm: 1130, rentYearly: 7000000, rentPsm: 58.5, wault: 4.1, occupancy: 98.7, niy: 6.2, dealSource: "Structured Process",
+      areaSqm: 53675, rentYearly: 3140000, rentPsm: 58.5, wault: 4.1, occupancy: 98.7, niy: 6.2, dealSource: "Structured Process",
       map: { x: 210, y: 780 },
     },
     {
       id: "d4", name: "The Symphony Group PLC, Tuscany Way, Wakefield Europort", location: "Wakefield, United Kingdom", assets: 12,
       industry: "Hotel", comments: 21,
       owner: "YA", stage: "LOI", price: 61200000, dateReceived: "2026-08-28", image: "assets/img/deal-4.jpg",
-      areaSqm: 1130, rentYearly: 7000000, rentPsm: 58.5, wault: 4.1, occupancy: 98.7, niy: 4.9, dealSource: "Structured Process",
+      areaSqm: 53675, rentYearly: 3140000, rentPsm: 58.5, wault: 4.1, occupancy: 98.7, niy: 4.9, dealSource: "Structured Process",
       map: { x: 640, y: 930 },
     },
     {
@@ -136,3 +136,16 @@ GC.MOCK = {
 
   inboxSummary: { activeDeals: 11, withoutPrice: 2, totalValue: 531800000 },
 };
+
+// Photo galleries (the prototype only has a handful of photos, so some deals share them).
+(function () {
+  const GALLERY = {
+    d1: ["deal-1", "deal-4", "detail-cover", "deal-2"], d2: ["deal-2"], d4: ["deal-4", "deal-2", "deal-1"], d5: ["detail-cover", "deal-1"],
+  };
+  GC.MOCK.deals.forEach((d) => {
+    d.images = (GALLERY[d.id] || []).map((n) => `assets/img/${n}.jpg`); delete d.image;
+    // Derived metrics, so every screen (cards, map, details, edit) agrees.
+    d.rentPsm = d.rentYearly > 0 && d.areaSqm > 0 ? d.rentYearly / d.areaSqm : null;
+    d.niy = d.rentYearly > 0 && d.price > 0 ? (d.rentYearly / d.price) * 100 : null;
+  });
+})();

@@ -225,7 +225,7 @@ window.GC = window.GC || {};
       price: d.price,
       currency: s.units.currency,
       dateReceived: d.date_received,
-      image: images[0] ? images[0].data || images[0].src : null,
+      images: images.map((im) => im.data || im.src),
       areaSqm: d.area_sqm,
       rentYearly: d.rent_yearly,
       rentPsm: GC.fmt.rentPerArea(d, "sqm"),

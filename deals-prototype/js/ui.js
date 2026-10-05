@@ -24,7 +24,7 @@ window.GC = window.GC || {};
   GC.focusables = focusables;
 
   /** Toast built from the DS Alert component. */
-  GC.toast = function (message, subtext, status) {
+  GC.toast = function (message, subtext, status, action) {
     const region = document.getElementById("toast-region");
     const el = document.createElement("div");
     el.className = "ds-alert";
@@ -33,11 +33,14 @@ window.GC = window.GC || {};
     const iconName = { success: "circle-check", error: "alert-circle", neutral: "info" }[el.dataset.status] || "info";
     el.innerHTML = `<div class="ds-alert__row"><span class="ds-alert__icon">${GC.icon(iconName)}</span><p class="ds-alert__msg">${GC.esc(message)}</p>
       <button type="button" class="ds-btn is-icon-only" data-type="ghost" data-size="sm" aria-label="Dismiss notification"><span class="ds-btn__icon">${window.DS_ICONS.get("x-close")}</span></button></div>
-      ${subtext ? `<p class="ds-alert__subtext">${GC.esc(subtext)}</p>` : ""}`;
+      ${subtext ? `<p class="ds-alert__subtext">${GC.esc(subtext)}</p>` : ""}
+      ${action ? `<button type="button" class="ds-btn" data-type="secondary" data-size="sm" data-toast-act>${GC.icon("refresh", "ds-btn__icon")}<span class="ds-btn__label">${GC.esc(action.label)}</span></button>` : ""}`;
     region.appendChild(el);
     const remove = () => el.remove();
     el.querySelector("button").addEventListener("click", remove);
-    setTimeout(remove, 6000);
+    if (action) el.querySelector("[data-toast-act]").addEventListener("click", () => { remove(); action.onClick(); });
+    setTimeout(remove, action ? 8000 : 6000);
+    return el;
   };
 
   /**
