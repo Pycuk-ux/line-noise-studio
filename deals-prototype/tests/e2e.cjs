@@ -419,6 +419,17 @@ function ok(cond, msg) { if (cond) { pass++; console.log('  ✓', msg); } else {
   await page.click('.deal-menu [data-pick="archived"]'); await page.waitForTimeout(400);
   ok(!(await page.$('.dp')) && !(await page.$('.row-card[data-id="d3"]')), '⋮ → Archive closes the drawer and removes the card');
   await page.click('.toast-region .ds-alert:has(.ds-alert__msg:text-is("Deal archived")) [data-toast-act]');
+
+  console.log('17. Comment icon opens the Comments tab');
+  await page.click('.row-card[data-id="d3"] [data-open-comments]'); await page.waitForTimeout(500);
+  ok(await page.isVisible('.dp') && (await page.$eval('#dp-tab-comments', (e) => e.getAttribute('aria-selected'))) === 'true' && (await page.$$('.dp-thread__item')).length > 0, 'list card: comment icon opens the deal on Comments');
+  await page.click('[data-dp="close"].ds-btn'); await page.waitForTimeout(400);
+  await page.click('[data-layout="board"]');
+  await page.click('.board-card[data-id="d3"] [data-open-comments]'); await page.waitForTimeout(500);
+  ok((await page.$eval('#dp-tab-comments', (e) => e.getAttribute('aria-selected'))) === 'true', 'kanban card: comment icon opens the deal on Comments');
+  await page.click('[data-dp="close"].ds-btn'); await page.waitForTimeout(400);
+  ok(await page.evaluate(() => !!document.activeElement.closest('.board-card[data-id="d3"]')), 'focus returns to the card after closing');
+  await page.click('[data-layout="list"]');
   console.log('\nconsole errors/warnings:', errors.length ? errors : 'none');
   console.log(`\n${pass} passed, ${fail} failed`);
   await browser.close();

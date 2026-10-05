@@ -105,7 +105,7 @@ window.GC = window.GC || {};
         </div>
         <div class="row-card__tags">${tagsHtml(d)}</div>
         <div class="row-card__owner">
-          ${d.comments ? `<span class="comments t-value">${GC.icon("message-text")}${d.comments}</span>` : ""}
+          ${d.comments ? `<button type="button" class="comments t-value" data-open-comments="${d.id}" aria-label="${d.comments} comments — open comments" title="Open comments">${GC.icon("message-text")}${d.comments}</button>` : ""}
           ${ownerHtml(d)}
           ${grouped ? "" : `<button type="button" class="stage-chip" data-stage="${esc(d.stage)}" data-stage-menu="${d.id}" data-ds-provisional="chip" aria-haspopup="menu" aria-expanded="false" aria-label="Deal stage: ${esc(d.stage)}. Change stage">${esc(stageLabel(d.stage))}${GC.icon("chevron-down")}</button>`}
         </div>

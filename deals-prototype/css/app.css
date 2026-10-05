@@ -259,6 +259,9 @@ button { font-family: inherit; }
 .row-card__actions { display: flex; align-items: flex-start; gap: var(--space-1); }
 .deadline { display: inline-flex; align-items: center; gap: var(--space-1); color: var(--text-negative-hover); }
 .comments { display: inline-flex; align-items: center; gap: var(--space-1); color: var(--text-secondary); }
+button.comments { padding: var(--space-1); margin: calc(-1 * var(--space-1)); border: none; border-radius: var(--radius-4); background: none; cursor: pointer; font: inherit; }
+button.comments:hover { background: var(--surface-white-hover); color: var(--text-primary); }
+button.comments:focus-visible { outline: var(--focus-ring-width) solid var(--focus-ring); outline-offset: var(--focus-ring-offset); }
 
 /* Temporary highlight for a freshly added deal */
 .deal-card.is-new { background: var(--surface-positive); outline: var(--focus-ring-width) solid var(--brand-secondary); outline-offset: calc(-1 * var(--focus-ring-width)); }
