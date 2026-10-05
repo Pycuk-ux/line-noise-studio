@@ -1,0 +1,219 @@
+/* ============================================================
+   Deals Inbox — screen-local styles
+   RULE: values are Gocanopy DS tokens only (var(--…)).
+   Raw px appear only for layout dimensions (widths/heights),
+   which the DS does not tokenise. See TOKENS.md.
+   ============================================================ */
+
+:root {
+  /* Weight aliases — composed from DS type tokens (no raw weights). */
+  --w-regular: var(--type-caption-weight);   /* 400 */
+  --w-medium: var(--label-weight);           /* 500 */
+  --w-semibold: var(--type-h6-weight);       /* 600 */
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body {
+  font-family: var(--font-sans);
+  color: var(--text-primary);
+  background: var(--surface-main);
+  -webkit-font-smoothing: antialiased;
+}
+button { font-family: inherit; }
+.sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: 0;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+
+/* Icon box — DS glyphs are drawn in a 16px frame. */
+.ico { display: inline-block; width: var(--space-4); height: var(--space-4); flex: 0 0 auto; color: inherit; }
+.ico svg { display: block; }
+
+/* ---------- Typography helpers (DS type tokens) ---------- */
+.t-page-title {
+  margin: 0; font-size: var(--type-h4-size); line-height: var(--type-h4-line);
+  font-weight: var(--type-h4-weight); color: var(--text-primary);
+}
+.t-section-title {
+  margin: 0; font-size: var(--type-h5-size); line-height: var(--type-h5-line);
+  font-weight: var(--type-h5-weight); color: var(--text-primary);
+}
+.t-title {
+  margin: 0; font-size: var(--text-body-md-size); line-height: var(--text-body-md-line);
+  font-weight: var(--w-semibold); color: var(--text-primary);
+}
+.t-label { font-size: var(--type-caption-size); line-height: var(--type-caption-line); font-weight: var(--w-regular); color: var(--text-tertiary); }
+.t-value { font-size: var(--text-label-md-size); line-height: var(--text-label-md-line); font-weight: var(--w-medium); color: var(--text-primary); }
+.t-muted { font-size: var(--text-label-md-size); line-height: var(--text-label-md-line); font-weight: var(--w-medium); color: var(--text-tertiary); }
+
+/* ============================================================
+   Page shell
+   ============================================================ */
+.page { display: flex; flex-direction: column; height: 100vh; min-height: 0; }
+
+/* Navbar = DS .ds-navbar, reused unchanged (see TOKENS.md divergence). */
+.app-nav { flex: 0 0 auto; }
+.nav-bell {
+  /* ds:provisional name="notification-button" — not in DS navbar yet */
+  position: relative; display: inline-flex; align-items: center; justify-content: center;
+  width: var(--space-8); height: var(--space-8); border: none; background: transparent;
+  color: var(--icon-inverse); border-radius: var(--radius-4); cursor: pointer;
+}
+.nav-bell__count {
+  position: absolute; top: calc(-1 * var(--space-1)); right: calc(-1 * var(--space-1));
+  min-width: var(--space-5); height: var(--space-5); padding: 0 var(--space-1);
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: var(--radius-full); background: var(--icon-negative); color: var(--text-inverse);
+  font-size: var(--label-xs-size); font-weight: var(--w-semibold);
+}
+
+/* ---------- Page header ---------- */
+.page-head {
+  display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-4);
+  padding: var(--space-4) var(--space-2) 0 var(--space-3);
+}
+.page-head__title { display: flex; align-items: center; gap: var(--space-3); }
+.total-chip {
+  /* ds:provisional name="chip" (Figma: industry-chip) */
+  display: inline-flex; align-items: center; gap: var(--space-1); padding: var(--space-1);
+  border-radius: var(--radius-4); background: var(--surface-positive); color: var(--brand-secondary-hover);
+  font-size: var(--text-label-md-size); line-height: var(--text-label-md-line); font-weight: var(--w-medium);
+}
+.page-head__sub { margin: var(--space-1) 0 0; }
+.page-head__controls { display: flex; align-items: center; gap: var(--space-2); }
+
+.page-tabs { padding: var(--space-4) var(--space-2) 0; }
+
+/* ---------- Filters ---------- */
+.filters {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--space-4);
+  padding: var(--space-4) var(--space-2) var(--space-2);
+}
+.filters__group { display: flex; align-items: center; gap: var(--space-2); }
+.filters .ds-field { width: auto; }
+.filters .search-field { width: 340px; }
+.filters .sort-field { width: 200px; }
+.sort-field__prefix { color: var(--text-placeholder); font-size: var(--text-body-sm-size); }
+.ds-segmented .ds-segment .ico { vertical-align: middle; }
+
+/* Native select inside a DS field box — ds:provisional name="select" */
+.prov-select {
+  appearance: none; -webkit-appearance: none; cursor: pointer; padding: 0;
+  background: transparent;
+}
+.prov-select-wrap { position: relative; }
+
+/* ---------- Content ---------- */
+.content {
+  flex: 1 1 auto; min-height: 0;
+  display: grid; grid-template-columns: minmax(0, 1fr) 400px; gap: var(--space-2);
+  padding: 0 var(--space-2) var(--space-2);
+}
+.deal-list-panel {
+  display: flex; flex-direction: column; min-height: 0;
+  background: var(--surface-white); border-radius: var(--radius-8); overflow: hidden;
+}
+.deal-list {
+  list-style: none; margin: 0; padding: var(--space-1);
+  flex: 1 1 auto; min-height: 0; overflow-y: auto;
+  display: flex; flex-direction: column; gap: var(--space-1);
+  background: var(--surface-main);
+}
+
+/* Row card — ds:provisional name="row-card" */
+.row-card {
+  display: grid; grid-template-columns: 120px minmax(0, 1fr) auto; gap: var(--space-5);
+  padding: var(--space-3) var(--space-2); background: var(--surface-white);
+  border-radius: var(--radius-8);
+  transition: background-color .6s ease, outline-color .6s ease;
+}
+.row-card__media {
+  width: 120px; height: 136px; border-radius: var(--radius-4); overflow: hidden;
+  background: var(--surface-main); display: flex; align-items: center; justify-content: center;
+  color: var(--icon-tertiary);
+}
+.row-card__media img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.row-card__media .ico { transform: scale(2.5); }
+.row-card__body { display: grid; grid-template-columns: minmax(0, 1fr) auto; row-gap: var(--space-3); column-gap: var(--space-4); align-content: start; }
+.row-card__head { display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; }
+.row-card__name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.row-card__loc { display: flex; align-items: center; gap: var(--space-1); color: var(--text-tertiary); }
+.row-card__loc .ico { color: var(--icon-tertiary); }
+.row-card__price { display: flex; flex-direction: column; align-items: flex-end; gap: var(--space-2); }
+.row-card__tags, .row-card__owner { display: flex; align-items: center; gap: var(--space-3); }
+.row-card__owner { justify-content: flex-end; }
+.row-card__stats { grid-column: 1 / -1; display: flex; gap: var(--space-6); margin-top: var(--space-1); }
+.stat { display: flex; flex-direction: column; gap: var(--space-1); min-width: 80px; }
+.row-card__actions { display: flex; align-items: flex-start; gap: var(--space-1); }
+.deadline { display: inline-flex; align-items: center; gap: var(--space-1); color: var(--text-negative-hover); }
+.comments { display: inline-flex; align-items: center; gap: var(--space-1); color: var(--text-secondary); }
+
+/* Temporary highlight for a freshly added deal */
+.row-card.is-new { background: var(--surface-positive); outline: var(--focus-ring-width) solid var(--brand-secondary); outline-offset: calc(-1 * var(--focus-ring-width)); }
+
+/* Chips — ds:provisional name="chip" */
+.industry-chip {
+  display: inline-flex; align-items: center; gap: var(--space-1);
+  padding: var(--space-1) var(--space-2) var(--space-1) var(--space-1);
+  border-radius: var(--radius-4); background: var(--surface-secondary); color: var(--text-secondary);
+  font-size: var(--text-label-md-size); line-height: var(--text-label-md-line); font-weight: var(--w-medium);
+  white-space: nowrap;
+}
+.status-pill {
+  display: inline-flex; align-items: center; height: var(--space-6); padding: 0 var(--space-2);
+  border-radius: var(--radius-full); font-size: var(--label-xs-size); line-height: var(--label-xs-line);
+  font-weight: var(--w-semibold); white-space: nowrap;
+}
+.status-pill[data-tone="warning"] { background: var(--color-yellow-50); color: var(--color-yellow-700); }
+.status-pill[data-tone="info"]    { background: var(--color-indigo-50); color: var(--color-indigo-500); }
+.status-pill[data-tone="review"]  { background: var(--surface-warning-light); color: var(--text-warning-pressed); }
+.status-pill[data-tone="positive"]{ background: var(--surface-positive); color: var(--text-positive-hover); }
+
+.stage-chip {
+  display: inline-flex; align-items: center; gap: var(--space-1);
+  padding: var(--space-1) var(--space-1) var(--space-1) var(--space-2);
+  border-radius: var(--radius-4); border: 1px solid var(--border-default);
+  font-size: var(--label-xs-size); line-height: var(--label-xs-line); font-weight: var(--w-semibold);
+  background: var(--surface-secondary); color: var(--text-secondary); white-space: nowrap;
+}
+.stage-chip--static { padding-right: var(--space-2); }
+.stage-chip[data-stage="Received"], .stage-chip[data-stage="Other"] { background: var(--surface-secondary); border-color: var(--border-default); color: var(--text-secondary); }
+.stage-chip[data-stage="SCR"]  { background: var(--color-yellow-50); border-color: var(--color-yellow-200); color: var(--color-yellow-800); }
+.stage-chip[data-stage="QUAL"] { background: var(--surface-positive); border-color: var(--brand-secondary-disabled); color: var(--text-positive-hover); }
+.stage-chip[data-stage="LOI"]  { background: var(--color-indigo-50); border-color: var(--color-indigo-200); color: var(--color-indigo-500); }
+.stage-chip[data-stage="DD"], .stage-chip[data-stage="SPA"] { background: var(--color-purple-50); border-color: var(--color-purple-200); color: var(--color-purple-700); }
+.stage-chip[data-stage="Completed"] { background: var(--surface-positive); border-color: var(--brand-secondary-disabled); color: var(--text-positive-hover); }
+
+/* ---------- Pagination — ds:provisional name="pagination" ---------- */
+.list-footer {
+  flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between;
+  padding: var(--space-2) var(--space-3); background: var(--surface-white);
+  border-top: 1px solid var(--border-default);
+}
+.per-page { display: flex; align-items: center; gap: var(--space-2); }
+.per-page .ds-field { width: 72px; }
+.pager { display: flex; align-items: center; gap: var(--space-1); }
+.pager__item {
+  min-width: var(--space-6); height: var(--space-6); padding: 0 var(--space-1);
+  display: inline-flex; align-items: center; justify-content: center;
+  border: none; border-radius: var(--radius-4); background: var(--surface-white); cursor: pointer;
+  color: var(--text-tertiary); font-size: var(--text-label-md-size); font-weight: var(--w-medium);
+}
+.pager__item[aria-current="page"] { background: var(--surface-main); color: var(--text-link); }
+.pager__item:hover:not([aria-current="page"]) { background: var(--surface-white-hover); }
+
+/* ---------- Map ---------- */
+.map-panel {
+  /* ds:provisional name="map" — static image placeholder of the Figma map */
+  min-height: 0; border-radius: var(--radius-8); overflow: hidden; background: var(--surface-white);
+}
+.map-panel img { width: 100%; height: 100%; object-fit: cover; object-position: top center; display: block; }
+
+/* ---------- Toasts (DS Alert, positioned) ---------- */
+.toast-region {
+  position: fixed; right: var(--space-6); bottom: var(--space-6); z-index: 300;
+  display: flex; flex-direction: column; gap: var(--space-2); pointer-events: none;
+}
+.toast-region .ds-alert { pointer-events: auto; animation: toast-in .2s ease-out; }
+@keyframes toast-in { from { opacity: 0; transform: translateY(var(--space-2)); } to { opacity: 1; transform: none; } }

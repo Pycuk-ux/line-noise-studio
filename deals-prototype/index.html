@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Deals inbox · Gocanopy</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+  <!-- Gocanopy design system (live, Vercel). Tokens first, then only the component sheets used. -->
+  <link rel="stylesheet" href="https://gocanopy-design-system.vercel.app/assets/css/tokens.css" />
+  <link rel="stylesheet" href="https://gocanopy-design-system.vercel.app/assets/css/button.css" />
+  <link rel="stylesheet" href="https://gocanopy-design-system.vercel.app/assets/css/text-field.css" />
+  <link rel="stylesheet" href="https://gocanopy-design-system.vercel.app/assets/css/controls.css" />
+  <link rel="stylesheet" href="https://gocanopy-design-system.vercel.app/assets/css/data-display.css" />
+  <link rel="stylesheet" href="https://gocanopy-design-system.vercel.app/assets/css/nav.css" />
+
+  <!-- Screen-local styles: DS tokens only (audited with match.py — see TOKENS.md). -->
+  <link rel="stylesheet" href="css/app.css" />
+  <link rel="stylesheet" href="css/deal-modal.css" />
+</head>
+<body>
+  <div class="page">
+    <!-- Navbar — DS .ds-navbar (reused unchanged) -->
+    <header class="app-nav">
+      <div class="ds-navbar">
+        <span class="ds-navbar__logo" role="img" aria-label="Gocanopy" id="ds-logo"></span>
+        <nav class="ds-navbar__menu" aria-label="Primary">
+          <button class="ds-navbar-item" type="button">Assets</button>
+          <button class="ds-navbar-item" type="button">Sales</button>
+          <button class="ds-navbar-item" type="button">Tenants</button>
+          <button class="ds-navbar-item" type="button">Contacts</button>
+          <button class="ds-navbar-item is-active" type="button" aria-current="page">Deals</button>
+          <button class="ds-navbar-item" type="button">Dashboard</button>
+        </nav>
+        <div class="ds-navbar__right">
+          <!-- ds:provisional name="notification-button" -->
+          <button type="button" class="nav-bell" data-ds-provisional="notification-button" aria-label="Notifications, 12 unread">
+            <span class="ico" data-icon="notification"></span><span class="nav-bell__count" aria-hidden="true">12</span>
+          </button>
+          <span class="ds-navbar__divider" aria-hidden="true"></span>
+          <button class="ds-user-dropdown" type="button"><span class="ds-avatar">L</span>Liam O'Connor<span class="ico" data-icon="chevron-down"></span></button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Page header -->
+    <section class="page-head">
+      <div>
+        <div class="page-head__title">
+          <h1 class="t-page-title">Deals inbox</h1>
+          <span class="total-chip" data-ds-provisional="chip"><span id="inbox-total">€531.8M</span><span class="ico" data-icon="info" title="Total value of active deals"></span></span>
+        </div>
+        <p class="page-head__sub t-muted" id="inbox-sub">11 active deals | 2 without price</p>
+      </div>
+      <div class="page-head__controls">
+        <div class="ds-segmented" role="group" aria-label="Rent period">
+          <button type="button" class="ds-segment" aria-pressed="true">Yearly</button>
+          <button type="button" class="ds-segment" aria-pressed="false">Monthly</button>
+        </div>
+        <div class="ds-segmented" role="group" aria-label="Area unit">
+          <button type="button" class="ds-segment" aria-pressed="true">SQM</button>
+          <button type="button" class="ds-segment" aria-pressed="false">SQF</button>
+        </div>
+        <button type="button" class="ds-btn" data-type="secondary" data-size="md"><span class="ds-btn__label">EUR</span><span class="ds-btn__icon" data-icon="chevron-down"></span></button>
+        <button type="button" class="ds-btn is-icon-only" data-type="secondary" data-size="md" aria-label="More options"><span class="ds-btn__icon" data-icon="more-horizontal"></span></button>
+      </div>
+    </section>
+
+    <!-- Tabs — DS .ds-tabs -->
+    <div class="page-tabs">
+      <div class="ds-tabs" role="tablist" aria-label="Deals views">
+        <button class="ds-tab" type="button" data-size="large" role="tab" aria-selected="true">Inbox</button>
+        <button class="ds-tab" type="button" data-size="large" role="tab" aria-selected="false">Analytics</button>
+      </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="filters">
+      <div class="filters__group">
+        <button type="button" class="ds-btn" data-type="secondary" data-size="md"><span class="ds-btn__icon" data-icon="filter"></span><span class="ds-btn__label">Filters</span></button>
+        <button type="button" class="ds-btn" data-type="secondary" data-size="md"><span class="ds-btn__label">Status</span><span class="ds-btn__icon" data-icon="chevron-down"></span></button>
+        <button type="button" class="ds-btn" data-type="secondary" data-size="md"><span class="ds-btn__label">Owner</span><span class="ds-btn__icon" data-icon="chevron-down"></span></button>
+        <div class="ds-field sort-field" data-size="small" data-state="default">
+          <div class="ds-field__box prov-select-wrap" data-ds-provisional="select">
+            <span class="sort-field__prefix" aria-hidden="true">Sort</span>
+            <select class="ds-field__input prov-select" aria-label="Sort">
+              <option>Newest received</option><option>Oldest received</option><option>Price: high to low</option><option>Next deadline</option>
+            </select>
+            <span class="ds-field__icon" data-icon="chevron-down"></span>
+          </div>
+        </div>
+      </div>
+      <div class="filters__group">
+        <div class="ds-field search-field" data-size="small" data-state="default">
+          <div class="ds-field__box">
+            <span class="ds-field__icon" data-icon="search"></span>
+            <input class="ds-field__input" type="search" placeholder="Search by city or address" aria-label="Search by city or address" />
+          </div>
+        </div>
+        <div class="ds-segmented" role="group" aria-label="Layout">
+          <button type="button" class="ds-segment is-icon" aria-pressed="true" aria-label="List and map"><span class="ico" data-icon="table-map"></span></button>
+          <button type="button" class="ds-segment is-icon" aria-pressed="false" aria-label="List only"><span class="ico" data-icon="table-only"></span></button>
+        </div>
+        <div class="ds-segmented" role="group" aria-label="Density">
+          <button type="button" class="ds-segment is-icon" aria-pressed="false" aria-label="Compact rows"><span class="ico" data-icon="table"></span></button>
+          <button type="button" class="ds-segment is-icon" aria-pressed="true" aria-label="Cards"><span class="ico" data-icon="cards"></span></button>
+        </div>
+        <button type="button" class="ds-btn is-icon-only" data-type="secondary" data-size="md" aria-label="Table settings"><span class="ds-btn__icon" data-icon="setting"></span></button>
+        <button type="button" class="ds-btn" data-type="secondary" data-size="md"><span class="ds-btn__icon" data-icon="download"></span><span class="ds-btn__label">Report</span></button>
+        <button type="button" class="ds-btn" data-type="primary" data-size="md" id="add-deal-btn" aria-haspopup="dialog">
+          <span class="ds-btn__icon" data-icon="plus"></span><span class="ds-btn__label">New deal</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- List + map -->
+    <main class="content">
+      <section class="deal-list-panel" aria-label="Deals">
+        <ul class="deal-list" id="deal-list"></ul>
+        <footer class="list-footer" data-ds-provisional="pagination">
+          <div class="per-page">
+            <div class="ds-field" data-size="small" data-state="default">
+              <div class="ds-field__box prov-select-wrap" data-ds-provisional="select">
+                <select class="ds-field__input prov-select" aria-label="Deals per page"><option>25</option><option>50</option><option>100</option></select>
+                <span class="ds-field__icon" data-icon="chevron-down"></span>
+              </div>
+            </div>
+            <span class="t-label">per page</span>
+          </div>
+          <nav class="pager" aria-label="Pagination">
+            <button type="button" class="pager__item" aria-label="Previous page"><span class="ico" data-icon="chevron-left"></span></button>
+            <button type="button" class="pager__item" aria-current="page">1</button>
+            <button type="button" class="pager__item">2</button>
+            <button type="button" class="pager__item">3</button>
+            <span class="t-muted" aria-hidden="true">…</span>
+            <button type="button" class="pager__item">12</button>
+            <button type="button" class="pager__item" aria-label="Next page"><span class="ico" data-icon="chevron-right"></span></button>
+          </nav>
+        </footer>
+      </section>
+      <aside class="map-panel" data-ds-provisional="map" aria-label="Map of deals">
+        <img src="assets/img/map.jpg" alt="Map showing deal locations around Malmö with price markers" />
+      </aside>
+    </main>
+  </div>
+
+  <div id="modal-root"></div>
+  <div class="toast-region" id="toast-region" aria-live="polite"></div>
+
+  <script src="https://gocanopy-design-system.vercel.app/assets/js/icons.js"></script>
+  <script src="js/mock-data.js"></script>
+  <script src="js/format.js"></script>
+  <script src="js/state.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/upload.js"></script>
+  <script src="js/preview.js"></script>
+  <script src="js/deal-modal.js"></script>
+  <script src="js/inbox.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
