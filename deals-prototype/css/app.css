@@ -368,7 +368,11 @@ button.comments:focus-visible { outline: var(--focus-ring-width) solid var(--foc
 .map-pin.is-linked[data-mode="dot"] { background: var(--brand-primary); border-color: var(--surface-white); }
 /* Row hover: the deal's assets stand out, the rest step back (option D) */
 .map-pins.has-linked .map-pin:not(.is-linked) { opacity: .45; }
-.map-pin.is-selected { z-index: 5; box-shadow: 0 0 0 2px var(--surface-white), 0 0 0 4px var(--brand-primary); }
+.map-pin.is-selected { z-index: 5; box-shadow: 0 0 0 2px var(--surface-white), 0 0 0 4px var(--stage-fg); }
+/* Popup open: every asset of that deal is inverted — dark stage colour fill, light text */
+.map-pin.is-active-deal { z-index: 4; background: var(--stage-fg); border-color: var(--stage-fg); color: var(--stage-bg); }
+.map-pin.is-active-deal .map-pin__divider { background: var(--color-alpha-dark-300); }
+.map-pin.is-active-deal[data-mode="dot"] { background: var(--stage-fg); border-color: var(--surface-white); }
 
 /* ---------- Property popup (Figma "Pin card" 16335:70260) — ds:provisional property-popup ---------- */
 .map-popup {

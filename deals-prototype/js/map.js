@@ -17,6 +17,8 @@ window.GC = window.GC || {};
   let root, world, pinLayer, menu, menuBtn, popup;
   // Selected pin → property popup (Figma "Pin card" 16335:70120): deal id, asset index, active tab.
   const sel = { id: null, i: 0, tab: "asset" };
+  // View before "Zoom out to all assets", so "Zoom in back" can return to it.
+  let savedView = null;
 
   const LEGEND = [
     { stage: "SCR", label: "SCR" }, { stage: "QUAL", label: "QUAL" }, { stage: "LOI", label: "LOI" },
@@ -118,7 +120,7 @@ window.GC = window.GC || {};
     return GC.inbox.deals.filter((d) => d.map && !hiddenStages.has(d.stage)).map((d) => assetsOf(d).map((a, i) => {
       const label = assetLabel(d, a);
       const on = sel.id === d.id && sel.i === i;
-      return `<button type="button" class="map-pin${d.isNew ? " is-new" : ""}${on ? " is-selected" : ""}" data-ds-provisional="map-pin" data-id="${d.id}" data-asset="${i}" data-stage="${esc(d.stage)}" data-mode="${mode}"
+      return `<button type="button" class="map-pin${d.isNew ? " is-new" : ""}${sel.id === d.id ? " is-active-deal" : ""}${on ? " is-selected" : ""}" data-ds-provisional="map-pin" data-id="${d.id}" data-asset="${i}" data-stage="${esc(d.stage)}" data-mode="${mode}"
           aria-label="${esc(d.name)}, asset ${i + 1}, ${esc(d.stage)}, ${esc(label)}" aria-haspopup="dialog" aria-expanded="${on}">
         ${mode === "dot" ? "" : `${settings.showIcon ? `<span class="map-pin__icon">${industryIcon(d.industry)}</span>` : ""}${settings.showIcon && settings.showLabel ? `<span class="map-pin__divider" aria-hidden="true"></span>` : ""}${settings.showLabel ? `<span class="map-pin__label">${esc(label)}</span>` : ""}`}
       </button>`;
@@ -178,12 +180,16 @@ window.GC = window.GC || {};
         </div>
       </div>
       <div class="pp-foot">
-        <button type="button" class="pp-zoom" data-pp="fit"${many && someOutside() ? "" : " hidden"}>Zoom out to all assets</button>
+        ${zoomBtnHtml(many)}
         ${many ? `<div class="pp-pager"><button type="button" data-pp="prev" aria-label="Previous asset">${GC.icon("chevron-left")}</button>
           <span aria-live="polite">${sel.i + 1}/${list.length}</span>
           <button type="button" data-pp="next" aria-label="Next asset">${GC.icon("chevron-right")}</button></div>` : ""}
       </div>
       <span class="pp-caret" aria-hidden="true"></span>`;
+  }
+  function zoomBtnHtml(many) {
+    if (savedView) return `<button type="button" class="pp-zoom" data-pp="back">Zoom in back</button>`;
+    return `<button type="button" class="pp-zoom" data-pp="fit"${many && someOutside() ? "" : " hidden"}>Zoom out to all assets</button>`;
   }
   function renderPopup() {
     if (!sel.id) return;
@@ -207,7 +213,7 @@ window.GC = window.GC || {};
     const off = pt.x < 0 || pt.y < 0 || pt.x > r.width || pt.y > r.height;
     popup.classList.toggle("is-detached", off); // pin panned away — keep the card but fade it
     const z = popup.querySelector('[data-pp="fit"]');
-    if (z) z.hidden = !(assetsOf(d).length > 1 && someOutside());
+    if (z && !anim) z.hidden = !(assetsOf(d).length > 1 && someOutside());
   }
   function someOutside() {
     const d = GC.inbox.find(sel.id);
@@ -215,17 +221,20 @@ window.GC = window.GC || {};
     return assetsOf(d).some((a) => { const p = toScreen(a.map); return p.x < 12 || p.y < 12 || p.x > r.width - 12 || p.y > r.height - 12; });
   }
   function openPopup(id, i) {
+    if (sel.id !== id) savedView = null; // "Zoom in back" belongs to the deal it was used on
     sel.id = id; sel.i = i; sel.tab = sel.tab || "asset";
     pinLayer.querySelectorAll(".map-pin").forEach((el) => {
       const on = el.dataset.id === id && +el.dataset.asset === i;
       el.classList.toggle("is-selected", on); el.setAttribute("aria-expanded", on);
+      el.classList.toggle("is-active-deal", el.dataset.id === id); // whole deal inverted
     });
     renderPopup();
   }
   function closePopup() {
     if (!sel.id) return;
     const prev = pinLayer && pinLayer.querySelector(".map-pin.is-selected");
-    sel.id = null; sel.tab = "asset";
+    sel.id = null; sel.tab = "asset"; savedView = null;
+    if (pinLayer) pinLayer.querySelectorAll(".map-pin.is-active-deal").forEach((el) => el.classList.remove("is-active-deal"));
     if (popup) { popup.hidden = true; popup.innerHTML = ""; }
     if (prev) { prev.classList.remove("is-selected"); prev.setAttribute("aria-expanded", "false"); }
     return prev;
@@ -247,7 +256,24 @@ window.GC = window.GC || {};
     const minX = Math.min(...pts.map((p) => p.x)), maxX = Math.max(...pts.map((p) => p.x));
     const minY = Math.min(...pts.map((p) => p.y)), maxY = Math.max(...pts.map((p) => p.y));
     const k = Math.max(MIN_K * view.fitK, Math.min(view.k, (r.width - 2 * pad) / Math.max(1, maxX - minX), (r.height - 2 * pad) / Math.max(1, maxY - minY)));
+    savedView = { k: view.k, tx: view.tx, ty: view.ty };
     animateTo({ k, tx: r.width / 2 - ((minX + maxX) / 2) * k, ty: r.height / 2 - ((minY + maxY) / 2) * k });
+    swapZoomBtn();
+  }
+  /** "Zoom in back": return to the view the user had before zooming out (300 ms). */
+  function zoomBack() {
+    if (!savedView) return;
+    const v = savedView;
+    savedView = null;
+    animateTo(v);
+    swapZoomBtn();
+  }
+  function swapZoomBtn() {
+    const foot = popup.querySelector(".pp-zoom");
+    if (!foot) return;
+    foot.outerHTML = zoomBtnHtml(assetsOf(GC.inbox.find(sel.id)).length > 1);
+    const btn = popup.querySelector(".pp-zoom");
+    if (btn && !btn.hidden) btn.focus();
   }
 
   // ---------- View transform ----------
@@ -279,6 +305,7 @@ window.GC = window.GC || {};
       view.ty = from.ty + (t.ty - from.ty) * e;
       apply();
       anim = p < 1 ? requestAnimationFrame(step) : null;
+      if (!anim) placePopup(); // re-check "Zoom out to all assets" once the view settles
     };
     anim = requestAnimationFrame(step);
   }
@@ -453,6 +480,7 @@ window.GC = window.GC || {};
         const act = pp.dataset.pp, id = sel.id;
         if (act === "prev" || act === "next") { stepAsset(act === "next" ? 1 : -1); popup.querySelector(`[data-pp="${act}"]`).focus(); }
         else if (act === "fit") fitDeal();
+        else if (act === "back") zoomBack();
         else if (act === "open") GC.dealPanel.open(id, pp);
         else if (act === "more") {
           GC.inbox.popup(pp, `<button type="button" role="menuitem" data-pick="open">${GC.icon("open-in-new")}Open deal</button>

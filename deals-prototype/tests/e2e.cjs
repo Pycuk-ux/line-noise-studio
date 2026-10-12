@@ -71,7 +71,12 @@ function ok(cond, msg) { if (cond) { pass++; console.log('  ✓', msg); } else {
   ok(await page.isVisible('[data-pp="fit"]'), '"Zoom out to all assets" shown while some assets are off-screen');
   await page.click('[data-pp="fit"]'); await page.waitForTimeout(450);
   const allIn = await page.$$eval('.map-pin[data-id="d6"]', (els) => { const r = document.querySelector('.map-viewport').getBoundingClientRect(); return els.every((e) => { const b = e.getBoundingClientRect(); const x = b.left + b.width / 2, y = b.top + b.height / 2; return x >= r.left && x <= r.right && y >= r.top && y <= r.bottom; }); });
-  ok(allIn && !(await page.isVisible('[data-pp="fit"]')), 'zoom-out fits every asset of the deal, then the button hides');
+  ok(allIn && !(await page.isVisible('[data-pp="fit"]')) && (await txt('[data-pp="back"]')) === 'Zoom in back', 'zoom-out fits every asset of the deal; the button turns into "Zoom in back"');
+  ok(await page.$$eval('.map-pin[data-id="d6"]', (els) => els.every((e) => e.classList.contains('is-active-deal'))) && await page.$eval('.map-pin[data-id="d6"]', (e) => getComputedStyle(e).backgroundColor === getComputedStyle(e).borderTopColor && getComputedStyle(e).backgroundColor !== 'rgb(255, 255, 255)') && !(await page.$('.map-pin.is-active-deal:not([data-id="d6"])')), 'open deal: all its asset pins are inverted');
+  const zoomedOut = await page.$eval('.map-world', (e) => e.style.transform);
+  await page.click('[data-pp="back"]'); await page.waitForTimeout(450);
+  ok((await page.$eval('.map-world', (e) => e.style.transform)) !== zoomedOut && (await page.isVisible('[data-pp="fit"]')) && !(await page.$('[data-pp="back"]')), '"Zoom in back" returns to the previous view and the button flips back');
+  await page.click('[data-pp="fit"]'); await page.waitForTimeout(450);
   await page.screenshot({ path: OUT('map-popup.png'), clip: { x: 1020, y: 230, width: 420, height: 650 } });
   await page.focus('[data-pp="next"]'); await page.keyboard.press('Escape');
   ok(!(await page.isVisible('.map-popup')), 'Esc closes the popup');

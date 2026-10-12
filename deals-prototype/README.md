@@ -237,6 +237,10 @@ Not matched on purpose / still open:
 - **Zoom out to all assets** appears only when some of the deal's assets are outside the viewport; it fits them all in
   a 300 ms ease-in-out zoom and then hides.
 - **Row hover / keyboard focus → all of the deal's asset pins highlight** (150 ms delay, others dimmed, no pan/zoom).
+- **Open deal is inverted on the map:** while its popup is open, every asset pin of that deal swaps to the dark stage
+  colour fill with light text; the asset the card points at also gets a ring.
+- **Zoom out ↔ Zoom in back:** after "Zoom out to all assets" the button becomes "Zoom in back", which returns (300 ms)
+  to the exact view the user had before. Closing the popup or opening another deal forgets that view.
 
 ## Deviations from Figma
 
