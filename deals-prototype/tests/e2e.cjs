@@ -20,13 +20,13 @@ function ok(cond, msg) { if (cond) { pass++; console.log('  ✓', msg); } else {
 
   console.log('0. Inbox + map');
   ok((await page.$$('.deal-list .row-card')).length === 11, '11 deals listed');
-  ok((await page.$$('.map-pin')).length === 11, '11 pins on the map');
+  ok((await page.$$('.map-pin')).length === 35, 'one pin per asset (35 assets across 11 deals)');
   const gear = await page.$eval('[aria-label="Table settings"] svg', (e) => { const r = e.getBoundingClientRect(), b = e.closest('button').getBoundingClientRect(); return Math.abs((r.top + r.height / 2) - (b.top + b.height / 2)); });
   ok(gear < 2, `settings icon vertically centred (Δ${gear.toFixed(1)}px)`);
   await page.click('[data-map="off"]');
   ok(!(await page.isVisible('#map-panel')), 'map hidden by the switch');
   await page.click('[data-map="on"]');
-  ok(await page.isVisible('#map-panel') && (await page.$$('.map-pin')).length === 11, 'map shown again with pins');
+  ok(await page.isVisible('#map-panel') && (await page.$$('.map-pin')).length === 35, 'map shown again with pins');
   await page.click('.map-ctl');
   ok(await page.isVisible('#map-menu'), 'pin settings dropdown opens');
   ok((await txt('#map-menu-t')) === 'Pin settings' && (await txt('.map-ctl__label')) === 'EUR', 'Pin settings dropdown; button shows EUR');
@@ -51,13 +51,31 @@ function ok(cond, msg) { if (cond) { pass++; console.log('  ✓', msg); } else {
   ok((await page.$eval('.map-world', (e) => e.style.transform)) !== before, 'zoom in changes the view');
   await page.click('[data-zoom="reset"]');
   await page.hover('.row-card[data-id="d7"]'); await page.waitForTimeout(200);
-  ok(await page.$eval('.map-pin[data-id="d7"]', (e) => e.classList.contains('is-linked')), 'hovering a card highlights its pin');
+  ok(await page.$$eval('.map-pin[data-id="d7"]', (els) => els.length === 2 && els.every((e) => e.classList.contains('is-linked'))) && await page.$eval('.map-pins', (e) => e.classList.contains('has-linked')), 'hovering a card highlights all its asset pins, others dimmed');
   ok(await page.$eval('.row-card[data-id="d7"]', (e) => getComputedStyle(e).backgroundColor) === 'rgb(249, 250, 251)', 'hovered card fill is #F9FAFB');
-  await page.hover('.map-pin[data-id="d6"]'); await page.waitForTimeout(200);
-  ok(await page.$eval('.row-card[data-id="d6"]', (e) => getComputedStyle(e).backgroundColor) === 'rgb(249, 250, 251)', 'hovering a pin fills its card #F9FAFB');
-  await page.click('.map-pin[data-id="d9"]');
-  await page.waitForTimeout(200);
-  ok(await page.$eval('.row-card[data-id="d9"]', (e) => e.classList.contains('is-flash')), 'clicking a pin highlights its card');
+  await page.mouse.move(700, 120); await page.waitForTimeout(100);
+  // Pin → property popup (Figma 16335:70120); the list is not touched
+  const visPin = await page.$$eval('.map-pin[data-id="d6"]', (els) => { const r = document.querySelector('.map-viewport').getBoundingClientRect(); const e = els.find((p) => { const b = p.getBoundingClientRect(); return b.left > r.left + 10 && b.right < r.right - 10 && b.top > r.top + 10 && b.bottom < r.bottom - 10; }); return e && e.dataset.asset; });
+  await page.hover(`.map-pin[data-id="d6"][data-asset="${visPin}"]`); await page.waitForTimeout(150);
+  ok(await page.$eval('.row-card[data-id="d6"]', (e) => getComputedStyle(e).backgroundColor) !== 'rgb(249, 250, 251)', 'hovering a pin does not change the card');
+  await page.click(`.map-pin[data-id="d6"][data-asset="${visPin}"]`); await page.waitForTimeout(150);
+  ok(await page.isVisible('.map-popup') && (await txt('#pp-title')) === 'Harbourside Retail Park' && !(await page.$('.row-card.is-flash')), 'clicking a pin opens the property popup (no card highlight)');
+  ok((await page.$$('.pp-row')).length === 4 && (await txt('.pp-rows')).includes('Price') && (await txt('.pp-rows')).includes('Received'), 'Asset info: 4 rows');
+  await page.click('[data-pp-tab="deal"]');
+  ok((await txt('.pp-rows')).includes('Stage') && (await txt('.pp-rows')).includes('Cap rate') && (await page.$$('.pp-row')).length === 4, 'Deal info tab: 4 rows');
+  const pos = () => page.$eval('.pp-pager span[aria-live]', (e) => e.textContent.trim());
+  const p0 = await pos();
+  await page.click('[data-pp="next"]'); await page.waitForTimeout(450);
+  ok((await pos()) !== p0 && /^\d\/4$/.test(await pos()) && !!(await page.$('.map-pin.is-selected[data-id="d6"]')), 'arrows step to the next asset of the deal');
+  if (!(await page.isVisible('[data-pp="fit"]'))) { await page.click('[data-zoom="in"]'); await page.click('[data-zoom="in"]'); await page.waitForTimeout(100); }
+  ok(await page.isVisible('[data-pp="fit"]'), '"Zoom out to all assets" shown while some assets are off-screen');
+  await page.click('[data-pp="fit"]'); await page.waitForTimeout(450);
+  const allIn = await page.$$eval('.map-pin[data-id="d6"]', (els) => { const r = document.querySelector('.map-viewport').getBoundingClientRect(); return els.every((e) => { const b = e.getBoundingClientRect(); const x = b.left + b.width / 2, y = b.top + b.height / 2; return x >= r.left && x <= r.right && y >= r.top && y <= r.bottom; }); });
+  ok(allIn && !(await page.isVisible('[data-pp="fit"]')), 'zoom-out fits every asset of the deal, then the button hides');
+  await page.screenshot({ path: OUT('map-popup.png'), clip: { x: 1020, y: 230, width: 420, height: 650 } });
+  await page.focus('[data-pp="next"]'); await page.keyboard.press('Escape');
+  ok(!(await page.isVisible('.map-popup')), 'Esc closes the popup');
+  await page.click('[data-zoom="reset"]');
 
   console.log('0b. Grouped by stage, board, card fields');
   await page.selectOption('#sort-select', 'stage');
@@ -252,7 +270,7 @@ function ok(cond, msg) { if (cond) { pass++; console.log('  ✓', msg); } else {
   await page.click('[data-act="add"]');
   ok(!(await page.$('.dm')), 'modal closed');
   ok((await txt('.deal-list .row-card:first-child .row-card__name')) === 'Project Gateway - Venlo Logistics', 'new deal at top of inbox');
-  ok((await page.$$('.map-pin')).length === 12 && !!(await page.$('.map-pin.is-new')), 'new deal has a pin on the map');
+  ok((await page.$$('.map-pin')).length === 36 && !!(await page.$('.map-pin.is-new')), 'new deal has a pin on the map');
   await page.screenshot({ path: OUT('success.png') });
 
   console.log('13. Kanban card, actions menu, details + edit drawers');

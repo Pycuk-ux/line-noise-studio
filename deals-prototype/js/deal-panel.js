@@ -917,5 +917,5 @@ window.GC = window.GC || {};
     sc.scrollTop = top;
   }
 
-  GC.dealPanel = { open, close, edit, onRemoved, refresh };
+  GC.dealPanel = { open, close, edit, onRemoved, refresh, assets: (d) => ext(d).assetList };
 })();

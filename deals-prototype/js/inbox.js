@@ -264,6 +264,8 @@ window.GC = window.GC || {};
     };
     list.addEventListener("mouseover", handler(true));
     list.addEventListener("mouseout", handler(false));
+    list.addEventListener("focusin", handler(true));   // keyboard users get the same map highlight
+    list.addEventListener("focusout", handler(false));
     bindControls();
     bindCardActions();
   }

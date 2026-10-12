@@ -225,6 +225,19 @@ Not matched on purpose / still open:
 - The Add New Deal modal still says Rent/psm and NIY; the drawers now say Rent (€/sqm) and Cap rate as in Figma. Tell
   me if the modal should switch too.
 
+## Iteration 8 — map pin card (Figma 16335:70120)
+
+- **One pin per asset.** Portfolio assets are scattered around the deal's point (mock geodata), and the map opens
+  zoomed in on the city centre, so multi-asset deals run past the viewport like on the real map.
+- **Click a pin → property popup** anchored to the pin (flips below when there's no room): photo, owner, status,
+  ⋯ (Open / Edit / Archive), deal title (opens the deal drawer), asset address, **Asset info / Deal info** tabs
+  (Price, Area, Rent (€/€psm), Received · Stage, Deal price, Total area, Cap rate). Click empty map, the pin again or
+  Esc to close. The list is no longer touched by map interactions (no card fill, no scroll/flash).
+- **‹ 1/N ›** steps through the deal's assets; an off-screen asset is panned into view in 300 ms.
+- **Zoom out to all assets** appears only when some of the deal's assets are outside the viewport; it fits them all in
+  a 300 ms ease-in-out zoom and then hides.
+- **Row hover / keyboard focus → all of the deal's asset pins highlight** (150 ms delay, others dimmed, no pan/zoom).
+
 ## Deviations from Figma
 
 1. **DS components win over Figma** when they disagree: the navbar is rounded, the tabs are 14px, the segmented

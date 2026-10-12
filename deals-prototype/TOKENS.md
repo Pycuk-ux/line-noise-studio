@@ -78,6 +78,7 @@ stacked avatars, `vertical-align`). No colour, radius, padding or type of a DS c
 | `pill-tabs` (edit drawer sections) | 16292:70305 | p `--space-2`, `--radius-16`, gap `--space-3`, `--text-label-md-*`; active `--surface-positive` / `--text-positive-hover`; inactive `--text-secondary` |
 | `assign-button` | "+" on cards | `--space-6` circle, 1px `--border-strong`, `--surface-white`, icon `--icon-secondary` |
 | `comment-composer` / comment thread | 16292:70876 | composer 708px, 1px `--border-default`, `--radius-4`, p `--space-3`; Send = DS primary `md`; avatars 28px tints `emerald/indigo/yellow/purple/cyan/red-50` + `-800`; name 14px 600, time `--text-placeholder`; mention `--surface-positive` / `--text-positive-hover` `--radius-12` |
+| `property-popup` (map pin card) | 16335:70260 | 248px, `--surface-main` frame p `--space-1`, `--radius-8`, modal shadow; card `--surface-white` `--radius-4`, photo 96px; title `--text-label-md` 600; tabs track `--surface-secondary`, active `--surface-white` / `--text-positive-hover`; rows `--text-label-sm`, label `--text-tertiary`; footer link `--text-positive-hover`; selected pin ring `--surface-white` + `--brand-primary` |
 | `log table` | 16292:70814 | 946px; filter = DS secondary Button `md` in `--brand-primary`; header `--text-tertiary` 12px; day rows + times `--brand-primary`; actor `--text-primary` 600, action `--text-tertiary`; row dividers `--border-default` |
 | `dropdown` (deal menu) | — | `--surface-white`, `--border-default`, `--radius-4`; Delete in `--text-negative-hover` |
 | `drawer-tabs` (details drawer views) | 18831:258397 | DS **Tabs** (`small`) on `--surface-white`, padding `--space-4`, Comments count = DS `ds-tab-chip`; disabled tabs (Assets, Comps, AI Assistant, Documents) `--text-disabled` — **the DS Tabs ship no disabled state** |
@@ -132,6 +133,7 @@ to the DS or migrate Figma to 12/14.**
 | Map pin text 10/12/500–600 | map pins, legend | `--label-xs-*` 12/14 | +2px — no 10px step |
 | Map overlay `backdrop-blur 10px` | zoom, legend | literal `blur(10px)` | no blur/elevation tokens |
 | Map base | map | vector drawing from tokens | Figma map raster can't be downloaded here, and Artifact CSP blocks tile servers |
+| Pin card tab track inset `2px` | map property popup | literal `2px` | Same inset the DS Segmented control uses; no 2px spacing token |
 | Owner avatar fill `#e5ebef` (kanban/list) | owner avatar | `--surface-main` #e9edee | Δ4.6, no token |
 | Pin settings switch: grey track + white thumb | Price / Yield | DS Segmented (white track, `--surface-positive` thumb) | DS component wins |
 | Card shadow "sm" `#0000000F` + `#0000000A` | kanban card | `--color-alpha-light-50` ×2 | second layer is 4% in Figma, 6% here |
