@@ -29,9 +29,8 @@ function ok(cond, msg) { if (cond) { pass++; console.log('  ✓', msg); } else {
   ok(await page.isVisible('#map-panel') && (await page.$$('.map-pin')).length === 35, 'map shown again with pins');
   await page.click('.map-ctl');
   ok(await page.isVisible('#map-menu'), 'pin settings dropdown opens');
-  ok((await txt('#map-menu-t')) === 'Pin settings' && (await txt('.map-ctl__label')) === 'Price', 'Pin settings dropdown; button shows the metric');
-  ok((await page.$$eval('#map-menu select[data-map-metric] option', (o) => o.map((x) => x.textContent))).join() === 'Price,Yield,Price/sqm,Occupancy', 'description is a dropdown: Price, Yield, Price/sqm, Occupancy');
-  await page.selectOption('#map-menu select[data-map-metric]', 'yield');
+  ok((await txt('#map-menu-t')) === 'Pin settings' && (await txt('.map-ctl__label')) === 'Yield', 'Pin settings dropdown; button shows the metric (Yield by default)');
+  ok((await page.$$eval('#map-menu select[data-map-metric] option', (o) => o.map((x) => x.textContent))).join() === 'Yield,Price/sqm,Occupancy', 'description is a dropdown: Yield, Price/sqm, Occupancy (no Price)');
   ok((await txt('.map-ctl__label')) === 'Yield' && /^\d+(\.\d)?%$/.test(await txt('.map-pin[data-id="d1"] .map-pin__label')), 'Yield → % values on pins');
   await page.selectOption('#map-menu select[data-map-metric]', 'psm');
   ok(/^€[\d,]+\/sqm$/.test(await txt('.map-pin[data-id="d1"] .map-pin__label')), 'Price/sqm → €/sqm on pins');
@@ -46,7 +45,7 @@ function ok(cond, msg) { if (cond) { pass++; console.log('  ✓', msg); } else {
   await page.screenshot({ path: OUT('map-dots.png'), clip: { x: 1020, y: 230, width: 420, height: 650 } });
   await page.click('#map-menu label:has([data-map-opt="showIcon"])');
   await page.click('#map-menu label:has([data-map-opt="showLabel"])');
-  await page.selectOption('#map-menu select[data-map-metric]', 'price');
+  await page.selectOption('#map-menu select[data-map-metric]', 'yield');
   await page.keyboard.press('Escape');
   ok(!(await page.isVisible('#map-menu')), 'Esc closes the dropdown');
   await page.click('.map-legend__item[data-stage="SCR"]');
@@ -296,7 +295,7 @@ function ok(cond, msg) { if (cond) { pass++; console.log('  ✓', msg); } else {
   console.log('13. Kanban card, actions menu, details + edit drawers');
   await page.click('[data-layout="board"]');
   const card = '.board-card[data-id="d1"]';
-  ok(await page.$eval(card, (e) => !!e.querySelector('.board-card__foot .ds-avatar') && e.querySelector('.board-card__top .board-card__price').textContent === '€61.2M'), 'board card: title + price on top, owner in the footer');
+  ok(await page.$eval(card, (e) => !!e.querySelector('.board-card__foot .owner-plate') && e.querySelector('.board-card__top .board-card__price').textContent === '€61.2M'), 'board card: title + price on top, owner in the footer');
   ok(await page.$eval(card, (e) => !!e.querySelector('.board-card__photo .board-card__chips .industry-chip') && !!e.querySelector('.board-card__chips .status-pill') && !!e.querySelector('.board-card__foot [data-deal-menu]:last-child')), 'industry + status chips on the photo, ⋯ at the footer end');
   ok(await page.$eval(card + ' .board-card__media', (e) => e.getBoundingClientRect().height) === 96, 'photo 96 high, full bleed');
   ok((await txt(card + ' .board-card__loc')) === 'Wakefield, UK', 'short location');
@@ -308,7 +307,7 @@ function ok(cond, msg) { if (cond) { pass++; console.log('  ✓', msg); } else {
   ok(!!(await page.$('.board-card[data-id="d3"] .board-card__media.is-empty')), 'no photos: empty placeholder');
   ok(!!(await page.$('.board-card[data-id="d3"] .board-card__foot .board-card__comments')) && !(await page.$(card + ' .board-card__foot .board-card__comments')), 'comments shown only when there are any');
   ok(await page.$eval(card, (e) => getComputedStyle(e).borderTopLeftRadius === '4px' && e.getBoundingClientRect().width === 256), 'board card 256 wide, radius 4 (Figma)');
-  ok(await page.$eval('.board-card[data-id="d3"] .board-card__foot', (e) => [...e.children].map((c) => c.matches('.ds-avatar') ? 'owner' : c.matches('.board-card__comments') ? 'comments' : c.matches('[data-deal-menu]') ? 'more' : '?').join()) === 'owner,comments,more', 'footer: owner, comments, then ⋯ on the right');
+  ok(await page.$eval('.board-card[data-id="d3"] .board-card__foot', (e) => [...e.children].map((c) => c.matches('.owner-btn, .assign-btn') ? 'owner' : c.matches('.board-card__comments') ? 'comments' : c.matches('[data-deal-menu]') ? 'more' : '?').join()) === 'owner,comments,more', 'footer: owner, comments, then ⋯ on the right');
   await page.click('.board-card[data-id="d7"] [data-deal-menu]');
   ok(await page.isVisible('.deal-menu [data-pick="edit"]') && await page.isVisible('.deal-menu [data-pick="archived"]') && await page.isVisible('.deal-menu [data-pick="deleted"]'), 'menu: Edit + Archive + Delete');
   await page.click('.deal-menu [data-pick="archived"]');
@@ -531,6 +530,30 @@ function ok(cond, msg) { if (cond) { pass++; console.log('  ✓', msg); } else {
   ok((await txt('.row-card[data-id="d1"] .status-pill')) === 'Live' && !!(await page.$('.row-card[data-id="d1"] .stage-chip')), 'Undo brings a closed deal back from the Archive');
   await page.click('.row-card[data-id="d1"] [data-stage-menu]');
   await page.click('.stage-menu [data-pick="SCR"]');
+
+  console.log('18b. Assignees');
+  ok((await txt('.row-card[data-id="d1"] .owner-plate')) === 'YA+3' && (await txt('.row-card[data-id="d3"] .owner-plate')) === 'IO', 'owner plate: initials, "+n" when more people are assigned');
+  await page.click('.row-card[data-id="d1"] [data-assign]');
+  ok(await page.isVisible('.assign-menu') && (await page.evaluate(() => document.activeElement.type)) === 'search', 'picker opens with the search focused');
+  ok((await page.$$eval('.assign-menu__name', (e) => e.slice(0, 4).map((x) => x.textContent))).join() === 'Yusuf Ali,Benjamin Hart,Sachin Shilwal,Semanta Kaur' && (await page.$eval('.assign-menu__row.is-primary [data-assign-primary]', (b) => b.getAttribute('aria-pressed'))) === 'true', 'assigned first, primary starred');
+  ok((await txt('.assign-menu__legend')).includes('Owner') && (await txt('.assign-menu__legend')).includes('Primary'), 'legend: Owner + Primary');
+  await page.fill('.assign-menu input[type=search]', 'bor');
+  ok((await page.$$eval('.assign-menu__name', (e) => e.map((x) => x.textContent))).join() === 'Boris Petrov', 'search filters people');
+  await page.click('.assign-menu__check:has([data-assign-user="BP"])');
+  ok((await txt('.row-card[data-id="d1"] .owner-plate')) === 'YA+4', 'checking a person assigns them (+n updates live)');
+  await page.fill('.assign-menu input[type=search]', '');
+  await page.click('.assign-menu [data-assign-primary="BH"]');
+  ok((await txt('.row-card[data-id="d1"] .owner-plate')) === 'BH+4', 'star makes a person the primary owner');
+  await page.click('.assign-menu__check:has([data-assign-user="BH"])');
+  ok((await txt('.row-card[data-id="d1"] .owner-plate')).startsWith('YA'), 'unassigning the primary passes primary to the next person');
+  await page.keyboard.press('Escape');
+  ok(!(await page.$('.assign-menu')) && (await page.evaluate(() => document.activeElement.dataset.assign)) === 'd1', 'Esc closes, focus back on the plate');
+  await page.click('.row-card[data-id="d11"] [data-assign]');
+  await page.click('.assign-menu__check:has([data-assign-user="SC"])');
+  ok((await txt('.row-card[data-id="d11"] .owner-plate')) === 'SC', 'unassigned deal: first checked person becomes primary');
+  await page.mouse.click(700, 150);
+  ok(!(await page.$('.assign-menu')), 'click outside closes the picker');
+  ok(await page.evaluate(() => { const el = document.createElement('span'); el.className = 'stage-chip'; el.dataset.stage = 'Received'; document.body.appendChild(el); const c = getComputedStyle(el).backgroundColor; el.remove(); return c; }) === 'rgb(233, 237, 238)', 'Received stage plate = surface/main #E9EDEE');
 
   console.log('19. Kanban drag & drop');
   await page.click('[data-layout="board"]'); await page.waitForTimeout(200);

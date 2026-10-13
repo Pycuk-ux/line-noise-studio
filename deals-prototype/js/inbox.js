@@ -53,8 +53,9 @@ window.GC = window.GC || {};
 
   function ownerHtml(d) {
     // Figma: 24px tinted circle with initials; unassigned = outlined "+" circle.
-    return d.owner ? `<span class="ds-avatar owner-avatar" data-size="md" title="Owner">${esc(d.owner)}</span>`
-      : `<button type="button" class="assign-btn" data-ds-provisional="assign-button" aria-label="Assign owner" title="Assign owner">${GC.icon("plus")}</button>`;
+    const n = GC.assignees(d).length;
+    return d.owner ? `<button type="button" class="owner-btn" data-assign="${d.id}" aria-haspopup="dialog" aria-expanded="false" aria-label="Assignees: ${esc(GC.assignees(d).map(GC.userName).join(", "))}. Change">${GC.ownerPlate(d)}</button>`
+      : `<button type="button" class="assign-btn" data-assign="${d.id}" data-ds-provisional="assign-button" aria-haspopup="dialog" aria-expanded="false" aria-label="Assign owner" title="Assign owner">${GC.icon("plus")}</button>`;
   }
   function industryChip(d) {
     return d.industry ? `<span class="industry-chip" data-ds-provisional="chip">${industryIcon(d.industry)}${esc(d.industry)}</span>` : "";
@@ -503,6 +504,91 @@ window.GC = window.GC || {};
   document.addEventListener("pointerdown", (e) => { if (menuEl && !e.target.closest(".deal-menu, [data-deal-menu], [data-stage-menu]")) closeMenu(); });
   document.addEventListener("wheel", closeMenu, { passive: true }); // user scroll closes the menu
 
+  // ---------- Assignee picker (ds:provisional dropdown) ----------
+  // Search, a checkbox per person (assigned) and a star (primary owner). Changes apply live.
+  let assignEl = null, assignBtnId = null, assignOrder = [];
+  function closeAssign(refocus) {
+    if (!assignEl) return;
+    assignEl.remove(); assignEl = null;
+    const btn = document.querySelector(`[data-assign="${assignBtnId}"]`);
+    if (btn) { btn.setAttribute("aria-expanded", "false"); if (refocus) btn.focus(); }
+    assignBtnId = null;
+  }
+  function assignRows(d, q) {
+    const on = GC.assignees(d);
+    const list = assignOrder.map((ini) => GC.MOCK.users.find((u) => u.initials === ini)).filter((u) => !q || u.name.toLowerCase().includes(q));
+    if (!list.length) return `<p class="assign-menu__empty">No people match “${esc(q)}”</p>`;
+    return list.map((u) => {
+      const checked = on.includes(u.initials), primary = d.owner === u.initials;
+      return `<div class="assign-menu__row${primary ? " is-primary" : ""}">
+        <label class="ds-control ds-checkbox assign-menu__check"><input type="checkbox" data-assign-user="${u.initials}" ${checked ? "checked" : ""}>
+          <span class="ds-checkbox__box"><svg class="ds-check-mark" viewBox="0 0 12 12" fill="none"><path d="M2.4 6.2 4.7 8.5 9.6 3.3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+          <span class="assign-menu__name">${esc(u.name)}</span></label>
+        <button type="button" class="assign-menu__star" data-assign-primary="${u.initials}" aria-pressed="${primary}" aria-label="${primary ? `${esc(u.name)} is the primary owner` : `Make ${esc(u.name)} the primary owner`}" title="${primary ? "Primary" : "Make primary"}">${GC.icon("star")}</button>
+      </div>`;
+    }).join("");
+  }
+  function setAssignees(d, owner, team) {
+    const before = GC.assignees(d).join();
+    d.owner = owner || null; d.team = team.filter((x) => x !== d.owner);
+    if (GC.assignees(d).join() === before) return;
+    log(d, d.owner ? `set assignees: ${GC.assignees(d).map(GC.userName).join(", ")}` : "removed all assignees", "edit");
+    render();
+    if (GC.dealPanel) GC.dealPanel.refresh(d.id);
+    const btn = document.querySelector(`[data-assign="${d.id}"]`);
+    if (btn) btn.setAttribute("aria-expanded", "true");
+  }
+  function openAssign(btn) {
+    closeMenu(); closeAssign();
+    const d = find(btn.dataset.assign);
+    assignBtnId = d.id;
+    // Assigned people first (primary on top), then everyone else — fixed while the menu is open.
+    const on = GC.assignees(d);
+    assignOrder = on.concat(GC.MOCK.users.map((u) => u.initials).filter((x) => !on.includes(x)));
+    assignEl = document.createElement("div");
+    assignEl.className = "assign-menu";
+    assignEl.setAttribute("role", "dialog");
+    assignEl.setAttribute("aria-label", "Assignees");
+    assignEl.dataset.dsProvisional = "dropdown";
+    assignEl.innerHTML = `<div class="assign-menu__search ds-field" data-size="small"><div class="ds-field__box">
+        <span class="ds-field__icon" aria-hidden="true">${DS_ICONS.get("search")}</span>
+        <input class="ds-field__input" type="search" placeholder="Type name" aria-label="Search people" autocomplete="off"></div></div>
+      <div class="assign-menu__list" role="group" aria-label="People">${assignRows(d, "")}</div>
+      <div class="assign-menu__legend" aria-hidden="true"><span><span class="ds-checkbox__box is-on"><svg class="ds-check-mark" viewBox="0 0 12 12" fill="none"><path d="M2.4 6.2 4.7 8.5 9.6 3.3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>Owner</span><span>${GC.icon("star", "is-on")}Primary</span></div>`;
+    document.body.appendChild(assignEl);
+    const r = btn.getBoundingClientRect();
+    const below = r.bottom + 4 + assignEl.offsetHeight < window.innerHeight;
+    assignEl.style.top = (below ? r.bottom + 4 : Math.max(8, r.top - 4 - assignEl.offsetHeight)) + "px";
+    assignEl.style.left = Math.max(8, Math.min(window.innerWidth - assignEl.offsetWidth - 8, r.right - assignEl.offsetWidth)) + "px";
+    btn.setAttribute("aria-expanded", "true");
+    const input = assignEl.querySelector("input[type=search]"), listEl = assignEl.querySelector(".assign-menu__list");
+    const redraw = () => { listEl.innerHTML = assignRows(d, input.value.trim().toLowerCase()); };
+    input.addEventListener("input", redraw);
+    assignEl.addEventListener("change", (e) => {
+      const ini = e.target.dataset.assignUser;
+      if (!ini) return;
+      const all = GC.assignees(d);
+      if (e.target.checked) setAssignees(d, d.owner || ini, all.concat(ini));
+      else { const rest = all.filter((x) => x !== ini); setAssignees(d, d.owner === ini ? rest[0] : d.owner, rest); }
+      redraw();
+      const again = listEl.querySelector(`[data-assign-user="${ini}"]`);
+      if (again) again.focus();
+    });
+    assignEl.addEventListener("click", (e) => {
+      const st = e.target.closest("[data-assign-primary]");
+      if (!st) return;
+      const ini = st.dataset.assignPrimary;
+      setAssignees(d, ini, GC.assignees(d).concat(ini));
+      redraw();
+      const again = listEl.querySelector(`[data-assign-primary="${ini}"]`);
+      if (again) again.focus();
+    });
+    assignEl.addEventListener("keydown", (e) => { if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); closeAssign(true); } });
+    input.focus();
+  }
+  document.addEventListener("pointerdown", (e) => { if (assignEl && !e.target.closest(".assign-menu, [data-assign]")) closeAssign(); });
+  document.addEventListener("wheel", (e) => { if (assignEl && !e.target.closest(".assign-menu")) closeAssign(); }, { passive: true });
+
   function bindCardActions() {
     document.getElementById("deal-list").addEventListener("click", (e) => {
       if (dragJustEnded) { dragJustEnded = false; e.preventDefault(); return; }
@@ -521,6 +607,8 @@ window.GC = window.GC || {};
       if (open) { GC.dealPanel.open(open.dataset.open, open); return; }
       const edit = e.target.closest("[data-deal-edit]");
       if (edit) { GC.dealPanel.edit(edit.dataset.dealEdit, edit); return; }
+      const as = e.target.closest("[data-assign]");
+      if (as) { assignEl && assignBtnId === as.dataset.assign ? closeAssign() : openAssign(as); return; }
       const sm = e.target.closest("[data-stage-menu]");
       if (sm) { menuEl && menuBtn === sm ? closeMenu() : openStageMenu(sm); return; }
       const menu = e.target.closest("[data-deal-menu]");

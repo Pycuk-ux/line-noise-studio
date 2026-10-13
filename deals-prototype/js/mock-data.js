@@ -11,6 +11,11 @@ GC.MOCK = {
     { id: "io", name: "Ines Ortega", initials: "IO" },
     { id: "mb", name: "Maya Brooks", initials: "MB" },
     { id: "tn", name: "Tomás Novak", initials: "TN" },
+    { id: "bh", name: "Benjamin Hart", initials: "BH" },
+    { id: "ss", name: "Sachin Shilwal", initials: "SS" },
+    { id: "sk", name: "Semanta Kaur", initials: "SK" },
+    { id: "bp", name: "Boris Petrov", initials: "BP" },
+    { id: "dm", name: "Denis Moreau", initials: "DM" },
   ],
 
   locations: [
@@ -64,7 +69,7 @@ GC.MOCK = {
   // map: position on the prototype base map (world units, 800 × 1270). Map labels from the Figma map (Malmö).
   deals: [
     {
-      id: "d1", status: "new", name: "The Symphony Group PLC, Tuscany Way", location: "Wakefield, United Kingdom", assets: 12,
+      id: "d1", team: ["BH", "SS", "SK"], status: "new", name: "The Symphony Group PLC, Tuscany Way", location: "Wakefield, United Kingdom", assets: 12,
       industry: "Hotel", deadline: "3d to deadline",
       owner: "YA", stage: "SCR", price: 61200000, dateReceived: "2026-08-28", image: "assets/img/deal-1.jpg",
       areaSqm: 53675, rentYearly: 3140000, rentPsm: 58.5, wault: 4.1, occupancy: 98.7, niy: 5.1, dealSource: "Structured Process",
@@ -84,7 +89,7 @@ GC.MOCK = {
       map: { x: 210, y: 780 },
     },
     {
-      id: "d4", status: "live", name: "The Symphony Group PLC, Tuscany Way, Wakefield Europort", location: "Wakefield, United Kingdom", assets: 12,
+      id: "d4", team: ["SC"], status: "live", name: "The Symphony Group PLC, Tuscany Way, Wakefield Europort", location: "Wakefield, United Kingdom", assets: 12,
       industry: "Hotel", comments: 21,
       owner: "YA", stage: "LOI", price: 61200000, dateReceived: "2026-08-28", image: "assets/img/deal-4.jpg",
       areaSqm: 53675, rentYearly: 3140000, rentPsm: 58.5, wault: 4.1, occupancy: 98.7, niy: 4.9, dealSource: "Structured Process",
@@ -109,7 +114,7 @@ GC.MOCK = {
       map: { x: 650, y: 470 },
     },
     {
-      id: "d8", status: "live", name: "Fosie Industrial Estate", location: "Malmö, Sweden", assets: 6,
+      id: "d8", team: ["MB", "DM"], status: "live", name: "Fosie Industrial Estate", location: "Malmö, Sweden", assets: 6,
       industry: "Industrial", owner: "TN", stage: "DD", price: 12600000, dateReceived: "2026-08-19", image: null,
       areaSqm: 22400, rentYearly: 1010000, rentPsm: 45.1, wault: 3.2, occupancy: 88.4, niy: 8.0, dealSource: "Structured Process",
       map: { x: 560, y: 1050 },

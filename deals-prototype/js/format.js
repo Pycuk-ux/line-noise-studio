@@ -153,6 +153,14 @@ window.GC = window.GC || {};
     Withdrawn: ["Seller pulled the asset", "Process cancelled"],
     Cancelled: ["Failed technical DD", "Failed legal DD", "Financing withdrawn", "Mandate changed"],
   };
+  /** Assignees: d.owner = primary (initials), d.team = the others. Card shows "YA" or "YA +2". */
+  GC.assignees = (d) => (d.owner ? [d.owner] : []).concat((d.team || []).filter((x) => x !== d.owner));
+  GC.userName = (ini) => { const u = (GC.MOCK.users || []).find((x) => x.initials === ini); return u ? u.name : ini; };
+  GC.ownerPlate = function (d) {
+    const all = GC.assignees(d), extra = all.length - 1;
+    const tip = all.map((x, i) => GC.userName(x) + (i === 0 ? " (primary)" : "")).join(", ");
+    return `<span class="owner-plate${extra > 0 ? " has-more" : ""}" title="${GC.esc(tip)}"><span class="owner-plate__ini">${GC.esc(d.owner)}</span>${extra > 0 ? `<span class="owner-plate__more">+${extra}</span>` : ""}</span>`;
+  };
   GC.outcomeReason = (d) => (d.outcomeReason === "Other" ? d.outcomeNote || "Other" : d.outcomeReason || "");
   GC.statusChip = function (d) {
     const s = d.status || "new";

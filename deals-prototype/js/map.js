@@ -12,7 +12,7 @@ window.GC = window.GC || {};
   const esc = GC.esc;
 
   const view = { k: 1, tx: 0, ty: 0, fitK: 1 };
-  const settings = { metric: "price", showIcon: true, showLabel: true };
+  const settings = { metric: "yield", showIcon: true, showLabel: true };
   const hiddenStages = new Set();
   let root, world, pinLayer, menu, menuBtn, popup;
   // Selected pin → property popup (Figma "Pin card" 16335:70120): deal id, asset index, active tab.
@@ -25,7 +25,7 @@ window.GC = window.GC || {};
     { stage: "DD", label: "DD" }, { stage: "SPA", label: "SPA" }, { stage: "Completed", label: "CL" },
   ];
   // Pin description (Figma 16338:68868): a dropdown instead of the Price/Yield switcher.
-  const METRICS = [{ id: "price", label: "Price" }, { id: "yield", label: "Yield" }, { id: "psm", label: "Price/sqm" }, { id: "occupancy", label: "Occupancy" }];
+  const METRICS = [{ id: "yield", label: "Yield" }, { id: "psm", label: "Price/sqm" }, { id: "occupancy", label: "Occupancy" }];
 
   // ---------- Base map (deterministic SVG) ----------
   function rng(seed) { return () => ((seed = (seed * 16807) % 2147483647) - 1) / 2147483646; }
@@ -110,8 +110,7 @@ window.GC = window.GC || {};
       const o = a.occupancy != null ? a.occupancy : d.occupancy;
       return o == null ? "—" : `${f.num(o, 1)}%`;
     }
-    const price = a.price != null ? a.price : null;
-    return price == null ? "No price" : f.moneyShort(price, cur);
+    return "—";
   }
 
   function pinsHtml() {
@@ -166,7 +165,7 @@ window.GC = window.GC || {};
     const many = list.length > 1;
     return `<div class="pp-card">
         <div class="pp-media${img ? "" : " is-empty"}">${img ? `<img src="${img}" alt="">` : GC.icon("building")}
-          <div class="pp-tags">${d.owner ? `<span class="ds-avatar owner-avatar" data-size="md" title="Owner">${esc(d.owner)}</span>` : ""}${GC.statusChip(d)}</div>
+          <div class="pp-tags">${d.owner ? GC.ownerPlate(d) : ""}${GC.statusChip(d)}</div>
           <button type="button" class="pp-more" data-pp="more" aria-haspopup="menu" aria-expanded="false" aria-label="More actions">${GC.icon("more-vertical")}</button>
         </div>
         <div class="pp-body">
@@ -389,7 +388,7 @@ window.GC = window.GC || {};
       <div class="map-ctl-wrap">
         <button type="button" class="map-ctl" aria-haspopup="dialog" aria-expanded="false" aria-controls="map-menu">
           <span class="map-ctl__icon">${GC.icon("table-settings")}</span><span class="map-ctl__divider" aria-hidden="true"></span>
-          <span class="map-ctl__label">Price</span>
+          <span class="map-ctl__label">Yield</span>
         </button>
         ${menuHtml()}
       </div>

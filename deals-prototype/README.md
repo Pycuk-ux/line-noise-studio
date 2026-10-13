@@ -284,6 +284,14 @@ Not matched on purpose / still open:
   chip is gone: the column is the stage, and you change it by drag & drop. The pencil moved into ⋯ (*Edit deal*).
 - **Archive is list-only:** choosing *Archived deals* switches Kanban to the card rows and disables the Kanban toggle
   (it has a tooltip saying why). Leaving the Archive makes Kanban available again.
+- **Assignees:** the card plate shows the primary owner's initials, or "YA +3" when more people are assigned
+  (the tooltip lists everyone). Clicking it opens the assignee picker (DS search field, DS checkboxes, DS `star`
+  icon). Checkbox = assigned, star = primary. Assigned people come first and the order stays fixed while the picker
+  is open. Changes apply live: the first person checked on an unassigned deal becomes primary, and unassigning the
+  primary passes primary to the next person. A legend at the bottom explains the icons. Esc / click outside closes it.
+  Data: `d.owner` = primary, `d.team` = the others.
+- **Pin description:** Price was removed. The dropdown has Yield (default), Price/sqm and Occupancy.
+- **Received stage plate** uses `--surface-main` (#E9EDEE).
 - **Collapsible stage groups** (grouped list): a chevron sits before the stage name in the header (^ open, ⌄ collapsed).
   The header button has `aria-expanded`; the count and total stay visible. The state survives re-renders and
   sort direction changes. Kanban columns don't collapse.
