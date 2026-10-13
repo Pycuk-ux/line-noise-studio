@@ -104,4 +104,48 @@ window.GC = window.GC || {};
     const html = window.DS_ICONS ? window.DS_ICONS.get(name) : "";
     return `<span class="ico${extraClass ? " " + extraClass : ""}" aria-hidden="true">${html}</span>`;
   };
+
+  // ---------- Industry icons (Figma 16338:69252) ----------
+  // ds:provisional — the DS icon set has no property-type glyphs yet, so these are drawn here
+  // (24-grid, 1.5 stroke, currentColor) to match the Figma "Truck Delivery / Office Building / Apartment / Database" set.
+  const IND_PATHS = {
+    truck: '<circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/><path d="M5 17H3v-4M2 5h11v12m-4 0h6m4 0h2v-6h-8m0-5h5l3 5"/><path d="M3 9h4"/>',
+    office: '<path d="M3 21h18"/><path d="M5 21V7l8-4v18"/><path d="M19 21V11l-6-4"/><path d="M9 9v.01M9 12v.01M9 15v.01M9 18v.01"/>',
+    apartment: '<path d="M3 21h18"/><path d="M6 21V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v17"/><path d="M10 21v-4h4v4"/><path d="M9.5 7h1M13.5 7h1M9.5 10.5h1M13.5 10.5h1M9.5 14h1M13.5 14h1"/>',
+    database: '<ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M4 6v6a8 3 0 0 0 16 0V6"/><path d="M4 12v6a8 3 0 0 0 16 0v-6"/>',
+    store: '<path d="M3 21h18"/><path d="M3 7v1a3 3 0 0 0 6 0V7m0 1a3 3 0 0 0 6 0V7m0 1a3 3 0 0 0 6 0V7H3l2-4h14l2 4"/><path d="M5 21V10.85M19 21V10.85"/><path d="M9 21v-4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v4"/>',
+    factory: '<path d="M3 21h18"/><path d="M5 21V9l5 4V9l5 4h4"/><path d="M19 21v-8l-1.44-9.57a.5.5 0 0 0-.5-.43h-1.14a.5.5 0 0 0-.5.42L14 12"/><path d="M9 17h1M14 17h1"/>',
+    home: '<path d="M5 12H3l9-9 9 9h-2"/><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/><path d="M9 21v-6a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v6"/>',
+    buildings: '<path d="M4 21V6c0-1 1-2 2-2h5c1 0 2 1 2 2v15"/><path d="M16 8h2c1 0 2 1 2 2v11"/><path d="M3 21h18"/><path d="M7 8v.01M10 8v.01M7 12v.01M10 12v.01M7 16v.01M10 16v.01M17 12v.01M17 16v.01"/>',
+  };
+  GC.industryIcon = function (id, extraClass) {
+    const ind = (GC.MOCK && GC.MOCK.industries.find((x) => x.id === id)) || { icon: "buildings" };
+    const body = IND_PATHS[ind.icon] || IND_PATHS.buildings;
+    return `<span class="ico ico--ind${extraClass ? " " + extraClass : ""}" aria-hidden="true"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${body}</svg></span>`;
+  };
+
+  // ---------- Deal stages (Figma 16338:69306) ----------
+  // Progress pie: an empty ring for Received, filled by sixths up to a solid disc for CL.
+  GC.STAGE_ORDER = ["Received", "SCR", "QUAL", "LOI", "DD", "SPA", "Completed"];
+  GC.stageLabel = (id) => (id === "Completed" ? "CL" : id);
+  GC.stageIcon = function (stage) {
+    const i = Math.max(0, GC.STAGE_ORDER.indexOf(stage)), f = i / 6;
+    const r = 5, cx = 8, cy = 8;
+    let fill = "";
+    if (f >= 1) fill = `<circle cx="${cx}" cy="${cy}" r="${r}" fill="currentColor"/>`;
+    else if (f > 0) {
+      const a = f * 2 * Math.PI, x = cx + r * Math.sin(a), y = cy - r * Math.cos(a);
+      fill = `<path d="M${cx} ${cy} L${cx} ${cy - r} A${r} ${r} 0 ${f > 0.5 ? 1 : 0} 1 ${x.toFixed(2)} ${y.toFixed(2)} Z" fill="currentColor"/>`;
+    }
+    return `<span class="ico ico--stage" aria-hidden="true"><svg viewBox="0 0 16 16" width="16" height="16"><circle cx="8" cy="8" r="7" fill="none" stroke="currentColor" stroke-width="1.2"/>${fill}</svg></span>`;
+  };
+
+  // ---------- Deal status (Figma 16338:69273) and outcomes (16338:69754) ----------
+  GC.STATUSES = { new: "New", live: "Live", tracking: "Tracking", dead: "Dead" };
+  GC.OUTCOMES = ["Lost", "Passed", "Withdrawn", "Cancelled"];
+  GC.statusChip = function (d) {
+    const s = d.status || "new";
+    const tip = s === "dead" && d.outcome ? ` title="Dead · ${GC.esc(d.outcome)}"` : s === "tracking" ? ' title="On hold"' : "";
+    return `<span class="status-pill" data-status="${s}" data-ds-provisional="chip"${tip}>${GC.STATUSES[s] || s}</span>`;
+  };
 })();

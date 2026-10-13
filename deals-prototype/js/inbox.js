@@ -11,23 +11,21 @@ window.GC = window.GC || {};
   function log(d, text, type) { d.log = d.log || []; d.log.unshift({ who: ME, text, type: type || "edit", at: new Date().toISOString() }); }
   const summary = Object.assign({}, GC.MOCK.inboxSummary);
 
-  function industryIcon(id) {
-    const ind = GC.MOCK.industries.find((x) => x.id === id);
-    return GC.icon(ind ? ind.icon : "building");
-  }
+  const industryIcon = (id) => GC.industryIcon(id);
 
   function stat(label, value) {
     return `<div class="stat"><span class="t-label">${esc(label)}</span><span class="t-value">${value == null ? "—" : esc(value)}</span></div>`;
   }
 
   // ---------- Card fields (settings menu) ----------
-  const FIELD_KEY = "gocanopy.inbox.cardFields.v1";
+  const FIELD_KEY = "gocanopy.inbox.cardFields.v2";
   GC.CARD_FIELDS = [
+    { id: "received", label: "Received" },
     { id: "area", label: "Area" }, { id: "rent", label: "Rent" }, { id: "psm", label: "Rent/psm" },
     { id: "niy", label: "NIY" }, { id: "wault", label: "WAULT" }, { id: "occupancy", label: "Occupancy" },
-    { id: "source", label: "Deal source" }, { id: "received", label: "Received" },
+    { id: "source", label: "Deal source" },
   ];
-  const fields = { area: true, rent: true, psm: true, niy: false, wault: true, occupancy: true, source: true, received: false };
+  const fields = { area: true, rent: true, psm: true, niy: false, wault: true, occupancy: true, source: true, received: true };
   try { Object.assign(fields, JSON.parse(localStorage.getItem(FIELD_KEY) || "{}")); } catch (e) { /* storage unavailable */ }
 
   const view = { layout: "list", sort: "newest" };
@@ -35,6 +33,7 @@ window.GC = window.GC || {};
   function statPairs(d) {
     const f = GC.fmt, sym = f.currencySymbol(d.currency || "EUR");
     const out = [];
+    if (fields.received) out.push(["Received", f.dateShort(d.dateReceived) || null]);
     if (fields.area) out.push(["Area", d.areaSqm != null ? `${f.num(d.areaSqm, 0)} sqm` : null]);
     const rentK = d.rentYearly != null ? `${sym}${f.num(d.rentYearly / 1000, 1, 1)}` : null;
     const psm = d.rentPsm != null ? `${sym}${f.num(d.rentPsm, 1, 1)}` : null;
@@ -45,7 +44,6 @@ window.GC = window.GC || {};
     if (fields.wault) out.push(["WAULT", d.wault != null ? `${f.num(d.wault, 1, 1)} years` : null]);
     if (fields.occupancy) out.push(["Occupancy", d.occupancy != null ? `${f.num(d.occupancy, 1)}%` : null]);
     if (fields.source) out.push(["Deal source", d.dealSource]);
-    if (fields.received) out.push(["Received", f.dateShort(d.dateReceived) || null]);
     return out;
   }
   function statsHtml(d) { return statPairs(d).map(([l, v]) => stat(l, v)).join(""); }
@@ -58,13 +56,29 @@ window.GC = window.GC || {};
     return d.owner ? `<span class="ds-avatar owner-avatar" data-size="md" title="Owner">${esc(d.owner)}</span>`
       : `<button type="button" class="assign-btn" data-ds-provisional="assign-button" aria-label="Assign owner" title="Assign owner">${GC.icon("plus")}</button>`;
   }
+  function industryChip(d) {
+    return d.industry ? `<span class="industry-chip" data-ds-provisional="chip">${industryIcon(d.industry)}${esc(d.industry)}</span>` : "";
+  }
+  /** Stage chip (Figma 16338:69306): progress pie + code; a button that opens the stage dropdown. */
+  function stageChip(d) {
+    const lbl = GC.stageLabel(d.stage);
+    return `<button type="button" class="stage-chip" data-stage="${esc(d.stage)}" data-stage-menu="${d.id}" data-ds-provisional="chip" aria-haspopup="menu" aria-expanded="false" aria-label="Deal stage: ${esc(d.stage)}. Change stage" title="Change stage">${GC.stageIcon(d.stage)}${esc(lbl)}</button>`;
+  }
   function tagsHtml(d) {
-    return `${d.industry ? `<span class="industry-chip" data-ds-provisional="chip">${industryIcon(d.industry)}${esc(d.industry)}</span>` : ""}
-      ${d.status ? `<span class="status-pill" data-tone="${d.status.tone}" data-ds-provisional="chip">${esc(d.status.label)}</span>` : ""}
+    return `${industryChip(d)}${stageChip(d)}${GC.statusChip(d)}
       ${d.deadline ? `<span class="deadline t-value">${GC.icon("alert-circle")}${esc(d.deadline)}</span>` : ""}`;
   }
   function locText(d) {
     return [d.location, d.assets != null ? `${d.assets} asset${d.assets === 1 ? "" : "s"}` : ""].filter(Boolean).join(", ") || "No location";
+  }
+  /** Floating action plate (Figma 16338:69956): edit | comments | more, shown on card hover / focus. */
+  function plateHtml(d) {
+    return `<div class="card-plate" data-ds-provisional="action-plate">
+      <button type="button" class="ds-btn is-icon-only" data-type="ghost" data-size="sm" data-deal-edit="${d.id}" aria-label="Edit ${esc(d.name)}" title="Edit"><span class="ds-btn__icon">${DS_ICONS.get("edit")}</span></button>
+      ${d.comments ? `<span class="card-plate__div" aria-hidden="true"></span><button type="button" class="ds-btn card-plate__comments" data-type="ghost" data-size="sm" data-open-comments="${d.id}" aria-label="${d.comments} comments — open comments" title="Open comments"><span class="ds-btn__icon">${DS_ICONS.get("message-text")}</span><span class="ds-btn__label">${d.comments}</span></button>` : ""}
+      <span class="card-plate__div" aria-hidden="true"></span>
+      <button type="button" class="ds-btn is-icon-only" data-type="ghost" data-size="sm" data-deal-menu="${d.id}" aria-haspopup="menu" aria-expanded="false" aria-label="More actions for ${esc(d.name)}" title="More"><span class="ds-btn__icon">${DS_ICONS.get("more-vertical")}</span></button>
+    </div>`;
   }
   function actionsHtml(d, comments) {
     return `<button type="button" class="ds-btn is-icon-only" data-type="ghost" data-size="sm" data-deal-edit="${d.id}" aria-label="Edit ${esc(d.name)}"><span class="ds-btn__icon">${DS_ICONS.get("edit")}</span></button>
@@ -89,29 +103,28 @@ window.GC = window.GC || {};
     </div>`;
   }
 
-  function cardHtml(d, grouped) {
+  /** Received date leads the metrics row (Figma 16338:69956). */
+  function cardHtml(d) {
     const f = GC.fmt, cur = d.currency || "EUR";
     const stats = statsHtml(d);
     return `<li class="row-card deal-card${d.isNew ? " is-new" : ""}" data-ds-provisional="row-card" data-id="${d.id}" aria-label="${esc(d.name)}">
       <div class="row-card__media">${(d.images || [])[0] ? `<img src="${d.images[0]}" alt="">` : GC.icon("building")}</div>
       <div class="row-card__body">
-        <div class="row-card__head">
+        <div class="row-card__top">
           ${titleHtml(d, "row-card__name")}
-          <span class="row-card__loc t-muted">${GC.icon("location")}${esc(locText(d))}</span>
+          <div class="row-card__figures">
+            ${d.niy != null ? `<span class="row-card__yield" title="Yield" data-tip="Yield">${esc(f.num(d.niy, 1))}%</span>` : ""}
+            <span class="row-card__price t-title" title="Price" data-tip="Price">${d.price != null ? f.moneyShort(d.price, cur) : "—"}</span>
+          </div>
         </div>
-        <div class="row-card__price">
-          <span class="t-title">${d.price != null ? f.moneyShort(d.price, cur) : "—"}</span>
-          <span class="t-muted">${esc(f.dateShort(d.dateReceived))}</span>
-        </div>
-        <div class="row-card__tags">${tagsHtml(d)}</div>
-        <div class="row-card__owner">
-          ${d.comments ? `<button type="button" class="comments t-value" data-open-comments="${d.id}" aria-label="${d.comments} comments — open comments" title="Open comments">${GC.icon("message-text")}${d.comments}</button>` : ""}
-          ${ownerHtml(d)}
-          ${grouped ? "" : `<button type="button" class="stage-chip" data-stage="${esc(d.stage)}" data-stage-menu="${d.id}" data-ds-provisional="chip" aria-haspopup="menu" aria-expanded="false" aria-label="Deal stage: ${esc(d.stage)}. Change stage">${esc(stageLabel(d.stage))}${GC.icon("chevron-down")}</button>`}
+        <div class="row-card__meta">
+          <div class="row-card__tags">${industryChip(d)}<span class="row-card__loc">${GC.icon("location")}<span>${esc(locText(d))}</span></span>
+            ${d.deadline ? `<span class="deadline t-value">${GC.icon("alert-circle")}${esc(d.deadline)}</span>` : ""}</div>
+          <div class="row-card__owner">${stageChip(d)}${GC.statusChip(d)}${ownerHtml(d)}</div>
         </div>
         ${stats ? `<div class="row-card__stats">${stats}</div>` : ""}
       </div>
-      <div class="row-card__actions">${actionsHtml(d)}</div>
+      ${plateHtml(d)}
     </li>`;
   }
 
@@ -145,9 +158,8 @@ window.GC = window.GC || {};
   // ---------- Stages ----------
   const STAGES = [
     { id: "Received", short: "RCVD" }, { id: "SCR", short: "SCR" }, { id: "QUAL", short: "QUAL" }, { id: "LOI", short: "LOI" },
-    { id: "DD", short: "DD" }, { id: "SPA", short: "SPA" }, { id: "Completed", short: "CL" }, { id: "Declined", short: "DECL" },
+    { id: "DD", short: "DD" }, { id: "SPA", short: "SPA" }, { id: "Completed", short: "CL" },
   ];
-  function stageLabel(id) { return id; }
   function stageHead(st, list, board) {
     const total = list.reduce((sum, d) => sum + (d.price > 0 ? d.price : 0), 0);
     const amount = total > 0 ? GC.fmt.moneyShort(total, "EUR") : "";
@@ -157,15 +169,26 @@ window.GC = window.GC || {};
     </div></div>`;
   }
 
+  /** "Deal stage" sort runs both ways: SCR → CL (pipeline order) or CL → SCR. Kanban columns keep pipeline order. */
+  const isStageSort = () => view.sort === "stage" || view.sort === "stage-desc";
+  const stageOrder = () => (view.sort === "stage-desc" ? STAGES.slice().reverse() : STAGES);
+
   function sorted(list) {
     const by = {
       newest: (a, b) => (b.dateReceived || "").localeCompare(a.dateReceived || "") || (b.isNew ? 1 : 0) - (a.isNew ? 1 : 0),
       oldest: (a, b) => (a.dateReceived || "").localeCompare(b.dateReceived || ""),
       price: (a, b) => (b.price || -1) - (a.price || -1),
       deadline: (a, b) => (b.deadline ? 1 : 0) - (a.deadline ? 1 : 0),
-    }[view.sort === "stage" || view.sort === "archived" ? "newest" : view.sort];
+    }[isStageSort() || view.sort === "archived" ? "newest" : view.sort];
     // newly added deals stay on top in date sorts
     return list.slice().sort((a, b) => (b.isNew ? 1 : 0) - (a.isNew ? 1 : 0) || by(a, b));
+  }
+
+  /** Manual order from drag & drop wins inside a column; deals not yet placed stay on top. */
+  function boardSort(items) {
+    if (!boardOrder) return items;
+    const at = (d) => boardOrder.indexOf(d.id);
+    return items.slice().sort((a, b) => at(a) - at(b));
   }
 
   // ---------- Render ----------
@@ -177,20 +200,20 @@ window.GC = window.GC || {};
   function render() {
     const root = document.getElementById("deal-list");
     const list = sorted(source());
-    const mode = view.layout === "board" ? "board" : view.sort === "stage" ? "grouped" : "list";
+    const mode = view.layout === "board" ? "board" : isStageSort() ? "grouped" : "list";
     root.dataset.view = mode;
     if (mode === "list") {
       root.innerHTML = list.length ? `<ul class="card-list">${list.map((d) => cardHtml(d)).join("")}</ul>`
         : `<div class="empty-state" data-ds-provisional="empty-state">${GC.icon("bookmark")}<p class="t-title">${view.sort === "archived" ? "No archived deals" : "No deals"}</p><p class="t-muted">${view.sort === "archived" ? "Deals you archive from the card menu show up here." : ""}</p></div>`;
     } else if (mode === "grouped") {
-      root.innerHTML = STAGES.map((st) => {
+      root.innerHTML = stageOrder().map((st) => {
         const items = list.filter((d) => d.stage === st.id);
         return `<section class="stage-group" data-ds-provisional="stage-group" data-stage="${st.id}" aria-label="${esc(st.id)}, ${items.length} deals">
           ${stageHead(st, items)}${items.length ? `<ul class="card-list">${items.map((d) => cardHtml(d, true)).join("")}</ul>` : ""}</section>`;
       }).join("");
     } else {
       root.innerHTML = STAGES.map((st) => {
-        const items = list.filter((d) => d.stage === st.id);
+        const items = boardSort(list.filter((d) => d.stage === st.id));
         return `<section class="board-col stage-group" data-ds-provisional="board-column" data-stage="${st.id}" aria-label="${esc(st.id)}, ${items.length} deals">
           ${stageHead(st, items, true)}<ul class="card-list">${items.map(boardCardHtml).join("")}</ul></section>`;
       }).join("");
@@ -242,7 +265,7 @@ window.GC = window.GC || {};
 
   // ---------- Controls ----------
   function bindControls() {
-    document.getElementById("sort-select").addEventListener("change", (e) => { view.sort = e.target.value; render(); });
+    document.getElementById("sort-select").addEventListener("change", (e) => { view.sort = e.target.value; boardOrder = null; render(); });
     document.getElementById("view-switch").addEventListener("click", (e) => {
       const seg = e.target.closest("[data-layout]");
       if (!seg) return;
@@ -295,8 +318,8 @@ window.GC = window.GC || {};
 
   function order() {
     const list = sorted(source());
-    if (view.layout !== "board" && view.sort !== "stage") return list;
-    return STAGES.flatMap((st) => list.filter((d) => d.stage === st.id));
+    if (view.layout !== "board" && !isStageSort()) return list;
+    return (view.layout === "board" ? STAGES : stageOrder()).flatMap((st) => { const items = list.filter((d) => d.stage === st.id); return view.layout === "board" ? boardSort(items) : items; });
   }
 
   function recount() {
@@ -322,15 +345,41 @@ window.GC = window.GC || {};
     });
   }
 
-  function setStage(id, stage) {
+  function refresh(id) { render(); if (GC.dealPanel) GC.dealPanel.refresh(id); }
+  function snapshot(d) { return { stage: d.stage, status: d.status, outcome: d.outcome }; }
+  function undoTo(d, snap) { return { label: "Undo", onClick: () => { Object.assign(d, snap); if (!snap.outcome) delete d.outcome; refresh(d.id); } }; }
+
+  /** Moving a deal along the pipeline reopens a Dead deal and makes a New one Live. */
+  function setStage(id, stage, quiet) {
     const d = find(id);
     if (!d || d.stage === stage) return;
-    const prev = d.stage;
+    const prev = d.stage, snap = snapshot(d);
     d.stage = stage;
-    log(d, `changed stage: ${prev} → ${stage}`, "stage");
-    render();
-    if (GC.dealPanel) GC.dealPanel.refresh(id);
-    GC.toast("Stage updated", `“${d.name}” moved from ${prev} to ${stage}.`, "success");
+    log(d, `changed stage: ${GC.stageLabel(prev)} → ${GC.stageLabel(stage)}`, "stage");
+    if (d.status === "dead") { delete d.outcome; d.status = "live"; log(d, "reopened the deal", "status"); }
+    else if (d.status === "new" && stage !== "Received") d.status = "live";
+    refresh(id);
+    if (!quiet) GC.toast("Stage updated", `“${d.name}” moved from ${GC.stageLabel(prev)} to ${GC.stageLabel(stage)}.`, "success", undoTo(d, snap));
+  }
+  /** Outcome (Lost / Passed / Withdrawn / Cancelled) closes the deal → status Dead. */
+  function setOutcome(id, outcome) {
+    const d = find(id);
+    if (!d || (d.status === "dead" && d.outcome === outcome)) return;
+    const snap = snapshot(d);
+    d.status = "dead"; d.outcome = outcome;
+    log(d, `closed the deal: ${outcome}`, "status");
+    refresh(id);
+    GC.toast("Deal closed", `“${d.name}” marked as ${outcome}.`, "neutral", undoTo(d, snap));
+  }
+  /** On hold ↔ back in progress (Tracking ↔ Live). */
+  function toggleHold(id) {
+    const d = find(id);
+    if (!d) return;
+    const snap = snapshot(d), on = d.status !== "tracking";
+    d.status = on ? "tracking" : "live"; delete d.outcome;
+    log(d, on ? "put the deal on hold" : "resumed the deal", "status");
+    refresh(id);
+    GC.toast(on ? "Deal on hold" : "Deal resumed", `“${d.name}” is now ${GC.STATUSES[d.status]}.`, "neutral", undoTo(d, snap));
   }
 
   // ---------- Popup menus: deal actions + stage picker (ds:provisional dropdown) ----------
@@ -340,11 +389,11 @@ window.GC = window.GC || {};
     menuEl.remove(); menuEl = null;
     if (menuBtn) { menuBtn.setAttribute("aria-expanded", "false"); }
   }
-  function popup(btn, html, onPick) {
+  function popup(btn, html, onPick, cls) {
     closeMenu();
     menuBtn = btn;
     menuEl = document.createElement("div");
-    menuEl.className = "deal-menu";
+    menuEl.className = "deal-menu" + (cls ? " " + cls : "");
     menuEl.setAttribute("role", "menu");
     menuEl.dataset.dsProvisional = "dropdown";
     menuEl.innerHTML = html;
@@ -371,18 +420,34 @@ window.GC = window.GC || {};
       <button type="button" role="menuitem" class="is-danger" data-pick="deleted">${GC.icon("bin")}Delete deal</button>`,
       (verb) => removeDeal(id, verb));
   }
+  /** Stage dropdown (Figma 16338:70515): Received · Stage · Outcome · On hold. */
   function openStageMenu(btn) {
     const id = btn.dataset.stageMenu;
     const d = find(id);
-    popup(btn, `<p class="deal-menu__title">Deal stage</p>${GC.MOCK.stages.map((st) => `<button type="button" role="menuitemradio" aria-checked="${st === d.stage}" data-pick="${st}">
-        <span class="deal-menu__dot" data-stage="${st}"></span>${esc(st)}${st === d.stage ? GC.icon("check", "deal-menu__check") : ""}</button>`).join("")}`,
-      (stage) => setStage(id, stage));
+    const dead = d.status === "dead";
+    const check = GC.icon("check", "deal-menu__check");
+    const item = (st) => `<button type="button" role="menuitemradio" class="stage-item" aria-checked="${!dead && st === d.stage}" data-pick="${st}">
+        <span class="stage-chip stage-chip--row" data-stage="${st}">${GC.stageIcon(st)}${esc(GC.stageLabel(st))}${st === d.stage ? check : ""}</span></button>`;
+    popup(btn, `<button type="button" role="menuitemradio" class="stage-menu__received" aria-checked="${!dead && d.stage === "Received"}" data-pick="Received">Received${d.stage === "Received" ? check : ""}</button>
+      <hr class="deal-menu__sep"><p class="deal-menu__title" role="presentation">Stage</p>
+      ${GC.STAGE_ORDER.slice(1).map(item).join("")}
+      <hr class="deal-menu__sep"><p class="deal-menu__title" role="presentation">Outcome</p>
+      ${GC.OUTCOMES.map((o) => `<button type="button" role="menuitemradio" aria-checked="${dead && d.outcome === o}" data-pick="outcome:${o}">${esc(o)}${dead && d.outcome === o ? check : ""}</button>`).join("")}
+      <hr class="deal-menu__sep">
+      <button type="button" role="menuitemcheckbox" class="stage-menu__hold" aria-checked="${d.status === "tracking"}" data-pick="hold">
+        <span class="ds-checkbox__box stage-menu__box" aria-hidden="true"><svg class="ds-check-mark" viewBox="0 0 12 12" fill="none"><path d="M2.4 6.2 4.7 8.5 9.6 3.3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>On hold</button>`,
+      (pick) => {
+        if (pick === "hold") toggleHold(id);
+        else if (pick.startsWith("outcome:")) setOutcome(id, pick.slice(8));
+        else setStage(id, pick);
+      }, "stage-menu");
   }
   document.addEventListener("pointerdown", (e) => { if (menuEl && !e.target.closest(".deal-menu, [data-deal-menu], [data-stage-menu]")) closeMenu(); });
   document.addEventListener("wheel", closeMenu, { passive: true }); // user scroll closes the menu
 
   function bindCardActions() {
     document.getElementById("deal-list").addEventListener("click", (e) => {
+      if (dragJustEnded) { dragJustEnded = false; e.preventDefault(); return; }
       const oc = e.target.closest("[data-open-comments]");
       if (oc) { GC.dealPanel.open(oc.dataset.openComments, oc, "comments"); return; }
       const open = e.target.closest("[data-open]");
@@ -402,11 +467,107 @@ window.GC = window.GC || {};
         box.outerHTML = sliderHtml(d);
         const again = document.querySelector(`[data-slider="${d.id}"] [data-slide="${slide.dataset.slide}"]`);
         if (again) again.focus();
+        return;
       }
+      // The whole card opens the deal (title button stays the keyboard entry point).
+      const card = e.target.closest(".deal-card");
+      if (card && !e.target.closest("button, a, input, label") && !String(window.getSelection() || "")) GC.dealPanel.open(card.dataset.id, card.querySelector("[data-open]"));
     });
+    bindBoardDrag();
+  }
+
+  // ---------- Kanban drag & drop (Notion-style) ----------
+  // The card stays put; a 20% ghost follows the pointer and a 4px green bar marks the drop slot.
+  let boardOrder = null, dragJustEnded = false;
+  function bindBoardDrag() {
+    const root = document.getElementById("deal-list");
+    let drag = null;
+    const bar = document.createElement("li");
+    bar.className = "drop-indicator";
+    bar.dataset.dsProvisional = "drop-indicator";
+    bar.setAttribute("aria-hidden", "true");
+
+    function cleanup() {
+      if (!drag) return;
+      if (drag.ghost) drag.ghost.remove();
+      bar.remove();
+      drag.card.classList.remove("is-drag-source");
+      document.body.classList.remove("is-dragging");
+      cancelAnimationFrame(drag.raf);
+      drag = null;
+    }
+    function target(x, y) {
+      const el = document.elementFromPoint(x, y);
+      const col = el && el.closest(".board-col");
+      if (!col) { bar.remove(); return; }
+      const list = col.querySelector(".card-list");
+      const cards = [...list.querySelectorAll(".board-card")];
+      const before = cards.find((c) => { const r = c.getBoundingClientRect(); return y < r.top + r.height / 2; });
+      if (before !== bar.nextSibling || bar.parentNode !== list) list.insertBefore(bar, before || null);
+    }
+    function autoscroll() {
+      if (!drag) return;
+      const { x, y } = drag.last, edge = 48, step = 12;
+      const rr = root.getBoundingClientRect();
+      if (x < rr.left + edge) root.scrollLeft -= step; else if (x > rr.right - edge) root.scrollLeft += step;
+      const col = bar.closest(".board-col");
+      if (col) { const cr = col.getBoundingClientRect(); if (y < cr.top + edge) col.scrollTop -= step; else if (y > cr.bottom - edge) col.scrollTop += step; }
+      drag.raf = requestAnimationFrame(autoscroll);
+    }
+
+    root.addEventListener("dragstart", (e) => { if (root.dataset.view === "board") e.preventDefault(); });
+    root.addEventListener("pointerdown", (e) => {
+      if (root.dataset.view !== "board" || e.button !== 0) return;
+      const card = e.target.closest(".board-card");
+      if (!card || e.target.closest("button, a, input, label")) return;
+      drag = { card, id: card.dataset.id, x0: e.clientX, y0: e.clientY, last: { x: e.clientX, y: e.clientY }, ghost: null };
+    });
+    window.addEventListener("pointermove", (e) => {
+      if (!drag) return;
+      drag.last = { x: e.clientX, y: e.clientY };
+      if (!drag.ghost) {
+        if (Math.hypot(e.clientX - drag.x0, e.clientY - drag.y0) < 5) return;
+        const r = drag.card.getBoundingClientRect();
+        drag.dx = drag.x0 - r.left; drag.dy = drag.y0 - r.top;
+        drag.ghost = drag.card.cloneNode(true);
+        drag.ghost.classList.add("drag-ghost");
+        drag.ghost.removeAttribute("data-id");
+        drag.ghost.setAttribute("aria-hidden", "true");
+        drag.ghost.style.width = r.width + "px";
+        document.body.appendChild(drag.ghost);
+        drag.card.classList.add("is-drag-source");
+        document.body.classList.add("is-dragging");
+        if (GC.map) GC.map.link(drag.id, false);
+        drag.raf = requestAnimationFrame(autoscroll);
+      }
+      drag.ghost.style.transform = `translate(${e.clientX - drag.dx}px, ${e.clientY - drag.dy}px)`;
+      target(e.clientX, e.clientY);
+    });
+    window.addEventListener("pointerup", () => {
+      if (!drag) return;
+      if (!drag.ghost) { drag = null; return; }
+      const id = drag.id, col = bar.closest(".board-col");
+      if (col) {
+        // New board order = DOM order with the dragged card moved to the bar.
+        const ids = [];
+        root.querySelectorAll(".board-card[data-id], .drop-indicator").forEach((el) => {
+          if (el === bar) ids.push(id); else if (el.dataset.id !== id) ids.push(el.dataset.id);
+        });
+        boardOrder = ids;
+      }
+      cleanup();
+      dragJustEnded = true;
+      setTimeout(() => { dragJustEnded = false; }, 0);
+      if (!col) return;
+      const d = find(id);
+      if (d && d.stage !== col.dataset.stage) setStage(id, col.dataset.stage);
+      else render();
+    });
+    window.addEventListener("keydown", (e) => { if (drag && drag.ghost && e.key === "Escape") { cleanup(); dragJustEnded = true; setTimeout(() => { dragJustEnded = false; }, 0); } });
+    window.addEventListener("pointercancel", cleanup);
   }
 
   function update() { recount(); render(); }
 
-  GC.inbox = { render, addDeal, deals, archived, bindLinking, view, fields, order, update, removeDeal, setStage, find, log, openMenu, openStageMenu, popup, ME };
+  GC.inbox = { render, addDeal, deals, archived, bindLinking, view, fields, order, update, removeDeal, setStage, setOutcome, toggleHold, find, log, openMenu, openStageMenu, popup, ME };
 })();

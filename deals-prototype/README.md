@@ -242,6 +242,30 @@ Not matched on purpose / still open:
 - **Zoom out ↔ Zoom in back:** after "Zoom out to all assets" the button becomes "Zoom in back", which returns (300 ms)
   to the exact view the user had before. Closing the popup or opening another deal forgets that view.
 
+## Iteration 9 — card behaviour (Figma 16338:68868)
+
+- **Row card layout** (16338:69956): title with **yield % + price** on the right (each shows a "Yield" / "Price"
+  tooltip on hover); meta row = industry chip + location on the left, **stage · status · owner** on the right;
+  metrics row starts with *Received*. The whole card opens the deal (the title button stays the keyboard entry).
+  Hover = `--surface-white-hover` + shadow.
+- **Floating action plate**: edit | comments (if any) | more, bottom-right, shown on hover / keyboard focus
+  (always visible on touch screens).
+- **Chips** (16338:69753): industry chip on `--surface-main` with **new industry icons** (truck, office, apartment,
+  database, store, factory, home, buildings), drawn inline since the DS has no property-type glyphs. The **stage chip**
+  is a pill with a progress-pie icon (empty ring for Received → full disc for CL). The new **status chip** is
+  New / Live / Tracking / Dead. *Declined* is no longer a stage: it is a Dead status with an outcome.
+- **Stage dropdown** (16338:69754), on the card, kanban card and drawer header: *Received*, **Stage**
+  (SCR…CL chips, ✓ on current), **Outcome** (Lost / Passed / Withdrawn / Cancelled → status Dead, reason in the
+  chip tooltip) and an **On hold** checkbox (Tracking ↔ Live). Every change is logged and gets a toast with Undo.
+  Moving a Dead deal to a stage reopens it (Live). A New deal moved past Received becomes Live.
+- **Kanban drag & drop** (Notion-style): the card stays in place while a 20% ghost follows the cursor. A 4px green bar
+  marks the drop slot (top of column or between cards). Dropping changes the stage and keeps the position.
+  Esc cancels. Columns and the board auto-scroll near the edges. 7 columns now (Received → CL).
+- **Sort by stage in both directions:** *Stage: SCR → CL* and *Stage: CL → SCR* (the grouped list flips; kanban
+  columns keep pipeline order).
+- **Pin settings:** the Price/Yield switcher became a **Description dropdown** with Price, Yield (%), Price/sqm and Occupancy.
+  The map button shows the chosen metric. Price stays the default. Pins use the new industry icons.
+
 ## Deviations from Figma
 
 1. **DS components win over Figma** when they disagree: the navbar is rounded, the tabs are 14px, the segmented

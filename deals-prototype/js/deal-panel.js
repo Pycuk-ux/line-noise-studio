@@ -184,8 +184,8 @@ window.GC = window.GC || {};
         ${coverHtml(d)}
         <div class="dp-head__info">
           <div class="dp-head__chips">
-            ${ind ? `<span class="industry-chip" data-ds-provisional="chip">${GC.icon("building")}${esc(ind)}</span>` : ""}
-            <button type="button" class="stage-chip" data-stage="${esc(d.stage)}" data-stage-menu="${d.id}" data-ds-provisional="chip" aria-haspopup="menu" aria-expanded="false" aria-label="Deal stage: ${esc(d.stage)}. Change stage">${esc(d.stage)}${GC.icon("chevron-down")}</button>
+            ${ind ? `<span class="industry-chip" data-ds-provisional="chip">${GC.industryIcon(ind)}${esc(ind)}</span>` : ""}
+            <button type="button" class="stage-chip" data-stage="${esc(d.stage)}" data-stage-menu="${d.id}" data-ds-provisional="chip" aria-haspopup="menu" aria-expanded="false" aria-label="Deal stage: ${esc(d.stage)}. Change stage" title="Change stage">${GC.stageIcon(d.stage)}${esc(GC.stageLabel(d.stage))}</button>${GC.statusChip(d)}
           </div>
           <h2 class="dp-head__title" id="dp-title">${esc(d.name)}</h2>
           <div class="dp-head__addr">${GC.icon("location")}<span>${esc(addr)}</span></div>

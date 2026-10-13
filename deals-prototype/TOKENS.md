@@ -80,6 +80,11 @@ stacked avatars, `vertical-align`). No colour, radius, padding or type of a DS c
 | `comment-composer` / comment thread | 16292:70876 | composer 708px, 1px `--border-default`, `--radius-4`, p `--space-3`; Send = DS primary `md`; avatars 28px tints `emerald/indigo/yellow/purple/cyan/red-50` + `-800`; name 14px 600, time `--text-placeholder`; mention `--surface-positive` / `--text-positive-hover` `--radius-12` |
 | `property-popup` (map pin card) | 16335:70260 | 248px, `--surface-main` frame p `--space-1`, `--radius-8`, modal shadow; card `--surface-white` `--radius-4`, photo 96px; title `--text-label-md` 600; tabs track `--surface-secondary`, active `--surface-white` / `--text-positive-hover`; rows `--text-label-sm`, label `--text-tertiary`; footer link `--text-positive-hover`; selected pin ring `--surface-white` + `--brand-primary` |
 | `log table` | 16292:70814 | 946px; filter = DS secondary Button `md` in `--brand-primary`; header `--text-tertiary` 12px; day rows + times `--brand-primary`; actor `--text-primary` 600, action `--text-tertiary`; row dividers `--border-default` |
+| `row-card` V.3 / `action-plate` | 16338:69956 | hover `--surface-white-hover` + shadow `--color-alpha-light-100`; image 120; yield `--text-label-md` 500 `--text-tertiary`; plate `--surface-white`, `--border-default`, `--radius-4`, p `--space-1`, dividers `--border-default`; tooltip `--brand-primary` / `--text-inverse` `--label-xs` |
+| `stage-chip` V.2 | 16338:69306 | pill `--radius-full`, h `--space-6`, pl `--space-1` pr `--space-2`, `--label-xs` 500; fill `--color-{yellow,emerald,cyan,violet,purple}-100`, CL `--color-green-50`, Received `--color-blue-50`; text `-800` / `--text-link`; progress-pie icon drawn inline |
+| `status-pill` | 16338:69273 | h `--space-6`, `--radius-full`, `--label-xs` 500; New `indigo-50/800`, Live `emerald-50/800` (Figma mint → nearest DS ramp), Tracking `orange-50/800`, Dead `red-50/800` |
+| `stage-menu` | 16338:70515 | 144px, `--surface-white`, `--border-default`, `--radius-4`, p `--space-1`; section labels `--text-tertiary`; stage rows = chips `--radius-4` 600; separators `--border-default`; On hold = DS checkbox box |
+| `drag-ghost` / `drop-indicator` | — (Notion pattern) | ghost opacity .2 + shadow `--color-alpha-light-200`; bar h `--space-1`, `--brand-secondary`, `--radius-full` |
 | `dropdown` (deal menu) | — | `--surface-white`, `--border-default`, `--radius-4`; Delete in `--text-negative-hover` |
 | `drawer-tabs` (details drawer views) | 18831:258397 | DS **Tabs** (`small`) on `--surface-white`, padding `--space-4`, Comments count = DS `ds-tab-chip`; disabled tabs (Assets, Comps, AI Assistant, Documents) `--text-disabled` — **the DS Tabs ship no disabled state** |
 | `comments` / `log` feed | 18831:260095 / 18831:260029 (built from the brief, Figma rate-limited) | card `--surface-white` `--radius-8`; DS Avatar; item gap `--space-4`; meta `--text-label-*`; composer = DS Text field + DS primary Button, top rule `--border-default`; log rows divided by `--border-default`, p `--space-3`; AI avatar `--surface-positive`/`--text-positive` |
@@ -124,7 +129,8 @@ to the DS or migrate Figma to 12/14.**
 | Figma `text/negative #c73939` | "3d to deadline" | `--text-negative-hover` (#c73939) | DS `--text-negative` is #ef4444 |
 | Modal shadow `0 4 4 #0000001F, 0 2 8 #00000029` | modal, listbox | `--color-alpha-light-100` (#00000017) / `-200` (#00000033) with `--space-1/2` offsets | No elevation tokens in the DS |
 | Modal radius 8 / item radius 16 (Figma draft pill tabs) | stepper | not used: stepper follows the approved progress-bar pattern (radius 4) | — |
-| Industry icons (hotel / office / logistics glyphs) | chips | DS `building` (`house` for Residential) | **No industry glyphs in the DS icon set** |
+| Industry icons (truck / office / apartment / database …) | chips, pins | drawn inline SVG (24 grid, 1.6 stroke, `currentColor`) in `GC.industryIcon` | **No industry glyphs in the DS icon set**: provisional |
+| Status "Live" mint | status chip | `--color-emerald-50/800` | No mint ramp in the DS |
 | `setting`, `contact` icons | Table settings button | DS glyph, repaired at load | **DS bug:** `top:calc(50%-0.5px)` (no spaces) is invalid CSS, so the glyph drifts up. Shim in `js/format.js` adds the spaces. |
 | `arrow-right` icon | Next button | DS glyph, repaired at load | **DS bug:** JSX leftover `style={{ containerType: "size" }}` (renders empty) **and** the path is the left arrow (flip lost). Shim fixes both. |
 | Kanban / board icon | View switch | DS `cards` rotated 90° | No board glyph in the DS |
@@ -135,7 +141,7 @@ to the DS or migrate Figma to 12/14.**
 | Map base | map | vector drawing from tokens | Figma map raster can't be downloaded here, and Artifact CSP blocks tile servers |
 | Pin card tab track inset `2px` | map property popup | literal `2px` | Same inset the DS Segmented control uses; no 2px spacing token |
 | Owner avatar fill `#e5ebef` (kanban/list) | owner avatar | `--surface-main` #e9edee | Δ4.6, no token |
-| Pin settings switch: grey track + white thumb | Price / Yield | DS Segmented (white track, `--surface-positive` thumb) | DS component wins |
+| Pin description control | Pin settings | DS Text field box + native select (provisional select) | Was a Price/Yield Segmented; now a dropdown with 4 metrics |
 | Card shadow "sm" `#0000000F` + `#0000000A` | kanban card | `--color-alpha-light-50` ×2 | second layer is 4% in Figma, 6% here |
 | Only Logistics has industry colours (lime) | preview header chip | `--color-lime-50/900` | Other industries fall back to neutral |
 

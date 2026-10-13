@@ -140,7 +140,7 @@ window.GC = window.GC || {};
         <div class="pv-head__title">
           <h3 class="t-page-title${name ? "" : " is-placeholder"}">${esc(name || "Untitled deal")}</h3>
           ${industryChip}
-          <span class="stage-chip stage-chip--static" data-stage="${esc(d.stage)}" data-ds-provisional="chip">${esc(d.stage)}</span>
+          <span class="stage-chip stage-chip--static" data-stage="${esc(d.stage)}" data-ds-provisional="chip">${GC.stageIcon(d.stage)}${esc(GC.stageLabel(d.stage))}</span>
         </div>
         <p class="t-muted pv-head__sub">${esc([d.location || "No location", assets].filter(Boolean).join(", "))}</p>
       </div>
@@ -221,7 +221,7 @@ window.GC = window.GC || {};
       location: d.location.trim(),
       assets: s.assets.length,
       industry: GC.dealIndustry(s) || null,
-      status: { label: "New", tone: "info" },
+      status: "new",
       owner: team[0] ? team[0].initials : null,
       stage: d.stage,
       price: d.price,

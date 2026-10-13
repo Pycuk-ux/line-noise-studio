@@ -23,10 +23,9 @@ window.GC = window.GC || {};
   const LEGEND = [
     { stage: "SCR", label: "SCR" }, { stage: "QUAL", label: "QUAL" }, { stage: "LOI", label: "LOI" },
     { stage: "DD", label: "DD" }, { stage: "SPA", label: "SPA" }, { stage: "Completed", label: "CL" },
-    { stage: "Declined", label: "DECL" },
   ];
-  // Pin description (Figma "Map variation" 16292:71767): Price → deal price in EUR, Yield → EUR per sqm.
-  const METRICS = [{ id: "price", label: "Price", unit: "EUR" }, { id: "yield", label: "Yield", unit: "EUR/sqm" }];
+  // Pin description (Figma 16338:68868): a dropdown instead of the Price/Yield switcher.
+  const METRICS = [{ id: "price", label: "Price" }, { id: "yield", label: "Yield" }, { id: "psm", label: "Price/sqm" }, { id: "occupancy", label: "Occupancy" }];
 
   // ---------- Base map (deterministic SVG) ----------
   function rng(seed) { return () => ((seed = (seed * 16807) % 2147483647) - 1) / 2147483646; }
@@ -77,15 +76,7 @@ window.GC = window.GC || {};
   }
 
   // ---------- Pins ----------
-  function industryIcon(id) {
-    const ind = GC.MOCK.industries.find((x) => x.id === id);
-    return GC.icon(ind ? ind.icon : "building");
-  }
-  function metricLabel(d) {
-    const f = GC.fmt;
-    if (settings.metric === "yield") return d.rentPsm == null ? "—" : f.currencySymbol(d.currency || "EUR") + f.num(d.rentPsm, 1, 1);
-    return d.price == null ? "No price" : f.moneyShort(d.price, d.currency || "EUR");
-  }
+  const industryIcon = (id) => GC.industryIcon(id);
 
   // ---------- Assets on the map ----------
   // One pin per asset. The first asset sits on the deal's own point; the others are scattered
@@ -108,8 +99,16 @@ window.GC = window.GC || {};
   function assetLabel(d, a) {
     const f = GC.fmt, cur = d.currency || "EUR";
     if (settings.metric === "yield") {
-      const psm = a.rent > 0 && a.area > 0 ? a.rent / a.area : d.rentPsm;
-      return psm == null ? "—" : f.currencySymbol(cur) + f.num(psm, 1, 1);
+      const y = a.rent > 0 && a.price > 0 ? (a.rent / a.price) * 100 : d.niy;
+      return y == null ? "—" : `${f.num(y, 1, 1)}%`;
+    }
+    if (settings.metric === "psm") {
+      const psm = a.price > 0 && a.area > 0 ? a.price / a.area : d.price > 0 && d.areaSqm > 0 ? d.price / d.areaSqm : null;
+      return psm == null ? "—" : `${f.currencySymbol(cur)}${f.num(psm, 0)}/sqm`;
+    }
+    if (settings.metric === "occupancy") {
+      const o = a.occupancy != null ? a.occupancy : d.occupancy;
+      return o == null ? "—" : `${f.num(o, 1)}%`;
     }
     const price = a.price != null ? a.price : null;
     return price == null ? "No price" : f.moneyShort(price, cur);
@@ -160,14 +159,14 @@ window.GC = window.GC || {};
         + row("Area", a.area != null ? `${esc(f.num(a.area, 0))} sqm` : null)
         + row("Rent (€/€psm)", a.rent != null ? `${esc(f.moneyShort(a.rent, cur))} / ${psm != null ? esc(f.num(psm, 1)) : "—"}` : null)
         + row("Received", d.dateReceived ? esc(f.dateShort(d.dateReceived)) : null)
-      : row("Stage", `<span class="stage-chip stage-chip--static" data-stage="${esc(d.stage)}">${esc(d.stage)}</span>`)
+      : row("Stage", `<span class="stage-chip stage-chip--static" data-stage="${esc(d.stage)}">${GC.stageIcon(d.stage)}${esc(GC.stageLabel(d.stage))}</span>`)
         + row("Deal price", d.price != null ? esc(f.moneyShort(d.price, cur)) : "Undisclosed")
         + row("Total area", total ? `${esc(f.num(total, 0))} sqm` : null)
         + row("Cap rate", d.niy != null ? `${esc(f.num(d.niy, 1))}%` : null);
     const many = list.length > 1;
     return `<div class="pp-card">
         <div class="pp-media${img ? "" : " is-empty"}">${img ? `<img src="${img}" alt="">` : GC.icon("building")}
-          <div class="pp-tags">${d.owner ? `<span class="ds-avatar owner-avatar" data-size="md" title="Owner">${esc(d.owner)}</span>` : ""}${d.status ? `<span class="status-pill" data-tone="${d.status.tone}">${esc(d.status.label)}</span>` : ""}</div>
+          <div class="pp-tags">${d.owner ? `<span class="ds-avatar owner-avatar" data-size="md" title="Owner">${esc(d.owner)}</span>` : ""}${GC.statusChip(d)}</div>
           <button type="button" class="pp-more" data-pp="more" aria-haspopup="menu" aria-expanded="false" aria-label="More actions">${GC.icon("more-vertical")}</button>
         </div>
         <div class="pp-body">
@@ -343,7 +342,9 @@ window.GC = window.GC || {};
       <label class="ds-control ds-switch map-menu__item map-menu__toggle"><span>Show industry icon</span><input type="checkbox" role="switch" data-map-opt="showIcon" ${settings.showIcon ? "checked" : ""}><span class="ds-switch__track"><span class="ds-switch__thumb"></span></span></label>
       <label class="ds-control ds-switch map-menu__item map-menu__toggle"><span>Show description</span><input type="checkbox" role="switch" data-map-opt="showLabel" ${settings.showLabel ? "checked" : ""}><span class="ds-switch__track"><span class="ds-switch__thumb"></span></span></label>
       <div class="map-menu__item map-menu__row" data-map-desc${settings.showLabel ? "" : " hidden"}><span id="map-desc-l">Description</span>
-        <div class="ds-segmented map-menu__seg" role="group" aria-labelledby="map-desc-l">${METRICS.map((m) => `<button type="button" class="ds-segment" data-map-metric="${m.id}" aria-pressed="${settings.metric === m.id}">${m.label}</button>`).join("")}</div></div>
+        <div class="ds-field map-menu__select" data-size="small"><div class="ds-field__box prov-select-wrap" data-ds-provisional="select">
+          <select class="ds-field__input prov-select" data-map-metric aria-labelledby="map-desc-l">${METRICS.map((m) => `<option value="${m.id}"${settings.metric === m.id ? " selected" : ""}>${m.label}</option>`).join("")}</select>
+          <span class="ds-field__icon" aria-hidden="true">${DS_ICONS.get("chevron-down")}</span></div></div></div>
     </div>`;
   }
   function openMenu(open) {
@@ -354,9 +355,9 @@ window.GC = window.GC || {};
   function syncMenuButton() {
     const m = METRICS.find((x) => x.id === settings.metric);
     // With the description off the button is icon-only (Figma variations 4–5).
-    menuBtn.querySelector(".map-ctl__label").textContent = settings.showLabel ? m.unit : "";
+    menuBtn.querySelector(".map-ctl__label").textContent = settings.showLabel ? m.label : "";
     menuBtn.dataset.iconOnly = !settings.showLabel;
-    menuBtn.setAttribute("aria-label", `Pin settings${settings.showLabel ? `: ${m.label} (${m.unit})` : ""}`);
+    menuBtn.setAttribute("aria-label", `Pin settings${settings.showLabel ? `: ${m.label}` : ""}`);
     menu.querySelector("[data-map-desc]").hidden = !settings.showLabel;
   }
 
@@ -388,7 +389,7 @@ window.GC = window.GC || {};
       <div class="map-ctl-wrap">
         <button type="button" class="map-ctl" aria-haspopup="dialog" aria-expanded="false" aria-controls="map-menu">
           <span class="map-ctl__icon">${GC.icon("table-settings")}</span><span class="map-ctl__divider" aria-hidden="true"></span>
-          <span class="map-ctl__label">EUR</span>
+          <span class="map-ctl__label">Price</span>
         </button>
         ${menuHtml()}
       </div>
@@ -451,12 +452,6 @@ window.GC = window.GC || {};
       const z = e.target.closest("[data-zoom]");
       if (z) { z.dataset.zoom === "reset" ? fit() : zoomAt(z.dataset.zoom === "in" ? 1.25 : 0.8); return; }
       if (e.target.closest(".map-ctl")) { if (menu.hidden) closePopup(); openMenu(menu.hidden); return; }
-      const mm = e.target.closest("[data-map-metric]");
-      if (mm) {
-        settings.metric = mm.dataset.mapMetric;
-        menu.querySelectorAll("[data-map-metric]").forEach((b) => b.setAttribute("aria-pressed", b === mm));
-        syncMenuButton(); renderPins(); return;
-      }
       const leg = e.target.closest(".map-legend__item");
       if (leg) {
         const st = leg.dataset.stage;
@@ -492,6 +487,7 @@ window.GC = window.GC || {};
     });
     root.addEventListener("change", (e) => {
       if (e.target.dataset.mapOpt) settings[e.target.dataset.mapOpt] = e.target.checked;
+      if (e.target.matches("[data-map-metric]")) settings.metric = e.target.value;
       syncMenuButton();
       renderPins();
     });
