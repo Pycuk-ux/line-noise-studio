@@ -89,4 +89,69 @@ window.GC = window.GC || {};
       dialog.querySelector('[data-choice="continue"]').focus();
     });
   };
+
+  /**
+   * "Select the reason" dialog for closing a deal through an Outcome (Figma 16339:73985).
+   * Resolves to { reason, note } on Confirm, { reason: null } on Skip, or null when dismissed (✕ / Esc / backdrop).
+   */
+  GC.selectReason = function (outcome) {
+    const esc = GC.esc, reasons = GC.OUTCOME_REASONS[outcome] || [];
+    return new Promise((resolve) => {
+      const back = document.activeElement;
+      const overlay = document.createElement("div");
+      overlay.className = "dm-overlay";
+      overlay.dataset.layer = "confirm";
+      overlay.innerHTML = `
+        <form class="dm reason-dlg" data-size="xs" role="dialog" aria-modal="true" aria-labelledby="rd-title" tabindex="-1" data-ds-provisional="modal" novalidate>
+          <div class="reason-dlg__head"><h2 class="reason-dlg__title" id="rd-title">Select the reason</h2>
+            <button type="button" class="ds-btn is-icon-only" data-type="ghost" data-size="sm" data-rd="close" aria-label="Close"><span class="ds-btn__icon">${DS_ICONS.get("x-close")}</span></button></div>
+          <div class="ds-field" data-size="small" data-state="default">
+            <div class="ds-field__box prov-select-wrap" data-ds-provisional="select">
+              <select class="ds-field__input prov-select" id="rd-reason" aria-label="${esc(outcome)} reason" data-empty="true">
+                <option value="" disabled selected>${esc(outcome)} reason</option>
+                ${reasons.map((r) => `<option>${esc(r)}</option>`).join("")}<option disabled>──────────</option><option value="Other">Other</option>
+              </select><span class="ds-field__icon" aria-hidden="true">${DS_ICONS.get("chevron-down")}</span></div>
+          </div>
+          <div class="ds-field" data-size="small" data-state="default" id="rd-note-wrap">
+            <div class="ds-field__box"><input class="ds-field__input" id="rd-note" type="text" autocomplete="off" maxlength="120" placeholder="Describe the reason, shortly" aria-label="Describe the reason, shortly"></div>
+            <p class="ds-field__helper" id="rd-note-help" hidden>Add a short description for “Other”.</p>
+          </div>
+          <div class="reason-dlg__foot">
+            <button type="button" class="ds-btn" data-type="secondary" data-size="lg" data-rd="skip">Skip</button>
+            <button type="submit" class="ds-btn" data-type="primary" data-size="lg" data-rd="confirm" disabled>Confirm</button>
+          </div>
+        </form>`;
+      document.body.appendChild(overlay);
+      const form = overlay.querySelector("form"), sel = form.querySelector("#rd-reason"), note = form.querySelector("#rd-note");
+      const ok = form.querySelector('[data-rd="confirm"]'), help = form.querySelector("#rd-note-help"), noteWrap = form.querySelector("#rd-note-wrap");
+      const release = GC.trapFocus(form);
+      const valid = () => !!sel.value && (sel.value !== "Other" || !!note.value.trim());
+      function sync() {
+        sel.dataset.empty = !sel.value;
+        const needNote = sel.value === "Other" && !note.value.trim();
+        help.hidden = !needNote;
+        noteWrap.dataset.state = needNote && note.dataset.touched ? "error" : "default";
+        ok.disabled = !valid();
+      }
+      function done(result) {
+        release();
+        document.removeEventListener("keydown", onKey, true);
+        overlay.remove();
+        if (back && back.isConnected) back.focus();
+        resolve(result);
+      }
+      function onKey(e) { if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); done(null); } }
+      document.addEventListener("keydown", onKey, true);
+      sel.addEventListener("change", () => { sync(); if (sel.value === "Other") note.focus(); });
+      note.addEventListener("input", () => { note.dataset.touched = "1"; sync(); });
+      form.addEventListener("submit", (e) => { e.preventDefault(); if (valid()) done({ reason: sel.value, note: note.value.trim() }); });
+      overlay.addEventListener("click", (e) => {
+        const b = e.target.closest("[data-rd]");
+        if (b && b.dataset.rd === "close") done(null);
+        else if (b && b.dataset.rd === "skip") done({ reason: null, note: note.value.trim() });
+        else if (e.target === overlay) done(null);
+      });
+      sel.focus();
+    });
+  };
 })();

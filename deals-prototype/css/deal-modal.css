@@ -356,3 +356,12 @@ fieldset.field-group > legend { padding: 0; margin-bottom: var(--space-1); }
 }
 .dm-toast__msg { font-size: var(--text-label-md-size); font-weight: var(--w-medium); white-space: nowrap; }
 @keyframes dm-toast-in { from { opacity: 0; } to { opacity: 1; } }
+
+/* "Select the reason" dialog (Figma 16339:73985) — ds:provisional modal */
+.dm.reason-dlg { width: 400px; height: auto; gap: var(--space-3); padding: var(--space-3); }
+.reason-dlg__head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
+.reason-dlg__title { margin: 0; color: var(--text-primary); font-size: var(--type-h5-size); line-height: var(--type-h5-line); font-weight: var(--w-semibold); }
+.reason-dlg .prov-select[data-empty="true"] { color: var(--text-placeholder); }
+.reason-dlg .prov-select option { color: var(--text-primary); }
+.reason-dlg__foot { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-2); margin-top: var(--space-2); }
+.reason-dlg__foot .ds-btn { width: 100%; justify-content: center; }

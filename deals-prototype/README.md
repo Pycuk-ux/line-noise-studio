@@ -267,6 +267,11 @@ Not matched on purpose / still open:
   only on hover: keyboard focus still shows it, but focus returned after closing the drawer no longer does (this was
   the bug). Truck / Office / Apartment / Database are now the designer's Figma exports. Store / Factory / Home /
   Buildings are still drawn to the same 16px grid until exported.
+- **Close reason dialog** (16339:73985): picking an Outcome opens *Select the reason*. The dropdown placeholder
+  follows the outcome ("Lost reason"…) and the reasons come from the Figma variants (Lost ×6, Passed ×3, Withdrawn ×2,
+  Cancelled ×4, plus *Other*). There is an optional short description, required for *Other*.
+  *Confirm* (disabled until a reason is picked) closes the deal with the reason, which shows in the Dead chip tooltip,
+  the log and the toast. *Skip* closes it without a reason. ✕, Esc or the backdrop leave the deal unchanged.
 - **Pin settings:** the Price/Yield switcher became a **Description dropdown** with Price, Yield (%), Price/sqm and Occupancy.
   The map button shows the chosen metric. Price stays the default. Pins use the new industry icons.
 

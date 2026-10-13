@@ -346,7 +346,7 @@ window.GC = window.GC || {};
   }
 
   function refresh(id) { render(); if (GC.dealPanel) GC.dealPanel.refresh(id); }
-  function snapshot(d) { return { stage: d.stage, status: d.status, outcome: d.outcome }; }
+  function snapshot(d) { return { stage: d.stage, status: d.status, outcome: d.outcome, outcomeReason: d.outcomeReason, outcomeNote: d.outcomeNote }; }
   function undoTo(d, snap) { return { label: "Undo", onClick: () => { Object.assign(d, snap); if (!snap.outcome) delete d.outcome; refresh(d.id); } }; }
 
   /** Moving a deal along the pipeline reopens a Dead deal and makes a New one Live. */
@@ -361,15 +361,20 @@ window.GC = window.GC || {};
     refresh(id);
     if (!quiet) GC.toast("Stage updated", `“${d.name}” moved from ${GC.stageLabel(prev)} to ${GC.stageLabel(stage)}.`, "success", undoTo(d, snap));
   }
-  /** Outcome (Lost / Passed / Withdrawn / Cancelled) closes the deal → status Dead. */
+  /** Outcome (Lost / Passed / Withdrawn / Cancelled) closes the deal → status Dead, after the reason dialog. */
   function setOutcome(id, outcome) {
     const d = find(id);
     if (!d || (d.status === "dead" && d.outcome === outcome)) return;
-    const snap = snapshot(d);
-    d.status = "dead"; d.outcome = outcome;
-    log(d, `closed the deal: ${outcome}`, "status");
-    refresh(id);
-    GC.toast("Deal closed", `“${d.name}” marked as ${outcome}.`, "neutral", undoTo(d, snap));
+    return GC.selectReason(outcome).then((r) => {
+      if (!r) return; // dismissed → nothing changes
+      const snap = snapshot(d);
+      d.status = "dead"; d.outcome = outcome;
+      d.outcomeReason = r.reason || null; d.outcomeNote = r.note || "";
+      const why = r.reason ? ` — ${r.reason === "Other" ? r.note : r.reason}` : "";
+      log(d, `closed the deal: ${outcome}${why}`, "status");
+      refresh(id);
+      GC.toast("Deal closed", `“${d.name}” marked as ${outcome}${why}.`, "neutral", undoTo(d, snap));
+    });
   }
   /** On hold ↔ back in progress (Tracking ↔ Live). */
   function toggleHold(id) {

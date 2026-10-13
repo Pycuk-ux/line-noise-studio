@@ -146,9 +146,17 @@ window.GC = window.GC || {};
   // ---------- Deal status (Figma 16338:69273) and outcomes (16338:69754) ----------
   GC.STATUSES = { new: "New", live: "Live", tracking: "Tracking", dead: "Dead" };
   GC.OUTCOMES = ["Lost", "Passed", "Withdrawn", "Cancelled"];
+  // Reasons per outcome (Figma 16339:73985 dropdown variants). "Other" asks for a short description.
+  GC.OUTCOME_REASONS = {
+    Lost: ["Below return hurdle", "Wrong sector or mandate", "Location out of scope", "Lot size too small", "Asset quality or spec", "Vendor expectation too high"],
+    Passed: ["Outbid on price", "Lost on terms", "Not shortlisted"],
+    Withdrawn: ["Seller pulled the asset", "Process cancelled"],
+    Cancelled: ["Failed technical DD", "Failed legal DD", "Financing withdrawn", "Mandate changed"],
+  };
   GC.statusChip = function (d) {
     const s = d.status || "new";
-    const tip = s === "dead" && d.outcome ? ` title="Dead · ${GC.esc(d.outcome)}"` : s === "tracking" ? ' title="On hold"' : "";
+    const why = d.outcomeReason ? ` — ${d.outcomeReason === "Other" && d.outcomeNote ? d.outcomeNote : d.outcomeReason}` : "";
+    const tip = s === "dead" && d.outcome ? ` title="Dead · ${GC.esc(d.outcome + why)}"` : s === "tracking" ? ' title="On hold"' : "";
     return `<span class="status-pill" data-status="${s}" data-ds-provisional="chip"${tip}>${GC.STATUSES[s] || s}</span>`;
   };
 })();
