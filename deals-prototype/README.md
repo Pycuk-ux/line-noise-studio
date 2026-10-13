@@ -272,6 +272,9 @@ Not matched on purpose / still open:
   Cancelled ×4, plus *Other*). There is an optional short description, required for *Other*.
   *Confirm* (disabled until a reason is picked) closes the deal with the reason, which shows in the Dead chip tooltip,
   the log and the toast. *Skip* closes it without a reason. ✕, Esc or the backdrop leave the deal unchanged.
+- **Collapsible stage groups** (grouped list): a chevron sits before the stage name in the header (^ open, ⌄ collapsed).
+  The header button has `aria-expanded`; the count and total stay visible. The state survives re-renders and
+  sort direction changes. Kanban columns don't collapse.
 - **Pin settings:** the Price/Yield switcher became a **Description dropdown** with Price, Yield (%), Price/sqm and Occupancy.
   The map button shows the chosen metric. Price stays the default. Pins use the new industry icons.
 

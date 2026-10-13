@@ -159,11 +159,14 @@ window.GC = window.GC || {};
     { id: "Received", short: "RCVD" }, { id: "SCR", short: "SCR" }, { id: "QUAL", short: "QUAL" }, { id: "LOI", short: "LOI" },
     { id: "DD", short: "DD" }, { id: "SPA", short: "SPA" }, { id: "Completed", short: "CL" },
   ];
+  // Grouped list: collapsed stage groups (kept across re-renders and sort changes)
+  const collapsed = new Set();
   function stageHead(st, list, board) {
     const total = list.reduce((sum, d) => sum + (d.price > 0 ? d.price : 0), 0);
     const amount = total > 0 ? GC.fmt.moneyShort(total, "EUR") : "";
     return `<div class="stage-group__sticky"><div class="stage-group__head" data-stage="${st.id}">
-      <span class="stage-group__name" title="${esc(st.id)}">${esc(st.short)} <span class="stage-group__count">(${list.length})</span></span>
+      ${board ? `<span class="stage-group__name" title="${esc(st.id)}">${esc(st.short)} <span class="stage-group__count">(${list.length})</span></span>`
+        : `<button type="button" class="stage-group__toggle" data-collapse="${st.id}" aria-expanded="${!collapsed.has(st.id)}" aria-controls="sg-${st.id}" title="${collapsed.has(st.id) ? "Expand" : "Collapse"} ${esc(st.id)}">${GC.icon("chevron-up", "stage-group__chev")}<span class="stage-group__name">${esc(st.short)} <span class="stage-group__count">(${list.length})</span></span></button>`}
       <span class="stage-group__total">${amount && !board ? `Total amount: ${amount}` : amount}</span>
     </div></div>`;
   }
@@ -208,7 +211,7 @@ window.GC = window.GC || {};
       root.innerHTML = stageOrder().map((st) => {
         const items = list.filter((d) => d.stage === st.id);
         return `<section class="stage-group" data-ds-provisional="stage-group" data-stage="${st.id}" aria-label="${esc(st.id)}, ${items.length} deals">
-          ${stageHead(st, items)}${items.length ? `<ul class="card-list">${items.map((d) => cardHtml(d, true)).join("")}</ul>` : ""}</section>`;
+          ${stageHead(st, items)}${items.length ? `<ul class="card-list" id="sg-${st.id}"${collapsed.has(st.id) ? " hidden" : ""}>${items.map((d) => cardHtml(d, true)).join("")}</ul>` : ""}</section>`;
       }).join("");
     } else {
       root.innerHTML = STAGES.map((st) => {
@@ -453,6 +456,15 @@ window.GC = window.GC || {};
   function bindCardActions() {
     document.getElementById("deal-list").addEventListener("click", (e) => {
       if (dragJustEnded) { dragJustEnded = false; e.preventDefault(); return; }
+      const col = e.target.closest("[data-collapse]");
+      if (col) {
+        const id = col.dataset.collapse, open = collapsed.has(id);
+        open ? collapsed.delete(id) : collapsed.add(id);
+        render();
+        const again = document.querySelector(`[data-collapse="${id}"]`);
+        if (again) again.focus();
+        return;
+      }
       const oc = e.target.closest("[data-open-comments]");
       if (oc) { GC.dealPanel.open(oc.dataset.openComments, oc, "comments"); return; }
       const open = e.target.closest("[data-open]");

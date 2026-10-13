@@ -92,6 +92,11 @@ function ok(cond, msg) { if (cond) { pass++; console.log('  ✓', msg); } else {
   await page.selectOption('#sort-select', 'stage');
   ok((await page.$$('#deal-list .stage-group')).length === 7, '7 stage groups (Received → CL)');
   ok((await page.$$eval('#deal-list .stage-group', (els) => els.map((e) => e.dataset.stage))).join() === 'Received,SCR,QUAL,LOI,DD,SPA,Completed', 'stage sort SCR → CL');
+  await page.click('[data-collapse="SCR"]');
+  ok(await page.$eval('[data-collapse="SCR"]', (b) => b.getAttribute('aria-expanded')) === 'false' && !(await page.isVisible('#sg-SCR')) && (await txt('.stage-group[data-stage="SCR"] .stage-group__name')) === 'SCR (3)', 'stage group collapses (count stays)');
+  ok(await page.evaluate(() => document.activeElement.dataset.collapse) === 'SCR', 'focus stays on the toggle');
+  await page.click('[data-collapse="SCR"]');
+  ok(await page.isVisible('#sg-SCR'), 'stage group expands again');
   await page.selectOption('#sort-select', 'stage-desc');
   ok((await page.$$eval('#deal-list .stage-group', (els) => els.map((e) => e.dataset.stage))).join() === 'Completed,SPA,DD,LOI,QUAL,SCR,Received', 'stage sort CL → SCR');
   await page.selectOption('#sort-select', 'stage');

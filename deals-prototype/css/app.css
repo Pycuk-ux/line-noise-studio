@@ -585,3 +585,14 @@ body.is-dragging .board-card:hover { box-shadow: 0 1px 2px var(--color-alpha-lig
 /* Comment count next to the stage chip */
 .row-card__owner .comments { font-size: var(--text-label-md-size); line-height: var(--text-label-md-line); font-weight: var(--w-medium); }
 .row-card__owner .comments .ico { color: var(--icon-secondary); }
+
+/* Collapsible stage groups (grouped list) */
+.stage-group__toggle {
+  display: inline-flex; align-items: center; gap: var(--space-2); margin-left: calc(-1 * var(--space-1)); padding: var(--space-1);
+  border: none; border-radius: var(--radius-4); background: none; cursor: pointer; color: inherit; font: inherit;
+}
+.stage-group__toggle:hover { background: var(--color-alpha-dark-300); }
+.stage-group__toggle:focus-visible { outline: var(--focus-ring-width) solid var(--focus-ring); outline-offset: calc(-1 * var(--focus-ring-width)); }
+.stage-group__chev { transition: transform .15s ease; }
+.stage-group__toggle[aria-expanded="false"] .stage-group__chev { transform: rotate(180deg); }
+.stage-group .card-list[hidden] { display: none; }
