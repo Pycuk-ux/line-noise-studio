@@ -531,6 +531,23 @@ function ok(cond, msg) { if (cond) { pass++; console.log('  ✓', msg); } else {
   await page.click('.row-card[data-id="d1"] [data-stage-menu]');
   await page.click('.stage-menu [data-pick="SCR"]');
 
+  console.log('18c. Asset arrows keep the card in place');
+  await page.click('[data-zoom="reset"]'); await page.waitForTimeout(100);
+  await page.click('.map-pin[data-id="d1"][data-asset="0"]'); await page.waitForTimeout(200);
+  const spinAt = async (i) => page.$eval(`.map-pin[data-id="d1"][data-asset="${i}"]`, (e) => { const r = e.getBoundingClientRect(); return [Math.round(r.x + r.width / 2), Math.round(r.y + r.height / 2)]; });
+  const scardAt = async () => page.$eval('.map-popup', (e) => { const r = e.getBoundingClientRect(); return [Math.round(r.x), Math.round(r.y)]; });
+  const sp0 = await spinAt(0), sc0 = await scardAt();
+  await page.click('.map-popup [data-pp="next"]'); await page.waitForTimeout(150);
+  const scMid = await scardAt();
+  await page.waitForTimeout(350);
+  const sp1 = await spinAt(1), sc1 = await scardAt();
+  ok(Math.abs(scMid[0] - sc0[0]) <= 1 && Math.abs(scMid[1] - sc0[1]) <= 1, 'card does not move while the map pans');
+  ok(Math.abs(sp1[0] - sp0[0]) <= 5 && Math.abs(sp1[1] - sp0[1]) <= 5 && Math.abs(sc1[0] - sc0[0]) <= 5 && Math.abs(sc1[1] - sc0[1]) <= 5, 'next asset pin lands where the previous one was; card unchanged');
+  await page.click('.map-popup [data-pp="prev"]'); await page.waitForTimeout(500);
+  const sp0b = await spinAt(0);
+  ok(Math.abs(sp0b[0] - sp0[0]) <= 5 && Math.abs(sp0b[1] - sp0[1]) <= 5, 'previous arrow: same spot again');
+  await page.keyboard.press('Escape');
+
   console.log('18b. Assignees');
   ok((await txt('.row-card[data-id="d1"] .owner-plate')) === 'YA+3' && (await txt('.row-card[data-id="d3"] .owner-plate')) === 'IO', 'owner plate: initials, "+n" when more people are assigned');
   await page.click('.row-card[data-id="d1"] [data-assign]');

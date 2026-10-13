@@ -195,12 +195,14 @@ window.GC = window.GC || {};
     popup.hidden = false;
     placePopup();
   }
+  // While stepping between assets the card stays put: it is anchored to the previous pin's screen point.
+  let anchor = null;
   /** Anchor above the selected pin (flip below when there's no room); clamp inside the map. */
   function placePopup() {
     if (!popup || popup.hidden || !sel.id) return;
     const d = GC.inbox.find(sel.id);
     if (!d) return;
-    const pt = toScreen(assetsOf(d)[sel.i].map);
+    const pt = anchor || toScreen(assetsOf(d)[sel.i].map);
     const r = root.getBoundingClientRect(), h = popup.offsetHeight;
     const above = pt.y - 18 - h >= 4 || pt.y + 18 + h > r.height;
     const left = Math.min(r.width - POP_W - 4, Math.max(4, pt.x - POP_W / 2));
@@ -229,6 +231,7 @@ window.GC = window.GC || {};
     renderPopup();
   }
   function closePopup() {
+    anchor = null;
     if (!sel.id) return;
     const prev = pinLayer && pinLayer.querySelector(".map-pin.is-selected");
     sel.id = null; sel.tab = "asset"; savedView = null;
@@ -237,15 +240,17 @@ window.GC = window.GC || {};
     if (prev) { prev.classList.remove("is-selected"); prev.setAttribute("aria-expanded", "false"); }
     return prev;
   }
-  /** Step to the previous/next asset of the same deal; pan there (300 ms) if it is off-screen. */
+  /**
+   * Step to the previous/next asset of the same deal. The card stays where it is and the map moves (300 ms)
+   * so the next asset's pin lands exactly where the previous one was.
+   */
   function stepAsset(dir) {
-    const d = GC.inbox.find(sel.id), n = assetsOf(d).length;
+    const d = GC.inbox.find(sel.id), list = assetsOf(d), n = list.length;
+    const here = anchor || toScreen(list[sel.i].map); // rapid clicks keep the original spot
+    anchor = here;
     openPopup(sel.id, (sel.i + dir + n) % n);
-    const pt = toScreen(assetsOf(d)[sel.i].map), r = root.getBoundingClientRect();
-    if (pt.x < 24 || pt.x > r.width - 24 || pt.y < 24 || pt.y > r.height - 24) {
-      const p = assetsOf(d)[sel.i].map;
-      animateTo({ k: view.k, tx: r.width / 2 - p.x * view.k, ty: r.height * 0.72 - p.y * view.k });
-    }
+    const p = list[sel.i].map;
+    animateTo({ k: view.k, tx: here.x - p.x * view.k, ty: here.y - p.y * view.k }, null, () => { anchor = null; placePopup(); });
   }
   /** "Zoom out to all assets": fit every asset of the deal into the viewport in 300 ms. */
   function fitDeal() {
@@ -278,9 +283,11 @@ window.GC = window.GC || {};
   function clampView() {
     const r = root.getBoundingClientRect();
     const w = W * view.k, h = H * view.k;
-    const pad = 80;
-    view.tx = w < r.width ? (r.width - w) / 2 : Math.min(pad, Math.max(r.width - w - pad, view.tx));
-    view.ty = h < r.height ? (r.height - h) / 2 : Math.min(pad, Math.max(r.height - h - pad, view.ty));
+    // Half a viewport of slack past the world edge, so an asset near the edge can still be brought
+    // to the spot the previous asset occupied (asset arrows keep the card still).
+    const px = Math.max(80, r.width / 2), py = Math.max(80, r.height / 2);
+    view.tx = w < r.width ? (r.width - w) / 2 : Math.min(px, Math.max(r.width - w - px, view.tx));
+    view.ty = h < r.height ? (r.height - h) / 2 : Math.min(py, Math.max(r.height - h - py, view.ty));
   }
   function apply() {
     clampView();
@@ -289,7 +296,7 @@ window.GC = window.GC || {};
   }
   let anim = null;
   /** Smoothly move the view (ease-in-out, 300 ms); instant with reduced motion. */
-  function animateTo(t, ms) {
+  function animateTo(t, ms, done) {
     ms = ms == null ? 300 : ms;
     if (anim) cancelAnimationFrame(anim);
     const from = { k: view.k, tx: view.tx, ty: view.ty };
@@ -303,7 +310,7 @@ window.GC = window.GC || {};
       view.ty = from.ty + (t.ty - from.ty) * e;
       apply();
       anim = p < 1 ? requestAnimationFrame(step) : null;
-      if (!anim) placePopup(); // re-check "Zoom out to all assets" once the view settles
+      if (!anim) { if (done) done(); else placePopup(); } // re-check "Zoom out to all assets" once the view settles
     };
     anim = requestAnimationFrame(step);
   }
@@ -318,6 +325,8 @@ window.GC = window.GC || {};
     apply();
   }
   function zoomAt(factor, cx, cy) {
+    if (anim) { cancelAnimationFrame(anim); anim = null; }
+    anchor = null;
     const r = root.getBoundingClientRect();
     if (cx == null) { cx = r.width / 2; cy = r.height / 2; }
     const k = Math.min(MAX_K * view.fitK, Math.max(MIN_K * view.fitK, view.k * factor));
@@ -414,6 +423,8 @@ window.GC = window.GC || {};
     let drag = null;
     vp.addEventListener("pointerdown", (e) => {
       if (e.target.closest(".map-pin") || e.button !== 0) return;
+      if (anim) { cancelAnimationFrame(anim); anim = null; } // user takes over: card follows its pin again
+      anchor = null;
       drag = { x: e.clientX, y: e.clientY, tx: view.tx, ty: view.ty, moved: false };
       vp.setPointerCapture(e.pointerId);
       vp.classList.add("is-dragging");

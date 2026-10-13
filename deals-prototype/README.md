@@ -292,6 +292,10 @@ Not matched on purpose / still open:
   Data: `d.owner` = primary, `d.team` = the others.
 - **Pin description:** Price was removed. The dropdown has Yield (default), Price/sqm and Occupancy.
 - **Received stage plate** uses `--surface-main` (#E9EDEE).
+- **Asset arrows keep the card still:** pressing ‹ / › in the pin card no longer moves the card. The map pans (300 ms)
+  so the next asset's pin lands on exactly the screen spot the previous one had. Rapid clicks keep the original spot.
+  Dragging or zooming the map during the pan hands control back to the user. To make edge assets reachable, panning
+  now allows half a viewport of slack past the map edge.
 - **Collapsible stage groups** (grouped list): a chevron sits before the stage name in the header (^ open, ⌄ collapsed).
   The header button has `aria-expanded`; the count and total stay visible. The state survives re-renders and
   sort direction changes. Kanban columns don't collapse.
