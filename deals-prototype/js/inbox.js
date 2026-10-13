@@ -71,11 +71,10 @@ window.GC = window.GC || {};
   function locText(d) {
     return [d.location, d.assets != null ? `${d.assets} asset${d.assets === 1 ? "" : "s"}` : ""].filter(Boolean).join(", ") || "No location";
   }
-  /** Floating action plate (Figma 16338:69956): edit | comments | more, shown on card hover / focus. */
+  /** Floating action plate (Figma 16338:69956): edit | more, shown on card hover / focus. */
   function plateHtml(d) {
     return `<div class="card-plate" data-ds-provisional="action-plate">
       <button type="button" class="ds-btn is-icon-only" data-type="ghost" data-size="sm" data-deal-edit="${d.id}" aria-label="Edit ${esc(d.name)}" title="Edit"><span class="ds-btn__icon">${DS_ICONS.get("edit")}</span></button>
-      ${d.comments ? `<span class="card-plate__div" aria-hidden="true"></span><button type="button" class="ds-btn card-plate__comments" data-type="ghost" data-size="sm" data-open-comments="${d.id}" aria-label="${d.comments} comments — open comments" title="Open comments"><span class="ds-btn__icon">${DS_ICONS.get("message-text")}</span><span class="ds-btn__label">${d.comments}</span></button>` : ""}
       <span class="card-plate__div" aria-hidden="true"></span>
       <button type="button" class="ds-btn is-icon-only" data-type="ghost" data-size="sm" data-deal-menu="${d.id}" aria-haspopup="menu" aria-expanded="false" aria-label="More actions for ${esc(d.name)}" title="More"><span class="ds-btn__icon">${DS_ICONS.get("more-vertical")}</span></button>
     </div>`;
@@ -120,7 +119,7 @@ window.GC = window.GC || {};
         <div class="row-card__meta">
           <div class="row-card__tags">${industryChip(d)}<span class="row-card__loc">${GC.icon("location")}<span>${esc(locText(d))}</span></span>
             ${d.deadline ? `<span class="deadline t-value">${GC.icon("alert-circle")}${esc(d.deadline)}</span>` : ""}</div>
-          <div class="row-card__owner">${stageChip(d)}${GC.statusChip(d)}${ownerHtml(d)}</div>
+          <div class="row-card__owner">${d.comments ? `<button type="button" class="comments t-value" data-open-comments="${d.id}" aria-label="${d.comments} comments — open comments" title="Open comments">${GC.icon("message-text")}${d.comments}</button>` : ""}${stageChip(d)}${GC.statusChip(d)}${ownerHtml(d)}</div>
         </div>
         ${stats ? `<div class="row-card__stats">${stats}</div>` : ""}
       </div>
@@ -283,6 +282,7 @@ window.GC = window.GC || {};
     const handler = (on) => (e) => {
       const card = e.target.closest(".deal-card");
       if (!card || (e.relatedTarget && card.contains(e.relatedTarget))) return;
+      if (e.type === "focusin" && !e.target.matches(":focus-visible")) return;
       if (GC.map) GC.map.link(card.dataset.id, on);
     };
     list.addEventListener("mouseover", handler(true));

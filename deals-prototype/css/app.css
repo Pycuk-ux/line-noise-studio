@@ -239,7 +239,7 @@ button { font-family: inherit; }
   border-radius: var(--radius-8); cursor: pointer;
   transition: background-color .12s ease, box-shadow .12s ease;
 }
-.row-card:hover, .row-card:focus-within, .row-card.is-linked {
+.row-card:hover, .row-card:has(:focus-visible), .row-card.is-linked {
   background: var(--surface-white-hover);
   box-shadow: 0 var(--space-1) var(--space-2) var(--color-alpha-light-100);
 }
@@ -280,9 +280,8 @@ button { font-family: inherit; }
   box-shadow: 0 1px var(--space-1) var(--color-alpha-light-100);
   opacity: 0; pointer-events: none; transition: opacity .12s ease;
 }
-.row-card:hover .card-plate, .row-card:focus-within .card-plate, .card-plate:has([aria-expanded="true"]) { opacity: 1; pointer-events: auto; }
+.row-card:hover .card-plate, .row-card:has(:focus-visible) .card-plate, .card-plate:has([aria-expanded="true"]) { opacity: 1; pointer-events: auto; }
 .card-plate__div { width: 1px; height: var(--space-4); background: var(--border-default); }
-.card-plate__comments { gap: var(--space-1); }
 @media (hover: none) { .card-plate { opacity: 1; pointer-events: auto; } }
 .stat { display: flex; flex-direction: column; gap: var(--space-1); min-width: 80px; }
 .deadline { display: inline-flex; align-items: center; gap: var(--space-1); color: var(--text-negative-hover); }
@@ -583,3 +582,6 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; user-select:
 body.is-dragging .board-card:hover { box-shadow: 0 1px 2px var(--color-alpha-light-50), 0 1px 3px var(--color-alpha-light-50); }
 /* Pin settings: description dropdown */
 .map-menu__select { width: 128px; }
+/* Comment count next to the stage chip */
+.row-card__owner .comments { font-size: var(--text-label-md-size); line-height: var(--text-label-md-line); font-weight: var(--w-medium); }
+.row-card__owner .comments .ico { color: var(--icon-secondary); }

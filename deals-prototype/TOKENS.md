@@ -129,7 +129,7 @@ to the DS or migrate Figma to 12/14.**
 | Figma `text/negative #c73939` | "3d to deadline" | `--text-negative-hover` (#c73939) | DS `--text-negative` is #ef4444 |
 | Modal shadow `0 4 4 #0000001F, 0 2 8 #00000029` | modal, listbox | `--color-alpha-light-100` (#00000017) / `-200` (#00000033) with `--space-1/2` offsets | No elevation tokens in the DS |
 | Modal radius 8 / item radius 16 (Figma draft pill tabs) | stepper | not used: stepper follows the approved progress-bar pattern (radius 4) | — |
-| Industry icons (truck / office / apartment / database …) | chips, pins | drawn inline SVG (24 grid, 1.6 stroke, `currentColor`) in `GC.industryIcon` | **No industry glyphs in the DS icon set**: provisional |
+| Industry icons (truck / office / apartment / database …) | chips, pins | Figma exports (Truck, Office, Apartment, Database, filled `currentColor`) + drawn 16-grid stand-ins for Retail / Industrial / Residential / Mixed-use in `GC.industryIcon` | **No industry glyphs in the DS icon set**: provisional |
 | Status "Live" mint | status chip | `--color-emerald-50/800` | No mint ramp in the DS |
 | `setting`, `contact` icons | Table settings button | DS glyph, repaired at load | **DS bug:** `top:calc(50%-0.5px)` (no spaces) is invalid CSS, so the glyph drifts up. Shim in `js/format.js` adds the spaces. |
 | `arrow-right` icon | Next button | DS glyph, repaired at load | **DS bug:** JSX leftover `style={{ containerType: "size" }}` (renders empty) **and** the path is the left arrow (flip lost). Shim fixes both. |

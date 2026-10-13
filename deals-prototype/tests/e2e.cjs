@@ -396,7 +396,7 @@ function ok(cond, msg) { if (cond) { pass++; console.log('  ✓', msg); } else {
   await page.fill('#dp-comment', 'Looks good — moving to SPA.');
   await page.click('.dp-composer [type="submit"]');
   ok((await page.$$('.dp-thread__item')).length === 1 && (await txt('.dp-thread__item .dp-thread__text')) === 'Looks good — moving to SPA.' && (await txt('#dp-tab-comments .ds-tab-chip')) === '1', 'comment posted, tab count updates');
-  ok(!!(await page.$('.row-card[data-id="d2"] .card-plate__comments')), 'card shows the comment count');
+  ok(!!(await page.$('.row-card[data-id="d2"] .row-card__owner .comments')), 'card shows the comment count');
   await page.focus('#dp-tab-comments'); await page.keyboard.press('ArrowRight');
   ok(await page.$eval('#dp-tab-logs', (e) => e.getAttribute('aria-selected')) === 'true', 'arrow keys move between enabled tabs');
   const logTxt = await txt('.dp-log');
@@ -475,6 +475,10 @@ function ok(cond, msg) { if (cond) { pass++; console.log('  ✓', msg); } else {
   await page.click('.row-card[data-id="d1"] .row-card__stats'); await page.waitForTimeout(500);
   ok(await page.isVisible('.dp') && (await txt('#dp-title')) === 'The Symphony Group PLC, Tuscany Way', 'clicking anywhere on the card opens the deal');
   await page.click('[data-dp="close"].ds-btn'); await page.waitForTimeout(400);
+  await page.mouse.move(700, 870); await page.waitForTimeout(200);
+  ok(await page.$eval('.row-card[data-id="d1"] .card-plate', (e) => getComputedStyle(e).opacity) === '0', 'after closing the drawer the plate hides again (hover only)');
+  ok(await page.$eval('.row-card[data-id="d3"] .row-card__owner', (e) => { const c = e.querySelector('.comments'); return !!c && c.nextElementSibling.matches('.stage-chip'); }) && !(await page.$('.card-plate [data-open-comments]')), 'comments sit next to the stage chip, not on the plate');
+  ok(await page.$$eval('.row-card .ico--ind svg path[fill="currentColor"]', (els) => els.length > 0), 'Figma industry icons (filled) in cards');
   await page.click('.row-card[data-id="d1"] [data-stage-menu]');
   await page.click('.stage-menu [data-pick="outcome:Lost"]');
   ok((await txt('.row-card[data-id="d1"] .status-pill')) === 'Dead' && (await page.$eval('.row-card[data-id="d1"] .status-pill', (e) => e.title)) === 'Dead · Lost', 'Outcome → status Dead (reason in tooltip)');

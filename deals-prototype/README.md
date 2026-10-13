@@ -248,7 +248,7 @@ Not matched on purpose / still open:
   tooltip on hover); meta row = industry chip + location on the left, **stage · status · owner** on the right;
   metrics row starts with *Received*. The whole card opens the deal (the title button stays the keyboard entry).
   Hover = `--surface-white-hover` + shadow.
-- **Floating action plate**: edit | comments (if any) | more, bottom-right, shown on hover / keyboard focus
+- **Floating action plate**: edit | more, bottom-right, shown on hover / keyboard focus
   (always visible on touch screens).
 - **Chips** (16338:69753): industry chip on `--surface-main` with **new industry icons** (truck, office, apartment,
   database, store, factory, home, buildings), drawn inline since the DS has no property-type glyphs. The **stage chip**
@@ -263,6 +263,10 @@ Not matched on purpose / still open:
   Esc cancels. Columns and the board auto-scroll near the edges. 7 columns now (Received → CL).
 - **Sort by stage in both directions:** *Stage: SCR → CL* and *Stage: CL → SCR* (the grouped list flips; kanban
   columns keep pipeline order).
+- **Follow-up:** the comment count moved out of the plate and now sits next to the stage chip. The plate shows
+  only on hover: keyboard focus still shows it, but focus returned after closing the drawer no longer does (this was
+  the bug). Truck / Office / Apartment / Database are now the designer's Figma exports. Store / Factory / Home /
+  Buildings are still drawn to the same 16px grid until exported.
 - **Pin settings:** the Price/Yield switcher became a **Description dropdown** with Price, Yield (%), Price/sqm and Occupancy.
   The map button shows the chosen metric. Price stays the default. Pins use the new industry icons.
 
