@@ -4,7 +4,7 @@ window.GC = window.GC || {};
 (function () {
   const esc = GC.esc;
   const deals = GC.MOCK.deals.slice();
-  const archived = [];
+  const archived = (GC.MOCK.archivedDeals || []).slice();
   const source = () => (view.sort === "archived" ? archived : deals);
   const ME = "Liam O'Connor";
   /** Activity log entry (shown in the details drawer → Logs). */
@@ -64,9 +64,15 @@ window.GC = window.GC || {};
     const lbl = GC.stageLabel(d.stage);
     return `<button type="button" class="stage-chip" data-stage="${esc(d.stage)}" data-stage-menu="${d.id}" data-ds-provisional="chip" aria-haspopup="menu" aria-expanded="false" aria-label="Deal stage: ${esc(d.stage)}. Change stage" title="Change stage">${GC.stageIcon(d.stage)}${esc(lbl)}</button>`;
   }
+  /** Stage + status for an open deal; for a closed one the outcome chip (opens the same menu) + its reason. */
+  function stageBlock(d) {
+    if (d.status !== "dead") return stageChip(d) + GC.statusChip(d);
+    const why = GC.outcomeReason(d);
+    return `${why ? `<span class="outcome-reason" title="Reason">${esc(why)}</span>` : `<span class="outcome-reason is-empty">No reason given</span>`}<button type="button" class="status-pill status-pill--btn" data-status="dead" data-stage-menu="${d.id}" data-ds-provisional="chip" aria-haspopup="menu" aria-expanded="false" aria-label="Closed: ${esc(d.outcome)}${why ? `, ${esc(why)}` : ""}. Change outcome or reopen" title="Change outcome or reopen">${esc(d.outcome)}</button>`;
+  }
   function tagsHtml(d) {
-    return `${industryChip(d)}${stageChip(d)}${GC.statusChip(d)}
-      ${d.deadline ? `<span class="deadline t-value">${GC.icon("alert-circle")}${esc(d.deadline)}</span>` : ""}`;
+    return `${industryChip(d)}${stageBlock(d)}
+      ${d.deadline && d.status !== "dead" ? `<span class="deadline t-value">${GC.icon("alert-circle")}${esc(d.deadline)}</span>` : ""}`;
   }
   function locText(d) {
     return [d.location, d.assets != null ? `${d.assets} asset${d.assets === 1 ? "" : "s"}` : ""].filter(Boolean).join(", ") || "No location";
@@ -118,8 +124,8 @@ window.GC = window.GC || {};
         </div>
         <div class="row-card__meta">
           <div class="row-card__tags">${industryChip(d)}<span class="row-card__loc">${GC.icon("location")}<span>${esc(locText(d))}</span></span>
-            ${d.deadline ? `<span class="deadline t-value">${GC.icon("alert-circle")}${esc(d.deadline)}</span>` : ""}</div>
-          <div class="row-card__owner">${d.comments ? `<button type="button" class="comments t-value" data-open-comments="${d.id}" aria-label="${d.comments} comments — open comments" title="Open comments">${GC.icon("message-text")}${d.comments}</button>` : ""}${stageChip(d)}${GC.statusChip(d)}${ownerHtml(d)}</div>
+            ${d.deadline && d.status !== "dead" ? `<span class="deadline t-value">${GC.icon("alert-circle")}${esc(d.deadline)}</span>` : ""}</div>
+          <div class="row-card__owner">${d.comments ? `<button type="button" class="comments t-value" data-open-comments="${d.id}" aria-label="${d.comments} comments — open comments" title="Open comments">${GC.icon("message-text")}${d.comments}</button>` : ""}${stageBlock(d)}${ownerHtml(d)}</div>
         </div>
         ${stats ? `<div class="row-card__stats">${stats}</div>` : ""}
       </div>
@@ -338,56 +344,82 @@ window.GC = window.GC || {};
     if (idx < 0) return;
     const [deal] = from.splice(idx, 1);
     const to = verb === "archived" ? archived : verb === "restored" ? deals : null;
+    const snap = snapshot(deal);
     if (to) { to.unshift(deal); log(deal, verb === "archived" ? "archived the deal" : "restored the deal from the archive", "status"); }
+    if (verb === "restored" && deal.status === "dead") { delete deal.outcome; delete deal.outcomeReason; delete deal.outcomeNote; deal.status = "live"; }
     recount();
     render();
     if (GC.dealPanel) GC.dealPanel.onRemoved(id);
     GC.toast(`Deal ${verb}`, `“${deal.name}” was ${verb}.`, "neutral", {
       label: "Undo",
-      onClick: () => { if (to) to.splice(to.indexOf(deal), 1); from.splice(Math.min(idx, from.length), 0, deal); recount(); render(); },
+      onClick: () => { Object.assign(deal, snap); if (to) to.splice(to.indexOf(deal), 1); from.splice(Math.min(idx, from.length), 0, deal); recount(); render(); },
     });
   }
 
   function refresh(id) { render(); if (GC.dealPanel) GC.dealPanel.refresh(id); }
   function snapshot(d) { return { stage: d.stage, status: d.status, outcome: d.outcome, outcomeReason: d.outcomeReason, outcomeNote: d.outcomeNote }; }
-  function undoTo(d, snap) { return { label: "Undo", onClick: () => { Object.assign(d, snap); if (!snap.outcome) delete d.outcome; refresh(d.id); } }; }
 
-  /** Moving a deal along the pipeline reopens a Dead deal and makes a New one Live. */
-  function setStage(id, stage, quiet) {
+  /** Closed deals live in the Archive; reopening brings them back to the inbox. */
+  function moveTo(d, list) {
+    const from = list === archived ? deals : archived;
+    const i = from.indexOf(d);
+    if (i < 0) return;
+    from.splice(i, 1); list.unshift(d); recount();
+  }
+  function reopen(d) {
+    if (d.status !== "dead") return;
+    delete d.outcome; delete d.outcomeReason; delete d.outcomeNote;
+    d.status = "live";
+    moveTo(d, deals);
+    log(d, "reopened the deal", "status");
+  }
+  function undoTo(d, snap) {
+    const list = deals.includes(d) ? deals : archived;
+    return { label: "Undo", onClick: () => {
+      Object.assign(d, snap);
+      ["outcome", "outcomeReason", "outcomeNote"].forEach((k) => { if (snap[k] == null) delete d[k]; });
+      moveTo(d, list); refresh(d.id);
+    } };
+  }
+
+  /** Moving a deal along the pipeline reopens a closed deal and makes a New one Live. */
+  function setStage(id, stage) {
     const d = find(id);
-    if (!d || d.stage === stage) return;
-    const prev = d.stage, snap = snapshot(d);
+    if (!d || (d.stage === stage && d.status !== "dead")) return;
+    const prev = d.stage, snap = snapshot(d), undo = undoTo(d, snap);
     d.stage = stage;
-    log(d, `changed stage: ${GC.stageLabel(prev)} → ${GC.stageLabel(stage)}`, "stage");
-    if (d.status === "dead") { delete d.outcome; d.status = "live"; log(d, "reopened the deal", "status"); }
+    if (prev !== stage) log(d, `changed stage: ${GC.stageLabel(prev)} → ${GC.stageLabel(stage)}`, "stage");
+    if (d.status === "dead") reopen(d);
     else if (d.status === "new" && stage !== "Received") d.status = "live";
     refresh(id);
-    if (!quiet) GC.toast("Stage updated", `“${d.name}” moved from ${GC.stageLabel(prev)} to ${GC.stageLabel(stage)}.`, "success", undoTo(d, snap));
+    GC.toast(prev === stage ? "Deal reopened" : "Stage updated", prev === stage ? `“${d.name}” is back in the inbox at ${GC.stageLabel(stage)}.` : `“${d.name}” moved from ${GC.stageLabel(prev)} to ${GC.stageLabel(stage)}.`, "success", undo);
   }
-  /** Outcome (Lost / Passed / Withdrawn / Cancelled) closes the deal → status Dead, after the reason dialog. */
+  /** Outcome (Lost / Passed / Withdrawn / Cancelled) closes the deal: status Dead, moved to the Archive with its reason. */
   function setOutcome(id, outcome) {
     const d = find(id);
-    if (!d || (d.status === "dead" && d.outcome === outcome)) return;
-    return GC.selectReason(outcome).then((r) => {
+    if (!d) return;
+    return GC.selectReason(outcome, d).then((r) => {
       if (!r) return; // dismissed → nothing changes
-      const snap = snapshot(d);
+      const undo = undoTo(d, snapshot(d));
       d.status = "dead"; d.outcome = outcome;
       d.outcomeReason = r.reason || null; d.outcomeNote = r.note || "";
-      const why = r.reason ? ` — ${r.reason === "Other" ? r.note : r.reason}` : "";
-      log(d, `closed the deal: ${outcome}${why}`, "status");
+      const why = GC.outcomeReason(d);
+      log(d, `closed the deal: ${outcome}${why ? ` — ${why}` : ""}`, "status");
+      moveTo(d, archived);
       refresh(id);
-      GC.toast("Deal closed", `“${d.name}” marked as ${outcome}${why}.`, "neutral", undoTo(d, snap));
+      GC.toast("Deal closed", `“${d.name}” marked as ${outcome}${why ? ` — ${why}` : ""} and moved to Archive.`, "neutral", undo);
     });
   }
-  /** On hold ↔ back in progress (Tracking ↔ Live). */
+  /** On hold ↔ back in progress (Tracking ↔ Live); putting a closed deal on hold reopens it. */
   function toggleHold(id) {
     const d = find(id);
     if (!d) return;
-    const snap = snapshot(d), on = d.status !== "tracking";
-    d.status = on ? "tracking" : "live"; delete d.outcome;
+    const undo = undoTo(d, snapshot(d)), on = d.status !== "tracking";
+    reopen(d);
+    d.status = on ? "tracking" : "live";
     log(d, on ? "put the deal on hold" : "resumed the deal", "status");
     refresh(id);
-    GC.toast(on ? "Deal on hold" : "Deal resumed", `“${d.name}” is now ${GC.STATUSES[d.status]}.`, "neutral", undoTo(d, snap));
+    GC.toast(on ? "Deal on hold" : "Deal resumed", `“${d.name}” is now ${GC.STATUSES[d.status]}.`, "neutral", undo);
   }
 
   // ---------- Popup menus: deal actions + stage picker (ds:provisional dropdown) ----------
@@ -586,5 +618,5 @@ window.GC = window.GC || {};
 
   function update() { recount(); render(); }
 
-  GC.inbox = { render, addDeal, deals, archived, bindLinking, view, fields, order, update, removeDeal, setStage, setOutcome, toggleHold, find, log, openMenu, openStageMenu, popup, ME };
+  GC.inbox = { stageBlock, render, addDeal, deals, archived, bindLinking, view, fields, order, update, removeDeal, setStage, setOutcome, toggleHold, find, log, openMenu, openStageMenu, popup, ME };
 })();

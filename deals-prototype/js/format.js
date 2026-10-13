@@ -153,10 +153,13 @@ window.GC = window.GC || {};
     Withdrawn: ["Seller pulled the asset", "Process cancelled"],
     Cancelled: ["Failed technical DD", "Failed legal DD", "Financing withdrawn", "Mandate changed"],
   };
+  GC.outcomeReason = (d) => (d.outcomeReason === "Other" ? d.outcomeNote || "Other" : d.outcomeReason || "");
   GC.statusChip = function (d) {
     const s = d.status || "new";
     const why = d.outcomeReason ? ` — ${d.outcomeReason === "Other" && d.outcomeNote ? d.outcomeNote : d.outcomeReason}` : "";
     const tip = s === "dead" && d.outcome ? ` title="Dead · ${GC.esc(d.outcome + why)}"` : s === "tracking" ? ' title="On hold"' : "";
-    return `<span class="status-pill" data-status="${s}" data-ds-provisional="chip"${tip}>${GC.STATUSES[s] || s}</span>`;
+    // A closed deal shows its outcome (Lost / Passed / …) instead of the generic "Dead".
+    const label = s === "dead" && d.outcome ? d.outcome : GC.STATUSES[s] || s;
+    return `<span class="status-pill" data-status="${s}" data-ds-provisional="chip"${tip}>${GC.esc(label)}</span>`;
   };
 })();

@@ -385,10 +385,10 @@ function ok(cond, msg) { if (cond) { pass++; console.log('  ✓', msg); } else {
   await page.hover('.row-card[data-id="d7"] .row-card__media'); await page.click('.row-card[data-id="d7"] [data-deal-menu]');
   await page.click('.deal-menu [data-pick="archived"]');
   await page.selectOption('#sort-select', 'archived');
-  ok((await page.$$('#deal-list .deal-card')).length === 1 && !!(await page.$('.deal-card[data-id="d7"]')), 'sort "Archived only" lists archived deals');
+  ok((await page.$$('#deal-list .deal-card')).length === 2 && !!(await page.$('.deal-card[data-id="d7"]')) && (await txt('.deal-card[data-id="d12"] .outcome-reason')) === 'Vendor expectation too high', 'sort "Archived only" lists archived + closed deals (with reason)');
   await page.hover('.deal-card[data-id="d7"] .row-card__media'); await page.click('.deal-card[data-id="d7"] [data-deal-menu]');
   await page.click('.deal-menu [data-pick="restored"]');
-  ok(await page.isVisible('#deal-list .empty-state'), 'restore → archive empty state');
+  ok(!(await page.$('.deal-card[data-id="d7"]')) && (await page.$$('#deal-list .deal-card')).length === 1, 'restore → deal leaves the archive');
   await page.selectOption('#sort-select', 'newest');
   ok(!!(await page.$('.deal-card[data-id="d7"]')), 'restored deal back in the inbox');
 
@@ -498,16 +498,20 @@ function ok(cond, msg) { if (cond) { pass++; console.log('  ✓', msg); } else {
   await page.fill('#rd-note', 'Board vetoed');
   await page.selectOption('#rd-reason', 'Below return hurdle');
   await page.click('[data-rd="confirm"]'); await page.waitForTimeout(100);
-  ok((await txt('.row-card[data-id="d1"] .status-pill')) === 'Dead' && (await page.$eval('.row-card[data-id="d1"] .status-pill', (e) => e.title)) === 'Dead · Lost — Below return hurdle', 'Confirm → status Dead, reason in tooltip');
+  ok(!(await page.$('.row-card[data-id="d1"]')) && (await txt('.toast-region')).includes('moved to Archive'), 'Confirm closes the deal: it leaves the inbox for the Archive');
+  await page.selectOption('#sort-select', 'archived');
+  ok(!(await page.$('.row-card[data-id="d1"] .stage-chip')) && (await txt('.row-card[data-id="d1"] .status-pill')) === 'Lost' && (await txt('.row-card[data-id="d1"] .outcome-reason')) === 'Below return hurdle', 'archived card: outcome chip + reason, no stage');
+  await page.screenshot({ path: OUT('archive-closed.png') });
   await page.click('.row-card[data-id="d1"] [data-stage-menu]');
-  ok(await page.$eval('.stage-menu [data-pick="outcome:Lost"]', (e) => e.getAttribute('aria-checked')) === 'true', 'current outcome is checked');
-  await page.screenshot({ path: OUT('stage-menu.png') });
+  ok(await page.$eval('.stage-menu [data-pick="outcome:Lost"]', (e) => e.getAttribute('aria-checked')) === 'true' && !(await page.$('.stage-menu .stage-item[aria-checked="true"]')), 'outcome menu: Lost checked, no stage checked');
   await page.click('.stage-menu [data-pick="outcome:Passed"]');
   await page.click('[data-rd="skip"]'); await page.waitForTimeout(100);
-  ok((await page.$eval('.row-card[data-id="d1"] .status-pill', (e) => e.title)) === 'Dead · Passed', 'Skip closes the deal without a reason');
+  ok((await txt('.row-card[data-id="d1"] .status-pill')) === 'Passed' && (await txt('.row-card[data-id="d1"] .outcome-reason')) === 'No reason given', 'Skip: outcome without a reason');
   await page.click('.row-card[data-id="d1"] [data-stage-menu]');
-  await page.click('.stage-menu [data-pick="hold"]');
-  ok((await txt('.row-card[data-id="d1"] .status-pill')) === 'Tracking', 'On hold → Tracking');
+  await page.click('.stage-menu [data-pick="hold"]'); await page.waitForTimeout(100);
+  ok(!(await page.$('.row-card[data-id="d1"]')), 'On hold reopens the deal (leaves the Archive)');
+  await page.selectOption('#sort-select', 'newest');
+  ok((await txt('.row-card[data-id="d1"] .status-pill')) === 'Tracking' && !!(await page.$('.row-card[data-id="d1"] .stage-chip')), 'back in the inbox as Tracking, stage shown');
   await page.click('.row-card[data-id="d1"] [data-stage-menu]');
   ok(await page.$eval('.stage-menu [data-pick="hold"]', (e) => e.getAttribute('aria-checked')) === 'true', 'On hold checkbox reflects the state');
   await page.click('.stage-menu [data-pick="QUAL"]');
@@ -515,6 +519,11 @@ function ok(cond, msg) { if (cond) { pass++; console.log('  ✓', msg); } else {
   await page.click('.row-card[data-id="d1"] [data-stage-menu]');
   await page.click('.stage-menu [data-pick="hold"]');
   ok((await txt('.row-card[data-id="d1"] .status-pill')) === 'Live', 'unchecking On hold → Live');
+  await page.click('.row-card[data-id="d1"] [data-stage-menu]');
+  await page.click('.stage-menu [data-pick="outcome:Withdrawn"]');
+  await page.selectOption('#rd-reason', 'Process cancelled'); await page.click('[data-rd="confirm"]'); await page.waitForTimeout(100);
+  await page.locator('.toast-region .ds-alert:has(.ds-alert__msg:text-is("Deal closed")) [data-toast-act]').last().click(); await page.waitForTimeout(100);
+  ok((await txt('.row-card[data-id="d1"] .status-pill')) === 'Live' && !!(await page.$('.row-card[data-id="d1"] .stage-chip')), 'Undo brings a closed deal back from the Archive');
   await page.click('.row-card[data-id="d1"] [data-stage-menu]');
   await page.click('.stage-menu [data-pick="SCR"]');
 

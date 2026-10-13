@@ -272,6 +272,13 @@ Not matched on purpose / still open:
   Cancelled ×4, plus *Other*). There is an optional short description, required for *Other*.
   *Confirm* (disabled until a reason is picked) closes the deal with the reason, which shows in the Dead chip tooltip,
   the log and the toast. *Skip* closes it without a reason. ✕, Esc or the backdrop leave the deal unchanged.
+- **Closed deals go to the Archive:** a deal can't be at a stage and closed at the same time. Confirming (or Skipping)
+  an Outcome sets the status to Dead and moves the deal from the inbox, map and kanban to *Archived deals*. There the
+  card shows the outcome chip (Lost / Passed / Withdrawn / Cancelled) and the reason (or "No reason given")
+  instead of the stage chip, with no deadline. The outcome chip opens the same menu: you can change the outcome, or
+  reopen the deal by picking a stage or On hold, which brings it back to the inbox. *Restore deal* reopens it as Live.
+  Undo in the toast puts the deal back where it was. The mock archive starts with one closed deal (Lost, "Vendor
+  expectation too high").
 - **Collapsible stage groups** (grouped list): a chevron sits before the stage name in the header (^ open, ⌄ collapsed).
   The header button has `aria-expanded`; the count and total stay visible. The state survives re-renders and
   sort direction changes. Kanban columns don't collapse.

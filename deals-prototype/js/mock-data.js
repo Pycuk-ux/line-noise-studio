@@ -127,13 +127,23 @@ GC.MOCK = {
       map: { x: 150, y: 590 },
     },
     {
-      id: "d11", status: "dead", outcome: "Passed", name: "Rosengård Mixed-use Block", location: "Malmö, Sweden", assets: 3,
+      id: "d11", status: "tracking", name: "Rosengård Mixed-use Block", location: "Malmö, Sweden", assets: 3,
       industry: "Mixed-use", owner: null, stage: "QUAL", price: null, dateReceived: "2026-08-09", image: null,
       areaSqm: 9700, rentYearly: 780000, rentPsm: 80.4, wault: 4.6, occupancy: 90.5, niy: null, dealSource: "Informal Tender",
       map: { x: 690, y: 760 },
     },
   ],
 
+  // Closed deals (an Outcome was picked) live in the Archive with their reason.
+  archivedDeals: [
+    {
+      id: "d12", status: "dead", outcome: "Lost", outcomeReason: "Vendor expectation too high", outcomeNote: "",
+      name: "Hyllie Office Campus", location: "Malmö, Sweden", assets: 2,
+      industry: "Office", owner: "YA", stage: "LOI", price: 48200000, dateReceived: "2026-07-21", image: null,
+      areaSqm: 15200, rentYearly: 2650000, wault: 3.8, occupancy: 92.4, dealSource: "Structured Process",
+      map: { x: 260, y: 1060 },
+    },
+  ],
   inboxSummary: { activeDeals: 11, withoutPrice: 2, totalValue: 531800000 },
 };
 
@@ -142,7 +152,7 @@ GC.MOCK = {
   const GALLERY = {
     d1: ["deal-1", "deal-4", "detail-cover", "deal-2"], d2: ["deal-2"], d4: ["deal-4", "deal-2", "deal-1"], d5: ["detail-cover", "deal-1"],
   };
-  GC.MOCK.deals.forEach((d) => {
+  GC.MOCK.deals.concat(GC.MOCK.archivedDeals).forEach((d) => {
     d.images = (GALLERY[d.id] || []).map((n) => `assets/img/${n}.jpg`); delete d.image;
     // Derived metrics, so every screen (cards, map, details, edit) agrees.
     d.rentPsm = d.rentYearly > 0 && d.areaSqm > 0 ? d.rentYearly / d.areaSqm : null;
