@@ -296,8 +296,11 @@ function ok(cond, msg) { if (cond) { pass++; console.log('  ✓', msg); } else {
   console.log('13. Kanban card, actions menu, details + edit drawers');
   await page.click('[data-layout="board"]');
   const card = '.board-card[data-id="d1"]';
-  ok(await page.$eval(card, (e) => e.querySelector('.board-card__top .ds-avatar') && e.querySelector('.board-card__top .t-title').textContent === '€61.2M'), 'board card: assignee left, price right');
-  ok((await txt(card + ' .row-card__loc')).endsWith('(12 assets)'), 'location with asset count in brackets');
+  ok(await page.$eval(card, (e) => !!e.querySelector('.board-card__foot .ds-avatar') && e.querySelector('.board-card__top .board-card__price').textContent === '€61.2M'), 'board card: title + price on top, owner in the footer');
+  ok(await page.$eval(card, (e) => !!e.querySelector('.board-card__photo .board-card__chips .industry-chip') && !!e.querySelector('.board-card__chips .status-pill') && !!e.querySelector('.board-card__photo [data-deal-menu]')), 'industry + status chips and ⋯ sit on the photo');
+  ok(await page.$eval(card + ' .board-card__media', (e) => e.getBoundingClientRect().height) === 96, 'photo 96 high, full bleed');
+  ok((await txt(card + ' .board-card__loc')) === 'Wakefield, UK', 'short location');
+  ok(await page.$eval(card + ' .board-row', (e) => e.getBoundingClientRect().height) === 20, 'info rows 20 high');
   ok((await txt(card + ' .board-card__count')) === '1 / 4', 'photo counter 1 / 4');
   await page.click(card + ' [data-slide="1"]');
   ok((await txt(card + ' .board-card__count')) === '2 / 4', 'slider goes to the next photo');
@@ -305,9 +308,9 @@ function ok(cond, msg) { if (cond) { pass++; console.log('  ✓', msg); } else {
   ok(!!(await page.$('.board-card[data-id="d3"] .board-card__media.is-empty')), 'no photos: empty placeholder');
   ok(!!(await page.$('.board-card[data-id="d3"] .board-card__foot .board-card__comments')) && !(await page.$(card + ' .board-card__foot .board-card__comments')), 'comments shown only when there are any');
   ok(await page.$eval(card, (e) => getComputedStyle(e).borderTopLeftRadius === '4px' && e.getBoundingClientRect().width === 256), 'board card 256 wide, radius 4 (Figma)');
-  ok(await page.$eval(card + ' .board-card__foot', (e) => getComputedStyle(e).justifyContent) === 'flex-end', 'card actions aligned right');
+  ok(await page.$eval(card + ' .board-card__foot', (e) => getComputedStyle(e).justifyContent) === 'space-between', 'footer: owner left, comments right');
   await page.click('.board-card[data-id="d7"] [data-deal-menu]');
-  ok(await page.isVisible('.deal-menu [data-pick="archived"]') && await page.isVisible('.deal-menu [data-pick="deleted"]'), 'menu: Archive + Delete');
+  ok(await page.isVisible('.deal-menu [data-pick="edit"]') && await page.isVisible('.deal-menu [data-pick="archived"]') && await page.isVisible('.deal-menu [data-pick="deleted"]'), 'menu: Edit + Archive + Delete');
   await page.click('.deal-menu [data-pick="archived"]');
   ok(!(await page.$('.deal-card[data-id="d7"]')) && (await txt('#inbox-sub')).startsWith('11 active'), 'archived deal removed (12 → 11)');
   await page.click('.toast-region [data-toast-act]');
@@ -355,7 +358,7 @@ function ok(cond, msg) { if (cond) { pass++; console.log('  ✓', msg); } else {
   await page.fill('#ep-price', '65000000');
   await page.click('[data-ep-act="save"]'); await page.waitForTimeout(400);
   ok(!(await page.$('.ep')) && (await txt('.dp .metrics')).includes('€65.0M'), 'save updates the details drawer');
-  ok((await txt('.board-card[data-id="d1"] .board-card__top .t-title')) === '€65.0M', 'save updates the card');
+  ok((await txt('.board-card[data-id="d1"] .board-card__price')) === '€65.0M', 'save updates the card');
   await page.click('[data-dp="edit"]'); await page.waitForTimeout(400);
   await page.fill('#ep-name', 'Symphony Renamed');
   await page.click('.ep [data-ep-act="cancel"].ds-btn'); await page.waitForTimeout(400);
@@ -375,7 +378,7 @@ function ok(cond, msg) { if (cond) { pass++; console.log('  ✓', msg); } else {
   console.log('15. Iteration 6');
   await page.click('[data-layout="board"]');
   ok(await page.$eval('.board-col .card-list', (e) => getComputedStyle(e).rowGap) === '8px', 'board: 8px between cards in a column');
-  ok(await page.$eval('.board-card__rows', (e) => getComputedStyle(e).rowGap) === '8px', 'board: 8px between info rows');
+  ok(await page.$eval('.board-card__rows', (e) => getComputedStyle(e).rowGap) === '4px', 'board: 4px between info rows');
   await page.click('[data-layout="list"]');
   await page.click('.row-card[data-id="d2"] [data-stage-menu]');
   ok((await page.$$('.deal-menu [role="menuitemradio"]')).length === 11 && await page.$eval('.deal-menu [aria-checked="true"]', (e) => e.textContent.trim()) === 'LOI', 'stage dropdown: Received + 6 stages + 4 outcomes, current checked');

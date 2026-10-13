@@ -143,20 +143,23 @@ window.GC = window.GC || {};
     return parts.join(", ");
   }
 
-  /** Kanban card — layout from the provided screenshot (ds:provisional board-card). */
+  /** Kanban "Property card" (256px): photo with industry + status and ⋯ on top, title + price, location, rows, owner + comments. */
   function boardCardHtml(d) {
     const f = GC.fmt, cur = d.currency || "EUR";
     const rows = rowsHtml(d);
-    const n = d.assets;
-    const loc = `${shortLoc(d.location) || "No location"}${n != null ? ` (${n} asset${n === 1 ? "" : "s"})` : ""}`;
     return `<li class="board-card deal-card${d.isNew ? " is-new" : ""}" data-ds-provisional="board-card" data-id="${d.id}" aria-label="${esc(d.name)}">
-      <div class="board-card__top">${ownerHtml(d)}<span class="t-title">${d.price != null ? f.moneyShort(d.price, cur) : "—"}</span></div>
-      ${titleHtml(d, "board-card__name")}
-      <span class="row-card__loc t-muted">${GC.icon("location")}${esc(loc)}</span>
-      ${sliderHtml(d)}
-      <div class="row-card__tags board-card__tags">${tagsHtml(d)}</div>
-      ${rows ? `<div class="board-card__rows">${rows}</div>` : ""}
-      <div class="board-card__foot">${actionsHtml(d, true)}</div>
+      <div class="board-card__photo">
+        ${sliderHtml(d)}
+        <div class="board-card__chips">${industryChip(d)}${GC.statusChip(d)}</div>
+        <button type="button" class="board-card__more" data-deal-menu="${d.id}" aria-haspopup="menu" aria-expanded="false" aria-label="More actions for ${esc(d.name)}" title="More">${GC.icon("more-vertical")}</button>
+      </div>
+      <div class="board-card__body">
+        <div class="board-card__top">${titleHtml(d, "board-card__name")}<span class="board-card__price t-title" title="Price">${d.price != null ? f.moneyShort(d.price, cur) : "—"}</span></div>
+        <span class="row-card__loc board-card__loc">${GC.icon("location")}<span>${esc(shortLoc(d.location) || "No location")}</span></span>
+        ${d.deadline ? `<span class="deadline t-value">${GC.icon("alert-circle")}${esc(d.deadline)}</span>` : ""}
+        ${rows ? `<div class="board-card__rows">${rows}</div>` : ""}
+        <div class="board-card__foot">${ownerHtml(d)}${d.comments ? `<button type="button" class="comments board-card__comments" data-open-comments="${d.id}" aria-label="${d.comments} comments — open comments" title="Open comments">${GC.icon("message-text")}${d.comments}</button>` : ""}</div>
+      </div>
     </li>`;
   }
 
@@ -455,10 +458,11 @@ window.GC = window.GC || {};
   function openMenu(btn) {
     const id = btn.dataset.dealMenu;
     const isArchived = archived.some((d) => d.id === id);
-    popup(btn, `${isArchived ? `<button type="button" role="menuitem" data-pick="restored">${GC.icon("refresh")}Restore deal</button>`
+    const onBoard = !!btn.closest(".board-card");
+    popup(btn, `${onBoard ? `<button type="button" role="menuitem" data-pick="edit">${GC.icon("edit")}Edit deal</button>` : ""}${isArchived ? `<button type="button" role="menuitem" data-pick="restored">${GC.icon("refresh")}Restore deal</button>`
         : `<button type="button" role="menuitem" data-pick="archived">${GC.icon("bookmark")}Archive deal</button>`}
       <button type="button" role="menuitem" class="is-danger" data-pick="deleted">${GC.icon("bin")}Delete deal</button>`,
-      (verb) => removeDeal(id, verb));
+      (verb) => (verb === "edit" ? GC.dealPanel.edit(id, btn) : removeDeal(id, verb)));
   }
   /** Stage dropdown (Figma 16338:70515): Received · Stage · Outcome · On hold. */
   function openStageMenu(btn) {

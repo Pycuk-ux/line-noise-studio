@@ -279,6 +279,10 @@ Not matched on purpose / still open:
   reopen the deal by picking a stage or On hold, which brings it back to the inbox. *Restore deal* reopens it as Live.
   Undo in the toast puts the deal back where it was. The mock archive starts with one closed deal (Lost, "Vendor
   expectation too high").
+- **Kanban "Property card"** (256px): a 96px full-bleed photo with the industry + status chips (top-left) and ⋯
+  (top-right). The photo counter and arrows show on hover. Below: title (2 lines) + price, short location, and info
+  rows 20px high and 4px apart. A divider, then the footer: owner on the left, comment count on the right. The stage
+  chip is gone: the column is the stage, and you change it by drag & drop. The pencil moved into ⋯ (*Edit deal*).
 - **Collapsible stage groups** (grouped list): a chevron sits before the stage name in the header (^ open, ⌄ collapsed).
   The header button has `aria-expanded`; the count and total stay visible. The state survives re-renders and
   sort direction changes. Kanban columns don't collapse.
