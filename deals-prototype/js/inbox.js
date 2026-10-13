@@ -143,7 +143,7 @@ window.GC = window.GC || {};
     return parts.join(", ");
   }
 
-  /** Kanban "Property card" (256px): photo with industry + status and ⋯ on top, title + price, location, rows, owner + comments. */
+  /** Kanban "Property card" (256px): photo with industry + status, title + price, location, rows; footer owner + comments … ⋯. */
   function boardCardHtml(d) {
     const f = GC.fmt, cur = d.currency || "EUR";
     const rows = rowsHtml(d);
@@ -151,14 +151,14 @@ window.GC = window.GC || {};
       <div class="board-card__photo">
         ${sliderHtml(d)}
         <div class="board-card__chips">${industryChip(d)}${GC.statusChip(d)}</div>
-        <button type="button" class="board-card__more" data-deal-menu="${d.id}" aria-haspopup="menu" aria-expanded="false" aria-label="More actions for ${esc(d.name)}" title="More">${GC.icon("more-vertical")}</button>
       </div>
       <div class="board-card__body">
         <div class="board-card__top">${titleHtml(d, "board-card__name")}<span class="board-card__price t-title" title="Price">${d.price != null ? f.moneyShort(d.price, cur) : "—"}</span></div>
         <span class="row-card__loc board-card__loc">${GC.icon("location")}<span>${esc(shortLoc(d.location) || "No location")}</span></span>
         ${d.deadline ? `<span class="deadline t-value">${GC.icon("alert-circle")}${esc(d.deadline)}</span>` : ""}
         ${rows ? `<div class="board-card__rows">${rows}</div>` : ""}
-        <div class="board-card__foot">${ownerHtml(d)}${d.comments ? `<button type="button" class="comments board-card__comments" data-open-comments="${d.id}" aria-label="${d.comments} comments — open comments" title="Open comments">${GC.icon("message-text")}${d.comments}</button>` : ""}</div>
+        <div class="board-card__foot">${ownerHtml(d)}${d.comments ? `<button type="button" class="comments board-card__comments" data-open-comments="${d.id}" aria-label="${d.comments} comments — open comments" title="Open comments">${GC.icon("message-text")}${d.comments}</button>` : ""}
+          <button type="button" class="ds-btn is-icon-only board-card__more" data-type="ghost" data-size="sm" data-deal-menu="${d.id}" aria-haspopup="menu" aria-expanded="false" aria-label="More actions for ${esc(d.name)}" title="More"><span class="ds-btn__icon">${DS_ICONS.get("more-vertical")}</span></button></div>
       </div>
     </li>`;
   }
@@ -208,7 +208,21 @@ window.GC = window.GC || {};
     document.getElementById("inbox-sub").textContent = `${summary.activeDeals} active deals | ${summary.withoutPrice} without price`;
   }
 
+  /** The Archive has no pipeline, so it is always a list: Kanban is switched off while it's shown. */
+  function syncViewSwitch() {
+    const archive = view.sort === "archived";
+    if (archive) view.layout = "list";
+    document.querySelectorAll("#view-switch [data-layout]").forEach((b) => {
+      b.setAttribute("aria-pressed", b.dataset.layout === view.layout ? "true" : "false");
+      if (b.dataset.layout === "board") {
+        b.disabled = archive;
+        b.title = archive ? "Board view isn't available for archived deals" : "Board view";
+      }
+    });
+  }
+
   function render() {
+    syncViewSwitch();
     const root = document.getElementById("deal-list");
     const list = sorted(source());
     const mode = view.layout === "board" ? "board" : isStageSort() ? "grouped" : "list";
@@ -279,7 +293,7 @@ window.GC = window.GC || {};
     document.getElementById("sort-select").addEventListener("change", (e) => { view.sort = e.target.value; boardOrder = null; render(); });
     document.getElementById("view-switch").addEventListener("click", (e) => {
       const seg = e.target.closest("[data-layout]");
-      if (!seg) return;
+      if (!seg || seg.disabled) return;
       view.layout = seg.dataset.layout;
       render();
     });

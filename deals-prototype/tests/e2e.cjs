@@ -297,7 +297,7 @@ function ok(cond, msg) { if (cond) { pass++; console.log('  ✓', msg); } else {
   await page.click('[data-layout="board"]');
   const card = '.board-card[data-id="d1"]';
   ok(await page.$eval(card, (e) => !!e.querySelector('.board-card__foot .ds-avatar') && e.querySelector('.board-card__top .board-card__price').textContent === '€61.2M'), 'board card: title + price on top, owner in the footer');
-  ok(await page.$eval(card, (e) => !!e.querySelector('.board-card__photo .board-card__chips .industry-chip') && !!e.querySelector('.board-card__chips .status-pill') && !!e.querySelector('.board-card__photo [data-deal-menu]')), 'industry + status chips and ⋯ sit on the photo');
+  ok(await page.$eval(card, (e) => !!e.querySelector('.board-card__photo .board-card__chips .industry-chip') && !!e.querySelector('.board-card__chips .status-pill') && !!e.querySelector('.board-card__foot [data-deal-menu]:last-child')), 'industry + status chips on the photo, ⋯ at the footer end');
   ok(await page.$eval(card + ' .board-card__media', (e) => e.getBoundingClientRect().height) === 96, 'photo 96 high, full bleed');
   ok((await txt(card + ' .board-card__loc')) === 'Wakefield, UK', 'short location');
   ok(await page.$eval(card + ' .board-row', (e) => e.getBoundingClientRect().height) === 20, 'info rows 20 high');
@@ -308,7 +308,7 @@ function ok(cond, msg) { if (cond) { pass++; console.log('  ✓', msg); } else {
   ok(!!(await page.$('.board-card[data-id="d3"] .board-card__media.is-empty')), 'no photos: empty placeholder');
   ok(!!(await page.$('.board-card[data-id="d3"] .board-card__foot .board-card__comments')) && !(await page.$(card + ' .board-card__foot .board-card__comments')), 'comments shown only when there are any');
   ok(await page.$eval(card, (e) => getComputedStyle(e).borderTopLeftRadius === '4px' && e.getBoundingClientRect().width === 256), 'board card 256 wide, radius 4 (Figma)');
-  ok(await page.$eval(card + ' .board-card__foot', (e) => getComputedStyle(e).justifyContent) === 'space-between', 'footer: owner left, comments right');
+  ok(await page.$eval('.board-card[data-id="d3"] .board-card__foot', (e) => [...e.children].map((c) => c.matches('.ds-avatar') ? 'owner' : c.matches('.board-card__comments') ? 'comments' : c.matches('[data-deal-menu]') ? 'more' : '?').join()) === 'owner,comments,more', 'footer: owner, comments, then ⋯ on the right');
   await page.click('.board-card[data-id="d7"] [data-deal-menu]');
   ok(await page.isVisible('.deal-menu [data-pick="edit"]') && await page.isVisible('.deal-menu [data-pick="archived"]') && await page.isVisible('.deal-menu [data-pick="deleted"]'), 'menu: Edit + Archive + Delete');
   await page.click('.deal-menu [data-pick="archived"]');
@@ -387,13 +387,15 @@ function ok(cond, msg) { if (cond) { pass++; console.log('  ✓', msg); } else {
   ok((await txt('.row-card[data-id="d2"] [data-stage-menu]')).includes('SPA') && (await txt('.toast-region')).includes('moved from LOI to SPA'), 'picking a stage updates the card + toast');
   await page.hover('.row-card[data-id="d7"] .row-card__media'); await page.click('.row-card[data-id="d7"] [data-deal-menu]');
   await page.click('.deal-menu [data-pick="archived"]');
+  await page.click('[data-layout="board"]');
   await page.selectOption('#sort-select', 'archived');
+  ok((await page.$eval('#deal-list', (e) => e.dataset.view)) === 'list' && (await page.$eval('[data-layout="board"]', (b) => b.disabled)) && (await page.$eval('[data-layout="list"]', (b) => b.getAttribute('aria-pressed'))) === 'true', 'Archive switches Kanban to the list and disables Kanban');
   ok((await page.$$('#deal-list .deal-card')).length === 2 && !!(await page.$('.deal-card[data-id="d7"]')) && (await txt('.deal-card[data-id="d12"] .outcome-reason')) === 'Vendor expectation too high', 'sort "Archived only" lists archived + closed deals (with reason)');
   await page.hover('.deal-card[data-id="d7"] .row-card__media'); await page.click('.deal-card[data-id="d7"] [data-deal-menu]');
   await page.click('.deal-menu [data-pick="restored"]');
   ok(!(await page.$('.deal-card[data-id="d7"]')) && (await page.$$('#deal-list .deal-card')).length === 1, 'restore → deal leaves the archive');
   await page.selectOption('#sort-select', 'newest');
-  ok(!!(await page.$('.deal-card[data-id="d7"]')), 'restored deal back in the inbox');
+  ok(!!(await page.$('.deal-card[data-id="d7"]')) && !(await page.$eval('[data-layout="board"]', (b) => b.disabled)), 'restored deal back in the inbox; Kanban available again');
 
   await page.click('.row-card[data-id="d2"] .deal-link'); await page.waitForTimeout(400);
   ok((await page.$$('.dp__tabs .ds-tab')).length === 7 && (await page.$$('.dp__tabs .ds-tab[aria-disabled="true"]')).length === 4 && (await txt('#dp-tab-logs')) === 'Log', 'drawer tabs: 7 shown, Assets/Comps/AI/Documents disabled');
