@@ -4,6 +4,7 @@ import { RectAreaLightUniformsLib } from 'three/addons/lights/RectAreaLightUnifo
 import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import Lenis from 'lenis';
+import { createGrid, createWheel } from './views.js';
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -188,12 +189,14 @@ function start(renderer) {
       flip: i === 0 ? Math.PI / 2 : 0, // первая купюра ребром — прелоадер
       enter: i === 0 ? 0 : 1, // остальные за правым краем
       brightness: 1,
+      wheelVis: 0, // видимость в панели режима «колесо»
+      wheelSide: 1,
     };
   });
 
   /* --- Камера и ресайз --- */
 
-  const view = { width: 1, height: 1, maxObjectHeight: 0.72 };
+  const view = { width: 1, height: 1, maxObjectHeight: 0.72, panelX: 0, panelY: 0, panelScale: 1 };
 
   function layout() {
     const w = window.innerWidth;
@@ -212,6 +215,11 @@ function start(renderer) {
 
     view.height = 2 * tan * camera.position.z;
     view.width = view.height * camera.aspect;
+
+    // Место купюры в режиме «колесо»: справа на десктопе, сверху на телефоне
+    view.panelX = portrait ? 0 : view.width * 0.24;
+    view.panelY = portrait ? view.height * 0.23 : 0;
+    view.panelScale = portrait ? 0.8 : 0.95;
   }
 
   layout();
@@ -231,7 +239,7 @@ function start(renderer) {
 
   // s — позиция в экранах: 0 вход, 1…COUNT купюры, COUNT + 1 выход
   const scroll = { target: 0, current: 0 };
-  gsap.to(scroll, {
+  const rowTween = gsap.to(scroll, {
     target: COUNT + 1,
     ease: 'none',
     scrollTrigger: {
@@ -253,6 +261,112 @@ function start(renderer) {
   /* --- Подписи --- */
 
   const hud = createHud(items);
+
+  /* --- Режимы: ряд, колесо, сетка --- */
+
+  const isReduced = () => reducedMotion;
+  const rowLayer = document.querySelector('main');
+  const gridLayer = document.querySelector('.grid-view');
+  const wheelLayer = document.querySelector('.wheel-view');
+  const switcher = document.querySelectorAll('.switcher [data-mode]');
+  const mix = { row: 1 }; // множитель видимости подписей ряда
+  let mode = 'row';
+  let switching = false;
+  let rowFocus = 0;
+  let wheelActive = 0;
+  let wheelHover = null;
+  let panelIndex = -1;
+
+  const grid = createGrid(gridLayer, items, {
+    lerp: CONFIG.lerp,
+    isReduced,
+    onSelect: (i) => openInRow(i),
+  });
+  const wheel = createWheel(wheelLayer, items, {
+    lerp: CONFIG.lerp,
+    isReduced,
+    onChange: (i) => { wheelActive = i; showInPanel(); },
+    onHover: (i) => { wheelHover = i; showInPanel(); },
+    onOpen: (i) => openInRow(i),
+  });
+
+  switcher.forEach((button) => {
+    button.addEventListener('click', () => switchMode(button.dataset.mode));
+  });
+
+  // Купюра справа: уходящая встаёт ребром влево, новая выходит из ребра справа
+  function showInPanel() {
+    if (mode !== 'wheel') return;
+    const next = wheelHover ?? wheelActive;
+    if (next === panelIndex) return;
+    const prev = panelIndex;
+    panelIndex = next;
+    const quick = reducedMotion;
+    if (prev >= 0) {
+      objects[prev].wheelSide = -1;
+      gsap.to(objects[prev], { wheelVis: 0, duration: quick ? 0 : 0.35, ease: 'power2.in', overwrite: true });
+    }
+    const incoming = objects[next];
+    if (incoming.wheelVis < 0.5) incoming.wheelSide = 1;
+    gsap.to(incoming, { wheelVis: 1, duration: quick ? 0 : 0.7, ease: 'power3.out', delay: quick || prev < 0 ? 0 : 0.15, overwrite: true });
+  }
+
+  function switchMode(next, after) {
+    if (!ready || switching || next === mode) return;
+    switching = true;
+    const prev = mode;
+    const quick = reducedMotion;
+    const layerOf = (m) => (m === 'row' ? rowLayer : m === 'grid' ? gridLayer : wheelLayer);
+
+    switcher.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.mode === next)));
+    if (prev === 'row') gsap.to(mix, { row: 0, duration: quick ? 0 : 0.3 });
+
+    gsap.to([layerOf(prev), canvas], {
+      opacity: 0,
+      duration: quick ? 0 : 0.3,
+      ease: 'power2.in',
+      onComplete: () => {
+        if (prev === 'row') lenis.stop();
+        if (prev === 'grid') grid.setActive(false);
+        if (prev === 'wheel') wheel.setActive(false);
+
+        mode = next;
+        root.dataset.mode = next;
+
+        if (next === 'row') lenis.start();
+        if (next === 'grid') grid.setActive(true);
+        if (next === 'wheel') {
+          panelIndex = -1;
+          wheelHover = null;
+          objects.forEach((o) => { gsap.killTweensOf(o, 'wheelVis'); o.wheelVis = 0; });
+          wheel.setActive(true, rowFocus);
+        }
+        after?.();
+
+        const shown = next === 'grid' ? [layerOf(next)] : [layerOf(next), canvas];
+        if (next === 'row') gsap.to(mix, { row: 1, duration: quick ? 0 : 0.5, delay: 0.1 });
+        gsap.fromTo(shown, { opacity: 0 }, {
+          opacity: 1,
+          duration: quick ? 0 : 0.5,
+          ease: 'power2.out',
+          onComplete: () => { switching = false; },
+        });
+      },
+    });
+  }
+
+  // Открыть купюру в ряду: переключиться и сразу встать на неё, без пролёта через соседей
+  function openInRow(index) {
+    const jump = () => {
+      const max = lenis.limit;
+      lenis.scrollTo(((1 + index) / (COUNT + 1)) * max, { immediate: true, force: true });
+      ScrollTrigger.update();
+      rowTween.scrollTrigger?.getTween()?.progress(1);
+      scroll.current = scroll.target;
+    };
+    if (mode === 'row') jump();
+    else switchMode('row', jump);
+  }
 
   /* --- Загрузка --- */
 
@@ -323,7 +437,13 @@ function start(renderer) {
     const still = reducedMotion;
     const bendTarget = still ? 0 : clamp(-Math.abs(lag) * CONFIG.bendGain, -CONFIG.bendMax, CONFIG.bendMax);
 
-    objects.forEach((o, i) => {
+    rowFocus = Math.round(focus);
+
+    if (mode === 'wheel') {
+      updateWheelPanel(dt);
+    } else objects.forEach((o, i) => {
+      o.mesh.visible = true;
+      o.mesh.scale.set(CONFIG.objectWidth, CONFIG.objectWidth / o.aspect, 1);
       const d = i - focus;
       const dist = Math.abs(d);
       const focusWeight = 1 - smoothstep(0, 1, dist);
@@ -367,11 +487,51 @@ function start(renderer) {
 
     // Подписи: видимы только на участке с купюрами
     const hudAlpha = ready ? clamp((s - 0.5) * 2, 0, 1) * clamp((COUNT + 0.5 - s) * 2, 0, 1) : 0;
-    hud.setAlpha(hudAlpha);
+    hud.setAlpha(hudAlpha * mix.row);
     if (ready) hud.setActive(Math.round(focus));
 
-    renderer.render(scene, camera);
+    grid.update(dt);
+    wheel.update(dt);
+
+    // В сетке сцена не видна — не тратим на неё кадр
+    if (mode !== 'grid' || switching) renderer.render(scene, camera);
   });
+
+  function updateWheelPanel(dt) {
+    const still = reducedMotion;
+    const bendTarget = still ? 0 : -clamp(Math.abs(wheel.velocity) * 0.12, 0, CONFIG.bendMax);
+    const k = view.panelScale * CONFIG.objectWidth;
+
+    objects.forEach((o, i) => {
+      const vis = o.wheelVis;
+      o.mesh.visible = vis > 0.002;
+      if (!o.mesh.visible) return;
+
+      if (!still && vis > 0.5) {
+        o.spin += CONFIG.spinSpeed * dt * vis;
+      } else {
+        const rest = Math.round(o.spin / (Math.PI * 2)) * Math.PI * 2;
+        o.spin += (rest - o.spin) * damp(0.06, dt);
+      }
+      const sway = still ? 0 : Math.sin(elapsed * CONFIG.swayFreq + i);
+
+      o.mesh.scale.set(k, k / o.aspect, 1);
+      o.mesh.position.set(view.panelX, view.panelY + sway * CONFIG.swayAmp, -(1 - vis) * 0.4);
+      o.mesh.rotation.set(sway * 0.02, o.spin + (1 - vis) * (Math.PI / 2) * o.wheelSide, 0);
+
+      const brightness = 1 - 0.35 * (1 - vis);
+      if (Math.abs(brightness - o.brightness) > 0.002) {
+        o.brightness = brightness;
+        o.face.color.setScalar(brightness);
+        o.edge.color.setHex(CONFIG.paperColor).multiplyScalar(brightness);
+      }
+
+      const u = o.uniforms;
+      u.uBend.value += (bendTarget - u.uBend.value) * damp(0.12, dt);
+      u.uWave.value = still ? 0 : CONFIG.waveAmp + Math.abs(u.uBend.value) * 0.08;
+      u.uTime.value += dt * 1.2;
+    });
+  }
 
   /* --- Утилиты сцены --- */
 
