@@ -1,0 +1,352 @@
+:root {
+  /* Цвета */
+  --color-bg: #efe8dc;
+  --color-ink: #1f1d18;
+  --color-ink-soft: #5d574b;
+  --color-accent: #3f4a2c;
+  --color-paper: #e6dccb;
+  --color-line: rgba(31, 29, 24, 0.18);
+
+  /* Шрифты */
+  --font-head: "Times New Roman", Times, serif;
+  --font-text: Arial, "Helvetica Neue", Helvetica, sans-serif;
+  --tracking-text: -0.03em;
+  --tracking-head: -0.02em;
+
+  /* Размеры */
+  --screen: 100vh;
+  --gutter: clamp(16px, 3.2vw, 48px);
+  --size-display: clamp(44px, 9vw, 148px);
+  --size-title: clamp(36px, 6vw, 96px);
+  --size-quote: clamp(18px, 2vw, 28px);
+  --size-text: clamp(14px, 1.05vw, 16px);
+  --size-small: 12px;
+  --line-tight: 0.92;
+
+  /* Слои */
+  --z-stage: 0;
+  --z-content: 1;
+  --z-hud: 2;
+  --z-preloader: 3;
+  --z-grain: 4;
+
+  /* Плёнка шума */
+  --grain-opacity: 0.06;
+  --grain-size: 160px;
+
+  /* Сетка без WebGL */
+  --grid-min: 280px;
+  --grid-gap: clamp(24px, 4vw, 56px);
+}
+
+@supports (height: 100svh) {
+  :root { --screen: 100svh; }
+}
+
+*,
+*::before,
+*::after { box-sizing: border-box; }
+
+html {
+  background: var(--color-bg);
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--color-bg);
+  color: var(--color-ink);
+  font-family: var(--font-text);
+  font-size: var(--size-text);
+  letter-spacing: var(--tracking-text);
+  line-height: 1.4;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+h1, h2, blockquote, figure, p { margin: 0; }
+
+h1, h2, .hud__name, .hud__quote-text {
+  font-family: var(--font-head);
+  font-weight: 400;
+  letter-spacing: var(--tracking-head);
+}
+
+a { color: var(--color-accent); }
+
+::selection { background: var(--color-accent); color: var(--color-bg); }
+
+/* ---------- Сцена ---------- */
+
+.stage {
+  display: none;
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: var(--z-stage);
+  pointer-events: none;
+}
+
+.is-webgl .stage { display: block; }
+
+/* ---------- Шум ---------- */
+
+.grain {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-grain);
+  pointer-events: none;
+  background-image: url("assets/noise.png");
+  background-size: var(--grain-size) var(--grain-size);
+  opacity: var(--grain-opacity);
+  mix-blend-mode: multiply;
+}
+
+/* ---------- Шапка ---------- */
+
+.brand {
+  display: flex;
+  justify-content: flex-end;
+  padding: var(--gutter) var(--gutter) 0;
+  font-size: var(--size-small);
+}
+
+.is-webgl .brand {
+  position: fixed;
+  top: var(--gutter);
+  right: var(--gutter);
+  z-index: var(--z-hud);
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  font-size: var(--size-small);
+  text-transform: uppercase;
+  pointer-events: none;
+}
+
+.brand__mark { color: var(--color-accent); font-weight: 700; }
+.brand__note { color: var(--color-ink-soft); }
+
+/* ---------- Секции ---------- */
+
+main {
+  position: relative;
+  z-index: var(--z-content);
+}
+
+.intro,
+.outro {
+  min-height: var(--screen);
+  padding: var(--gutter);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 16px;
+}
+
+.intro__kicker,
+.outro__kicker {
+  color: var(--color-accent);
+  font-size: var(--size-small);
+  text-transform: uppercase;
+}
+
+.intro__title {
+  font-size: var(--size-display);
+  line-height: var(--line-tight);
+  color: var(--color-ink);
+}
+
+.intro__lead { color: var(--color-ink-soft); max-width: 32ch; }
+
+.outro { justify-content: center; align-items: center; text-align: center; }
+
+.outro__title {
+  font-size: var(--size-title);
+  line-height: var(--line-tight);
+  max-width: 18ch;
+}
+
+.outro__top {
+  margin-top: 16px;
+  font-size: var(--size-small);
+  text-transform: uppercase;
+  text-underline-offset: 4px;
+}
+
+/* В WebGL-режиме интро прижато к краям, чтобы не перекрывать купюру */
+.is-webgl .intro { justify-content: space-between; padding-top: calc(var(--gutter) * 3); }
+.is-webgl .intro__title { font-size: var(--size-title); }
+.is-webgl .intro,
+.is-webgl .outro { pointer-events: none; }
+.is-webgl .outro__top { pointer-events: auto; }
+.is-webgl .outro { justify-content: flex-end; padding-bottom: calc(var(--gutter) * 2); }
+
+/* ---------- Ряд: резервная сетка ---------- */
+
+.track { padding: var(--gutter); }
+
+.collection {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(var(--grid-min), 1fr));
+  gap: var(--grid-gap);
+}
+
+.note figure { display: flex; flex-direction: column; gap: 12px; }
+
+.note img {
+  display: block;
+  width: 100%;
+  height: auto;
+  box-shadow: 0 1px 0 var(--color-line);
+}
+
+.note__name { font-size: clamp(28px, 3vw, 40px); line-height: 1; }
+.note__caption { color: var(--color-accent); }
+.note__quote { font-family: var(--font-head); font-style: italic; color: var(--color-ink-soft); }
+
+/* В WebGL-режиме: секция задаёт длину скролла, список остаётся для скринридеров */
+.is-webgl .track {
+  height: calc(var(--screen) * var(--count, 5));
+  padding: 0;
+}
+
+.is-webgl .collection {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* ---------- HUD-подписи ---------- */
+
+.hud { display: none; }
+
+.is-webgl .hud {
+  display: block;
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-hud);
+  pointer-events: none;
+  opacity: 0;
+}
+
+.hud__title {
+  position: absolute;
+  top: var(--gutter);
+  left: var(--gutter);
+  max-width: min(60vw, 720px);
+}
+
+.hud__quote {
+  position: absolute;
+  left: 50%;
+  bottom: var(--gutter);
+  width: min(90vw, 640px);
+  transform: translateX(-50%);
+  text-align: center;
+}
+
+.hud__index {
+  position: absolute;
+  right: var(--gutter);
+  bottom: var(--gutter);
+  font-size: var(--size-small);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-accent);
+}
+
+/* Слот: одна или две строки, наложенные друг на друга во время смены */
+.hud-slot { display: grid; overflow: hidden; }
+.hud-slot > * { grid-area: 1 / 1; will-change: transform, opacity; }
+
+.hud__name {
+  display: block;
+  font-size: var(--size-title);
+  line-height: 1;
+  padding-bottom: 0.08em;
+}
+
+.hud__data {
+  display: flex;
+  gap: 12px;
+  margin-top: 8px;
+  font-size: var(--size-text);
+}
+
+.hud__data span:first-child { color: var(--color-accent); }
+.hud__data span + span { color: var(--color-ink-soft); }
+
+.hud__quote-label {
+  display: block;
+  font-size: var(--size-small);
+  text-transform: uppercase;
+  color: var(--color-ink-soft);
+  margin-bottom: 4px;
+}
+
+.hud__quote-text {
+  display: block;
+  font-size: var(--size-quote);
+  font-style: italic;
+  line-height: 1.15;
+}
+
+/* ---------- Прелоадер ---------- */
+
+.preloader { display: none; }
+
+.is-webgl.is-loading .preloader {
+  display: flex;
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-preloader);
+  align-items: flex-end;
+  justify-content: flex-start;
+  padding: var(--gutter);
+  pointer-events: none;
+}
+
+.preloader__count {
+  font-family: var(--font-head);
+  font-size: var(--size-display);
+  line-height: 0.8;
+  letter-spacing: var(--tracking-head);
+  color: var(--color-accent);
+  font-variant-numeric: tabular-nums;
+}
+
+.is-webgl.is-loading .intro,
+.is-webgl.is-loading .brand { visibility: hidden; }
+
+/* ---------- Мобильный ---------- */
+
+@media (max-width: 720px) {
+  :root {
+    --size-title: clamp(34px, 11vw, 56px);
+    --grid-min: 100%;
+  }
+
+  .hud__title { max-width: calc(100vw - var(--gutter) * 2); }
+  .hud__index { top: var(--gutter); bottom: auto; }
+  .brand { display: none; }
+}
+
+/* ---------- Lenis ---------- */
+
+html.lenis,
+html.lenis body { height: auto; }
+.lenis.lenis-smooth { scroll-behavior: auto !important; }
+.lenis.lenis-stopped { overflow: clip; }
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+}

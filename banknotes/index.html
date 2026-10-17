@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Paper Tender</title>
+    <meta name="description" content="Пять банкнот в одном горизонтальном ряду: Бурунди, Сент-Люсия, Барбадос, Гонконг, Таиланд." />
+    <meta name="theme-color" content="#efe8dc" />
+    <link rel="stylesheet" href="styles.css" />
+    <script>
+      // Ранняя проверка WebGL, чтобы не мигала резервная сетка. main.js перепроверит.
+      (function () {
+        try {
+          var c = document.createElement('canvas');
+          if (c.getContext('webgl2') || c.getContext('webgl')) {
+            document.documentElement.classList.add('is-webgl', 'is-loading');
+          }
+        } catch (e) {}
+      })();
+    </script>
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js",
+          "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/",
+          "gsap": "https://cdn.jsdelivr.net/npm/gsap@3.15.0/index.js",
+          "gsap/ScrollTrigger": "https://cdn.jsdelivr.net/npm/gsap@3.15.0/ScrollTrigger.js",
+          "lenis": "https://cdn.jsdelivr.net/npm/lenis@1.3.26/dist/lenis.mjs"
+        }
+      }
+    </script>
+    <script type="module" src="main.js"></script>
+  </head>
+  <body>
+    <canvas class="stage" aria-hidden="true"></canvas>
+
+    <div class="preloader" aria-hidden="true">
+      <span class="preloader__count">0</span>
+    </div>
+
+    <div class="hud" aria-hidden="true">
+      <div class="hud__title"></div>
+      <div class="hud__quote"></div>
+      <div class="hud__index"></div>
+    </div>
+
+    <header class="brand">
+      <span class="brand__mark">Paper Tender</span>
+      <span class="brand__note">Коллекция банкнот</span>
+    </header>
+
+    <main>
+      <section class="intro">
+        <p class="intro__kicker">Пять стран · пять купюр</p>
+        <h1 class="intro__title">Бумага,<br />которой верят</h1>
+        <p class="intro__lead">Листайте вниз — ряд банкнот поедет вбок.</p>
+      </section>
+
+      <section class="track" aria-label="Коллекция">
+        <ol class="collection">
+          <li class="note" data-src="assets/objects/01.png">
+            <figure>
+              <img src="assets/objects/01.png" alt="Банкнота Бурунди номиналом 10 000 франков" width="600" height="431" loading="lazy" />
+              <figcaption>
+                <h2 class="note__name">Burundi</h2>
+                <p class="note__caption">10.000 Francs</p>
+                <blockquote class="note__quote">Banque de la République du Burundi</blockquote>
+              </figcaption>
+            </figure>
+          </li>
+          <li class="note" data-src="assets/objects/02.png">
+            <figure>
+              <img src="assets/objects/02.png" alt="Банкнота Сент-Люсии номиналом 5 долларов" width="600" height="326" loading="lazy" />
+              <figcaption>
+                <h2 class="note__name">Saint Lucia</h2>
+                <p class="note__caption">5 Dollars</p>
+                <blockquote class="note__quote">Barclays Bank (Dominion, Colonial and Overseas)</blockquote>
+              </figcaption>
+            </figure>
+          </li>
+          <li class="note" data-src="assets/objects/03.png">
+            <figure>
+              <img src="assets/objects/03.png" alt="Банкнота Барбадоса номиналом 100 долларов" width="754" height="326" loading="lazy" />
+              <figcaption>
+                <h2 class="note__name">Barbados</h2>
+                <p class="note__caption">100 Dollars</p>
+                <blockquote class="note__quote">Central Bank of Barbados</blockquote>
+              </figcaption>
+            </figure>
+          </li>
+          <li class="note" data-src="assets/objects/04.png">
+            <figure>
+              <img src="assets/objects/04.png" alt="Банкнота Гонконга номиналом 10 гонконгских долларов" width="668" height="326" loading="lazy" />
+              <figcaption>
+                <h2 class="note__name">Hong Kong</h2>
+                <p class="note__caption">10 Hong Kong Dollars</p>
+                <blockquote class="note__quote">Government of the Hong Kong (SAR)</blockquote>
+              </figcaption>
+            </figure>
+          </li>
+          <li class="note" data-src="assets/objects/05.png">
+            <figure>
+              <img src="assets/objects/05.png" alt="Банкнота Таиланда номиналом 100 бат" width="684" height="326" loading="lazy" />
+              <figcaption>
+                <h2 class="note__name">Thailand</h2>
+                <p class="note__caption">100 Baht</p>
+                <blockquote class="note__quote">Government of Thailand</blockquote>
+              </figcaption>
+            </figure>
+          </li>
+        </ol>
+      </section>
+
+      <section class="outro">
+        <p class="outro__kicker">Конец ряда</p>
+        <h2 class="outro__title">Деньги — это договорённость,<br />напечатанная на бумаге</h2>
+        <a class="outro__top" href="#top" data-scroll-top>Наверх</a>
+      </section>
+    </main>
+
+    <div class="grain" aria-hidden="true"></div>
+  </body>
+</html>
