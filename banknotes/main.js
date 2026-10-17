@@ -31,10 +31,26 @@ const CONFIG = {
   maxHeightFrac: 0.48, // не выше этой доли высоты экрана
   maxTexture: 1024,
   maxPixelRatio: 2,
-  material: { roughness: 0.35, metalness: 0.6 },
+  // Поверхности без металла: хлопково-льняная бумага и полимер
+  surfaces: {
+    cotton: {
+      roughness: 0.82,
+      sheen: 0.35,
+      sheenRoughness: 0.8,
+      sheenColor: 0xfff6e8,
+      bumpScale: 0.6,
+      fiberRepeat: 2.2,
+    },
+    polymer: {
+      roughness: 0.32,
+      clearcoat: 0.35,
+      clearcoatRoughness: 0.25,
+      ior: 1.49,
+    },
+  },
   paperColor: 0xe9dfcc,
-  envIntensity: 0.45,
-  rectIntensity: 2.2,
+  envIntensity: 0.9,
+  rectIntensity: 2.6,
   exposure: 1,
 };
 
@@ -43,6 +59,8 @@ const items = [...document.querySelectorAll('.collection .note')].map((li) => ({
   src: li.dataset.src,
   name: li.querySelector('.note__name').textContent.trim(),
   caption: li.querySelector('.note__caption').textContent.trim(),
+  material: li.dataset.material === 'polymer' ? 'polymer' : 'cotton',
+  materialLabel: li.querySelector('.note__material')?.textContent.trim() ?? '',
   quote: li.querySelector('.note__quote').textContent.trim(),
 }));
 const COUNT = items.length;
@@ -138,14 +156,19 @@ function start(renderer) {
 
   const geometry = new THREE.BoxGeometry(CONFIG.objectWidth, 1, CONFIG.thickness, 48, 1, 1);
   const random = mulberry32(20251017);
+  const fibers = createFiberTexture(random, maxAnisotropy);
   const objects = items.map((item, i) => {
     const uniforms = {
       uBend: { value: 0 },
       uWave: { value: 0 },
       uTime: { value: random() * 10 },
     };
-    const face = new THREE.MeshStandardMaterial({ color: 0xffffff, ...CONFIG.material });
-    const edge = new THREE.MeshStandardMaterial({ color: CONFIG.paperColor, roughness: 0.7, metalness: 0.1 });
+    const face = createSurface(item.material, fibers);
+    const edge = new THREE.MeshStandardMaterial({
+      color: CONFIG.paperColor,
+      roughness: item.material === 'polymer' ? 0.4 : 0.9,
+      metalness: 0,
+    });
     applyPaperBend(face, uniforms);
     applyPaperBend(edge, uniforms);
 
@@ -378,7 +401,7 @@ function start(renderer) {
           const box = node('div');
           box.append(node('span', 'hud__name', item.name));
           const data = node('div', 'hud__data');
-          data.append(node('span', '', item.caption), node('span', '', `№ ${pad(index + 1)}`));
+          data.append(node('span', '', item.caption), node('span', '', item.materialLabel));
           box.append(data);
           return box;
         });
@@ -416,6 +439,80 @@ function start(renderer) {
     if (reducedMotion) return;
     gsap.fromTo(next, { yPercent: 100, opacity: 0 }, { yPercent: 0, opacity: 1, duration: 0.6, ease: 'power3.out', delay: 0.1 });
   }
+}
+
+/* ---------- Поверхности ---------- */
+
+// Хлопок и лён: матовая бумага, волокна дают рельеф и мягкий ворс по краю блика.
+// Полимер: гладкая плёнка без волокон, с прозрачным лаковым слоем.
+function createSurface(kind, fibers) {
+  if (kind === 'polymer') {
+    const p = CONFIG.surfaces.polymer;
+    return new THREE.MeshPhysicalMaterial({
+      color: 0xffffff,
+      metalness: 0,
+      roughness: p.roughness,
+      clearcoat: p.clearcoat,
+      clearcoatRoughness: p.clearcoatRoughness,
+      ior: p.ior,
+    });
+  }
+  const c = CONFIG.surfaces.cotton;
+  return new THREE.MeshPhysicalMaterial({
+    color: 0xffffff,
+    metalness: 0,
+    roughness: c.roughness,
+    sheen: c.sheen,
+    sheenRoughness: c.sheenRoughness,
+    sheenColor: new THREE.Color(c.sheenColor),
+    bumpMap: fibers,
+    bumpScale: c.bumpScale,
+    roughnessMap: fibers,
+  });
+}
+
+// Плитка волокон: короткие изогнутые штрихи разной яркости на сером
+function createFiberTexture(random, anisotropy) {
+  const size = 512;
+  const c = document.createElement('canvas');
+  c.width = c.height = size;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#d8d8d8';
+  ctx.fillRect(0, 0, size, size);
+  ctx.lineCap = 'round';
+  for (let i = 0; i < 2600; i++) {
+    const x = random() * size;
+    const y = random() * size;
+    const len = 6 + random() * 26;
+    const angle = random() * Math.PI * 2;
+    const bendAngle = angle + (random() - 0.5) * 1.2;
+    const light = random() > 0.5;
+    ctx.strokeStyle = light ? `rgba(255,255,255,${0.25 + random() * 0.35})` : `rgba(120,120,120,${0.15 + random() * 0.25})`;
+    ctx.lineWidth = 0.6 + random() * 1.1;
+    // Рисуем со сдвигами, чтобы плитка стыковалась без шва
+    for (const dx of [-size, 0, size]) {
+      for (const dy of [-size, 0, size]) {
+        const sx = x + dx;
+        const sy = y + dy;
+        if (sx < -40 || sx > size + 40 || sy < -40 || sy > size + 40) continue;
+        ctx.beginPath();
+        ctx.moveTo(sx, sy);
+        ctx.quadraticCurveTo(
+          sx + Math.cos(angle) * len * 0.5,
+          sy + Math.sin(angle) * len * 0.5,
+          sx + Math.cos(bendAngle) * len,
+          sy + Math.sin(bendAngle) * len,
+        );
+        ctx.stroke();
+      }
+    }
+  }
+  const texture = new THREE.CanvasTexture(c);
+  texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+  texture.repeat.set(CONFIG.surfaces.cotton.fiberRepeat, CONFIG.surfaces.cotton.fiberRepeat);
+  texture.colorSpace = THREE.NoColorSpace;
+  texture.anisotropy = anisotropy;
+  return texture;
 }
 
 /* ---------- Общие утилиты ---------- */
