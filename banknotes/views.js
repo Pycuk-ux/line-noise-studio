@@ -350,6 +350,8 @@ export function createWheel(container, items, { lerp, isReduced, text, labels, o
     list,
     update,
     get velocity() { return state.target - state.current; },
+    // Непрерывная позиция колеса: по ней едет стопка купюр
+    get position() { return state.current; },
     get index() { return activeIndex; },
     refresh() { rows.forEach((row) => { row.index = -1; }); },
     // Встать на купюру без прокрутки (например, после листания на странице купюры)

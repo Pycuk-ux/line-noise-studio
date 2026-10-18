@@ -98,6 +98,19 @@ button { font: inherit; letter-spacing: inherit; color: inherit; }
 
 .is-webgl .stage { display: block; }
 
+/* На странице купюра лежит поверх текста: при прокрутке она прилипает к верху, а текст уходит под неё */
+.is-webgl[data-view="detail"] .stage { z-index: var(--z-ui); }
+
+html.is-over-note,
+html.is-over-note * { cursor: grab; }
+
+html.is-flipping,
+html.is-flipping * {
+  cursor: grabbing;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
 .grain {
   position: fixed;
   inset: 0;
@@ -359,7 +372,7 @@ html[data-view="detail"] .switcher { visibility: hidden; }
   gap: 24px;
   min-height: 100vh;
   padding-top: calc(var(--gutter) + env(safe-area-inset-top, 0px));
-  padding-bottom: 120px;
+  padding-bottom: 70vh; /* запас прокрутки, пока нет текста: видно, как купюра прилипает и уменьшается */
   padding-left: max(16px, env(safe-area-inset-left, 0px));
   padding-right: max(16px, env(safe-area-inset-right, 0px));
 }
@@ -413,15 +426,11 @@ html[data-view="detail"] .switcher { visibility: hidden; }
 
 .detail__step:hover span { text-decoration: underline; text-underline-offset: 4px; }
 
-/* Место купюры: 3D-купюра рисуется под этим прямоугольником и тянется за ним при прокрутке */
+/* Место купюры в потоке страницы: 3D-купюра встаёт на него и прилипает к верху при прокрутке */
 .detail__note {
   width: min(var(--detail-width), 100%);
   aspect-ratio: var(--note-aspect, 2);
-  cursor: grab;
-  touch-action: none;
 }
-
-.detail__note.is-dragging { cursor: grabbing; }
 
 .detail__hint {
   font-size: var(--size-small);

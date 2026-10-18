@@ -10,21 +10,29 @@ import { ITEMS, UI, LANGS } from './data.js';
 
 const CONFIG = {
   thickness: 0.006, // толщина «бумаги» в долях ширины
-  spinSpeed: 0.15, // рад/с: медленное вращение купюры у колеса
-  swayAmp: 0.012, // покачивание в долях ширины
-  swayFreq: 0.8,
   lerp: 0.08, // инерция колеса и сетки
   bendMax: 0.14,
   waveAmp: 0.004, // «дыхание» бумаги
-  morphDuration: 0.9, // смена поверхности одной купюры на другую
   moveDuration: 1.1, // переезд купюры на страницу и обратно
   dragSpeed: 0.01, // рад на пиксель при перевороте
+  hoverTilt: THREE.MathUtils.degToRad(3), // наклон к курсору
+  // Стопка у колеса. Сдвиг и глубина — в долях ширины купюры.
+  stack: {
+    offsetX: 0.1, // каждая следующая купюра чуть правее
+    depth: 0.14, // и дальше от зрителя
+    turn: -0.06, // и чуть развёрнута
+    swing: 0.75, // уходящая купюра отлетает влево на эту долю ширины
+    swingTurn: 0.55, // и разворачивается по дороге
+  },
+  // Смена купюры на странице: старая уходит вглубь, новая приходит из глубины
+  zoom: { depthOut: 0.8, depthIn: 0.35, out: 0.5, in: 0.6, delay: 0.25 },
+  // Прилипание купюры при прокрутке страницы
+  sticky: { top: 0.15, minScale: 0.3, range: 1.2 },
   fov: 32,
   cameraZ: 5,
   maxTexture: 1024,
   maxPixelRatio: 2,
-  // Поверхности без металла: хлопково-льняная бумага и полимер.
-  // Числа плавно перетекают, когда одна купюра сменяет другую.
+  // Поверхности без металла: хлопково-льняная бумага и полимер
   surfaces: {
     cotton: { roughness: 0.82, sheen: 0.35, clearcoat: 0, clearcoatRoughness: 0.3, bumpScale: 0.6 },
     polymer: { roughness: 0.32, sheen: 0, clearcoat: 0.35, clearcoatRoughness: 0.25, bumpScale: 0.05 },
@@ -40,6 +48,9 @@ const CONFIG = {
 const root = document.documentElement;
 const COUNT = ITEMS.length;
 const TAU = Math.PI * 2;
+const mod = (n, m) => ((n % m) + m) % m;
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+const lerp = (a, b, t) => a + (b - a) * t;
 
 const motionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
 let reducedMotion = motionQuery.matches;
@@ -88,72 +99,35 @@ function createRenderer(target) {
   }
 }
 
-/* ---------- Шейдер купюры ---------- */
+/* ---------- Загиб бумаги в вершинном шейдере ---------- */
 
-// Вершины: загиб бумаги по X (чашка + бегущая волна), нормаль правится той же производной.
-const BEND_VERTEX = {
-  common: `#include <common>
-    uniform float uBend;
-    uniform float uWave;
-    uniform float uTime;
-    float paperZ(float x) { return uBend * x * x + uWave * sin(x * 6.2832 + uTime); }
-    float paperDz(float x) { return 2.0 * uBend * x + uWave * 6.2832 * cos(x * 6.2832 + uTime); }`,
-  normal: `#include <beginnormal_vertex>
-    objectNormal.x -= paperDz(position.x) * objectNormal.z;`,
-  position: `#include <begin_vertex>
-    transformed.z += paperZ(position.x);`,
-};
-
-// Фрагменты: две текстуры (A — текущая, B — следующая) и фронт смены с рваным,
-// как у бумажного волокна, краем. Каждая текстура вписывается «cover» в текущую форму,
-// поэтому пропорции перетекают без растяжения рисунка.
-const MORPH_FRAGMENT = {
-  common: `#include <common>
-    uniform sampler2D uMapB;
-    uniform float uMix;
-    uniform float uAspect;
-    uniform float uAspectA;
-    uniform float uAspectB;
-    uniform float uFlip;
-    float pHash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
-    float pNoise(vec2 p) {
-      vec2 i = floor(p);
-      vec2 f = fract(p);
-      f = f * f * (3.0 - 2.0 * f);
-      return mix(mix(pHash(i), pHash(i + vec2(1.0, 0.0)), f.x), mix(pHash(i + vec2(0.0, 1.0)), pHash(i + vec2(1.0, 1.0)), f.x), f.y);
-    }
-    vec2 coverUv(vec2 uv, float meshAspect, float texAspect) {
-      if (meshAspect > texAspect) uv.y = (uv.y - 0.5) * texAspect / meshAspect + 0.5;
-      else uv.x = (uv.x - 0.5) * meshAspect / texAspect + 0.5;
-      return uv;
-    }`,
-  map: `#ifdef USE_MAP
-      vec2 baseUv = mix(vMapUv, 1.0 - vMapUv, uFlip);
-      vec4 colA = texture2D(map, coverUv(baseUv, uAspect, uAspectA));
-      vec4 colB = texture2D(uMapB, coverUv(baseUv, uAspect, uAspectB));
-      float grain = pNoise(baseUv * vec2(9.0, 5.0)) * 0.6 + pNoise(baseUv * vec2(48.0, 26.0)) * 0.4;
-      float edge = baseUv.x * 0.82 + grain * 0.18;
-      float front = uMix * 1.24 - 0.12;
-      float m = smoothstep(-0.035, 0.035, front - edge);
-      vec4 sampledDiffuseColor = mix(colA, colB, m);
-      diffuseColor *= sampledDiffuseColor;
-    #endif`,
-};
-
-function applyNoteShader(material, uniforms, { morph }) {
+// Профиль по X: чашка от скорости плюс бегущая волна.
+// Нормаль правится той же производной, чтобы блик ехал по изгибу.
+function applyPaperBend(material, uniforms) {
   material.onBeforeCompile = (shader) => {
     Object.assign(shader.uniforms, uniforms);
     shader.vertexShader = shader.vertexShader
-      .replace('#include <common>', BEND_VERTEX.common)
-      .replace('#include <beginnormal_vertex>', BEND_VERTEX.normal)
-      .replace('#include <begin_vertex>', BEND_VERTEX.position);
-    if (morph) {
-      shader.fragmentShader = shader.fragmentShader
-        .replace('#include <common>', MORPH_FRAGMENT.common)
-        .replace('#include <map_fragment>', MORPH_FRAGMENT.map);
-    }
+      .replace(
+        '#include <common>',
+        `#include <common>
+        uniform float uBend;
+        uniform float uWave;
+        uniform float uTime;
+        float paperZ(float x) { return uBend * x * x + uWave * sin(x * 6.2832 + uTime); }
+        float paperDz(float x) { return 2.0 * uBend * x + uWave * 6.2832 * cos(x * 6.2832 + uTime); }`,
+      )
+      .replace(
+        '#include <beginnormal_vertex>',
+        `#include <beginnormal_vertex>
+        objectNormal.x -= paperDz(position.x) * objectNormal.z;`,
+      )
+      .replace(
+        '#include <begin_vertex>',
+        `#include <begin_vertex>
+        transformed.z += paperZ(position.x);`,
+      );
   };
-  material.customProgramCacheKey = () => (morph ? 'note-face' : 'note-edge');
+  material.customProgramCacheKey = () => 'paper-bend';
 }
 
 /* ---------- Приложение ---------- */
@@ -186,105 +160,52 @@ function start(renderer) {
     scene.add(rect);
   }
 
-  /* --- Купюра: одна на всю сцену, поверхность меняется шейдером --- */
+  /* --- Купюры --- */
 
   const fibers = createFiberTexture(maxAnisotropy);
-  const shared = {
-    uBend: { value: 0 },
-    uWave: { value: 0 },
-    uTime: { value: 0 },
-    uMix: { value: 0 },
-    uAspect: { value: 2 },
-    uAspectA: { value: 2 },
-    uAspectB: { value: 2 },
-  };
-  const frontUniforms = { ...shared, uMapB: { value: null }, uFlip: { value: 0 } };
-  const backUniforms = { ...shared, uMapB: { value: null }, uFlip: { value: 0 } };
-
-  const surfaceMaterial = (uniforms) => {
-    const m = new THREE.MeshPhysicalMaterial({
-      color: 0xffffff,
-      metalness: 0,
-      roughness: CONFIG.surfaces.cotton.roughness,
-      // sheen и clearcoat держим чуть выше нуля, чтобы шейдер не пересобирался при смене материала
-      sheen: 0.001,
-      sheenRoughness: 0.8,
-      sheenColor: new THREE.Color(CONFIG.sheenColor),
-      clearcoat: 0.001,
-      bumpMap: fibers,
-      roughnessMap: fibers,
-    });
-    applyNoteShader(m, uniforms, { morph: true });
-    return m;
-  };
-  const front = surfaceMaterial(frontUniforms);
-  const back = surfaceMaterial(backUniforms);
-  const edge = new THREE.MeshStandardMaterial({ color: CONFIG.paperColor, roughness: 0.85, metalness: 0 });
-  applyNoteShader(edge, shared, { morph: false });
-
   // Порядок граней BoxGeometry: +x, −x, +y, −y, +z (лицо), −z (оборот)
-  const geometry = new THREE.BoxGeometry(1, 1, CONFIG.thickness, 64, 1, 1);
-  const mesh = new THREE.Mesh(geometry, [edge, edge, edge, edge, front, back]);
-  scene.add(mesh);
+  const geometry = new THREE.BoxGeometry(1, 1, CONFIG.thickness, 48, 1, 1);
 
-  const textures = ITEMS.map(() => ({ front: null, back: null, aspect: 2 }));
-  const note = { a: -1, b: -1, morphing: false, queued: null };
-
-  function setSurfaceA(i) {
-    const tex = textures[i];
-    front.map = tex.front;
-    back.map = tex.back || tex.front;
-    shared.uAspectA.value = tex.aspect;
-    shared.uMix.value = 0;
-    note.a = i;
-    note.b = -1;
-  }
-
-  function setSurfaceB(i) {
-    const tex = textures[i];
-    frontUniforms.uMapB.value = tex.front;
-    backUniforms.uMapB.value = tex.back || tex.front;
-    shared.uAspectB.value = tex.aspect;
-    note.b = i;
-  }
-
-  // Показать купюру i: поверхность текущей стирается и сменяется новой.
-  // Пока идёт смена, новые запросы ждут — побеждает последний.
-  function showNote(i, { instant = false } = {}) {
-    if (instant || note.a < 0) {
-      gsap.killTweensOf(shared.uMix);
-      note.morphing = false;
-      note.queued = null;
-      setSurfaceA(i);
-      return;
-    }
-    if (note.morphing) {
-      note.queued = i;
-      return;
-    }
-    if (i === note.a) return;
-    note.morphing = true;
-    setSurfaceB(i);
-    gsap.to(shared.uMix, {
-      value: 1,
-      duration: reducedMotion ? 0 : CONFIG.morphDuration,
-      ease: 'power2.inOut',
-      onComplete: () => {
-        setSurfaceA(i);
-        note.morphing = false;
-        const next = note.queued;
-        note.queued = null;
-        if (next !== null && next !== note.a) showNote(next);
-      },
-    });
-  }
-
-  // Купюра, которая видна или вот-вот станет видна
-  const shownNote = () => (note.queued ?? (note.b >= 0 ? note.b : note.a));
-
-  function surfaceAt(i) {
-    return CONFIG.surfaces[ITEMS[i]?.material === 'polymer' ? 'polymer' : 'cotton'];
-  }
+  const cards = ITEMS.map((item, i) => {
+    const s = CONFIG.surfaces[item.material === 'polymer' ? 'polymer' : 'cotton'];
+    const uniforms = { uBend: { value: 0 }, uWave: { value: 0 }, uTime: { value: i * 1.7 } };
+    const surface = () => {
+      const m = new THREE.MeshPhysicalMaterial({
+        color: 0xffffff,
+        metalness: 0,
+        roughness: s.roughness,
+        sheen: s.sheen,
+        sheenRoughness: 0.8,
+        sheenColor: new THREE.Color(CONFIG.sheenColor),
+        clearcoat: s.clearcoat,
+        clearcoatRoughness: s.clearcoatRoughness,
+        bumpMap: fibers,
+        bumpScale: s.bumpScale,
+        roughnessMap: fibers,
+        transparent: true,
+      });
+      applyPaperBend(m, uniforms);
+      return m;
+    };
+    const front = surface();
+    const back = surface();
+    const edge = new THREE.MeshStandardMaterial({ color: CONFIG.paperColor, roughness: 0.85, metalness: 0, transparent: true });
+    applyPaperBend(edge, uniforms);
+    const mesh = new THREE.Mesh(geometry, [edge, edge, edge, edge, front, back]);
+    mesh.visible = false;
+    scene.add(mesh);
+    return {
+      mesh,
+      materials: [front, back, edge],
+      front,
+      back,
+      uniforms,
+      aspect: 2,
+      opacity: -1,
+      hero: 0, // 0…1: насколько купюра — «главная» на странице или в переезде
+      heroIn: false, // приходит из глубины (true) или уходит вглубь (false)
+    };
+  });
 
   /* --- Камера, ресайз и перевод пикселей в мир --- */
 
@@ -299,25 +220,34 @@ function start(renderer) {
     camera.aspect = view.w / view.h;
     camera.updateProjectionMatrix();
     view.worldH = 2 * Math.tan(THREE.MathUtils.degToRad(CONFIG.fov / 2)) * CONFIG.cameraZ;
-    placeHitArea();
   }
 
-  // Место купюры у колеса: справа на десктопе, сверху на телефоне
+  // Место стопки у колеса: справа на десктопе, сверху на телефоне
   function panelRect() {
     return view.portrait
       ? { x: view.w * 0.5, y: view.h * 0.27, w: view.w * 0.56 }
-      : { x: view.w * 0.74, y: view.h * 0.5, w: Math.min(view.w * 0.36, 620) };
+      : { x: view.w * 0.72, y: view.h * 0.5, w: Math.min(view.w * 0.34, 600) };
   }
 
+  // Место купюры на странице: прилипает на 15vh и уменьшается до 30% при прокрутке
   const noteSlot = document.querySelector('.detail__note');
   function detailRect() {
     const r = noteSlot.getBoundingClientRect();
-    return { x: r.left + r.width / 2, y: r.top + r.height / 2, w: r.width };
+    const S = CONFIG.sticky;
+    const stickyTop = view.h * S.top;
+    const passed = Math.max(0, stickyTop - r.top);
+    const p = clamp(passed / (r.height * S.range), 0, 1);
+    const scale = lerp(1, S.minScale, 1 - (1 - p) * (1 - p));
+    const w = r.width * scale;
+    const h = r.height * scale;
+    return { x: r.left + r.width / 2, y: Math.max(r.top, stickyTop) + h / 2, w };
   }
 
-  // pose — центр и ширина купюры в пикселях; bind — к чему она привязана каждый кадр
+  // pose — центр и ширина главной купюры в пикселях; bind — к чему она привязана каждый кадр
   const pose = { x: 0, y: 0, w: 1, bind: 'center' };
-  const rot = { spin: 0, flip: Math.PI / 2, x: 0, vx: 0, dragging: false };
+  const rot = { y: 0, flip: Math.PI / 2, vy: 0, dragging: false };
+  const tilt = { x: 0, y: 0 };
+  const fade = { stack: 0 }; // видимость стопки (кроме главной купюры)
 
   /* --- Слои интерфейса --- */
 
@@ -332,13 +262,11 @@ function start(renderer) {
   const langNav = document.querySelector('.lang');
   const langButtons = langNav.querySelectorAll('[data-lang]');
 
-  let mode = 'wheel'; // wheel | grid | detail
+  let mode = 'intro'; // intro | wheel | grid | detail
   let origin = 'wheel'; // откуда открыта страница купюры
   let originRect = null;
-  let current = 0; // купюра на странице
+  let current = 0; // главная купюра
   let busy = true; // идёт анимация перехода
-  let wheelActive = 0;
-  let wheelHover = null;
 
   const isReduced = () => reducedMotion;
   const grid = createGrid(gridLayer, ITEMS, {
@@ -352,18 +280,14 @@ function start(renderer) {
     isReduced,
     text,
     labels: t,
-    onChange: (i) => { wheelActive = i; if (mode === 'wheel') showNote(wheelHover ?? i); },
-    onHover: (i) => { wheelHover = i; if (mode === 'wheel' && !busy) showNote(i ?? wheelActive); },
+    onChange: () => {},
+    onHover: () => {},
     onOpen: (i) => openDetail(i, 'wheel'),
   });
 
-  function placeHitArea() {
-    const r = panelRect();
-    const h = r.w / shared.uAspect.value;
-    Object.assign(hitArea.style, { left: `${r.x - r.w / 2}px`, top: `${r.y - h / 2}px`, width: `${r.w}px`, height: `${h}px` });
-  }
+  const frontIndex = () => mod(Math.round(wheel.position), COUNT);
 
-  hitArea.addEventListener('click', () => openDetail(shownNote(), 'wheel'));
+  hitArea.addEventListener('click', () => openDetail(frontIndex(), 'wheel'));
   viewButtons.forEach((b) => b.addEventListener('click', () => switchView(b.dataset.view)));
   langButtons.forEach((b) => b.addEventListener('click', () => setLanguage(b.dataset.lang)));
   detail.querySelector('.detail__close').addEventListener('click', closeDetail);
@@ -387,6 +311,62 @@ function start(renderer) {
   gsap.ticker.add((time) => lenis.raf(time * 1000));
   gsap.ticker.lagSmoothing(0);
   lenis.stop();
+
+  /* --- Указатель: наклон к курсору и переворот --- */
+
+  const pointer = { x: -1, y: -1, mouse: false, over: false };
+
+  // Прямоугольник главной купюры на экране
+  function heroRect() {
+    if (mode === 'wheel') {
+      const r = panelRect();
+      return { ...r, h: r.w / cards[frontIndex()].aspect };
+    }
+    if (mode === 'detail') return { ...pose, h: pose.w / cards[current].aspect };
+    return null;
+  }
+
+  function isOverHero(x, y) {
+    const r = heroRect();
+    return !!r && Math.abs(x - r.x) <= r.w / 2 && Math.abs(y - r.y) <= r.h / 2;
+  }
+
+  window.addEventListener('pointermove', (e) => {
+    pointer.x = e.clientX;
+    pointer.y = e.clientY;
+    pointer.mouse = e.pointerType === 'mouse';
+  });
+  document.addEventListener('pointerleave', () => { pointer.mouse = false; });
+
+  let drag = null;
+  window.addEventListener('pointerdown', (e) => {
+    if (mode !== 'detail' || busy || e.button !== 0 || !isOverHero(e.clientX, e.clientY)) return;
+    if (e.target.closest('button, a')) return;
+    e.preventDefault();
+    drag = { id: e.pointerId, x: e.clientX, t: performance.now() };
+    rot.dragging = true;
+    rot.vy = 0;
+    root.classList.add('is-flipping');
+  });
+  window.addEventListener('pointermove', (e) => {
+    if (!drag || e.pointerId !== drag.id) return;
+    const now = performance.now();
+    const delta = (e.clientX - drag.x) * CONFIG.dragSpeed;
+    rot.y += delta;
+    rot.vy = delta / Math.max(0.001, (now - drag.t) / 1000);
+    drag.x = e.clientX;
+    drag.t = now;
+  });
+  const endDrag = (e) => {
+    if (!drag || e.pointerId !== drag.id) return;
+    // Если палец замер перед отпусканием, броска нет
+    if (performance.now() - drag.t > 80) rot.vy = 0;
+    drag = null;
+    rot.dragging = false;
+    root.classList.remove('is-flipping');
+  };
+  window.addEventListener('pointerup', endDrag);
+  window.addEventListener('pointercancel', endDrag);
 
   /* --- Язык --- */
 
@@ -455,7 +435,7 @@ function start(renderer) {
   /* --- Переключение колесо ↔ сетка --- */
 
   function switchView(next) {
-    if (busy || next === mode || mode === 'detail') return;
+    if (busy || next === mode || (mode !== 'wheel' && mode !== 'grid')) return;
     busy = true;
     const prev = mode;
     const quick = reducedMotion;
@@ -471,10 +451,8 @@ function start(renderer) {
         mode = next;
         root.dataset.view = next;
         (next === 'wheel' ? wheel : grid).setActive(true);
-        if (next === 'wheel') {
-          pose.bind = 'panel';
-          showNote(wheelActive, { instant: true });
-        }
+        // В сетке сцена скрыта; стопку прячем, чтобы при открытии купюры из сетки была видна только она
+        fade.stack = next === 'wheel' ? 1 : 0;
         const shown = next === 'wheel' ? [wheelLayer, canvas] : [gridLayer];
         gsap.fromTo(shown, { opacity: 0 }, {
           opacity: 1,
@@ -491,7 +469,7 @@ function start(renderer) {
   const nearestTurn = (a) => Math.round(a / TAU) * TAU;
 
   function openDetail(index, from, rect) {
-    if (busy || mode === 'detail') return;
+    if (busy || (mode !== 'wheel' && mode !== 'grid')) return;
     busy = true;
     origin = from;
     current = index;
@@ -499,17 +477,16 @@ function start(renderer) {
     const dur = quick ? 0 : CONFIG.moveDuration;
     const originLayer = from === 'wheel' ? wheelLayer : gridLayer;
 
-    // Стартовая позиция: купюра у колеса или поверх картинки в карточке сетки
-    pose.bind = null;
+    // Стартовая позиция: передняя купюра стопки или картинка в карточке сетки
     if (from === 'grid') {
       originRect = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2, w: rect.width * 0.8 };
-      showNote(index, { instant: true });
       Object.assign(pose, originRect);
-      rot.spin = 0;
       gsap.set(canvas, { opacity: 1 });
     } else {
-      showNote(index);
+      Object.assign(pose, panelRect());
     }
+    pose.bind = null;
+    cards.forEach((c, i) => { gsap.killTweensOf(c); c.hero = i === index ? 1 : 0; c.heroIn = false; });
 
     (from === 'wheel' ? wheel : grid).setActive(false);
     originLayer.classList.add('is-origin');
@@ -517,7 +494,7 @@ function start(renderer) {
     root.dataset.view = 'detail';
     detail.hidden = false;
     swapBody(index, true);
-    noteSlot.style.setProperty('--note-aspect', String(textures[index].aspect));
+    noteSlot.style.setProperty('--note-aspect', String(cards[index].aspect));
     gsap.set(reveal(), { opacity: 0, y: 24 });
     lenis.scrollTo(0, { immediate: true, force: true });
 
@@ -525,14 +502,13 @@ function start(renderer) {
     const tl = gsap.timeline({
       onComplete: () => {
         pose.bind = 'detail';
-        backUniforms.uFlip.value = 1; // дальше купюра переворачивается по X
         busy = false;
         lenis.start();
       },
     });
     // power2.inOut в GSAP — это ease-in-out cubic
     tl.to(pose, { x: to.x, y: to.y, w: to.w, duration: dur, ease: 'power2.inOut' }, 0)
-      .to(rot, { spin: nearestTurn(rot.spin), duration: dur, ease: 'power2.inOut' }, 0);
+      .to(fade, { stack: 0, duration: quick ? 0 : 0.5, ease: 'power2.out' }, 0);
     if (from === 'wheel') {
       tl.to(wheelLayer, { x: () => -view.w * 0.6, opacity: 0, duration: quick ? 0 : 0.8, ease: 'power2.inOut' }, 0);
     } else {
@@ -561,6 +537,7 @@ function start(renderer) {
     const toWheel = origin === 'wheel';
     pose.bind = null;
     Object.assign(pose, detailRect());
+    cards.forEach((c, i) => { gsap.killTweensOf(c); c.hero = i === current ? 1 : 0; });
 
     // Исходный вид оживает сразу, чтобы въехать уже на нужной купюре
     if (toWheel) {
@@ -576,9 +553,10 @@ function start(renderer) {
         detail.hidden = true;
         wheelLayer.classList.remove('is-origin');
         gridLayer.classList.remove('is-origin');
+        cards.forEach((c) => { c.hero = 0; });
         mode = origin;
         root.dataset.view = origin;
-        if (toWheel) pose.bind = 'panel';
+        pose.bind = toWheel ? 'panel' : null;
         gsap.set([wheelLayer, gridLayer], { clearProps: 'transform' });
         busy = false;
       },
@@ -586,61 +564,38 @@ function start(renderer) {
 
     tl.to(reveal(), { opacity: 0, y: -16, duration: quick ? 0 : 0.3, ease: 'power2.in' }, 0)
       .to(pose, { x: to.x, y: to.y, w: to.w, duration: dur, ease: 'power2.inOut' }, 0)
-      .to(rot, {
-        x: nearestTurn(rot.x),
-        vx: 0,
-        duration: quick ? 0 : 0.8,
-        ease: 'power2.inOut',
-        onComplete: () => { backUniforms.uFlip.value = 0; rot.x = 0; },
-      }, 0)
+      .to(rot, { y: nearestTurn(rot.y), vy: 0, duration: quick ? 0 : 0.8, ease: 'power2.inOut', onComplete: () => { rot.y = 0; } }, 0)
       .to(switcher, { opacity: 1, duration: quick ? 0 : 0.4 }, quick ? 0 : dur * 0.6);
 
     if (toWheel) {
-      tl.fromTo(wheelLayer, { x: () => -view.w * 0.6, opacity: 0 }, { x: 0, opacity: 1, duration: quick ? 0 : 0.8, ease: 'power2.inOut' }, quick ? 0 : dur * 0.3);
+      tl.to(fade, { stack: 1, duration: quick ? 0 : 0.6, ease: 'power2.out' }, quick ? 0 : dur * 0.5)
+        .fromTo(wheelLayer, { x: () => -view.w * 0.6, opacity: 0 }, { x: 0, opacity: 1, duration: quick ? 0 : 0.8, ease: 'power2.inOut' }, quick ? 0 : dur * 0.3);
     } else {
       tl.to(gridLayer, { opacity: 1, duration: quick ? 0 : 0.5, ease: 'power2.out' }, quick ? 0 : dur * 0.7)
         .to(canvas, { opacity: 0, duration: quick ? 0 : 0.3 }, quick ? 0 : dur);
     }
   }
 
+  // Листание на странице: текущая купюра уходит вглубь и гаснет, следующая приходит из глубины
   function stepDetail(dir) {
     if (busy || mode !== 'detail') return;
-    current = (current + dir + COUNT) % COUNT;
-    showNote(current);
+    const prev = current;
+    current = mod(current + dir, COUNT);
+    const Z = CONFIG.zoom;
+    const quick = reducedMotion;
+
+    const leaving = cards[prev];
+    leaving.heroIn = false;
+    gsap.to(leaving, { hero: 0, duration: quick ? 0 : Z.out, ease: 'power2.inOut', overwrite: true });
+
+    const coming = cards[current];
+    coming.heroIn = true;
+    coming.hero = 0;
+    gsap.to(coming, { hero: 1, duration: quick ? 0 : Z.in, ease: 'power2.out', delay: quick ? 0 : Z.delay, overwrite: true });
+
+    noteSlot.style.setProperty('--note-aspect', String(coming.aspect));
     swapBody(current);
   }
-
-  /* --- Переворот купюры по X на странице --- */
-
-  let drag = null;
-  noteSlot.addEventListener('pointerdown', (e) => {
-    if (mode !== 'detail' || busy || e.button !== 0) return;
-    noteSlot.setPointerCapture(e.pointerId);
-    noteSlot.classList.add('is-dragging');
-    drag = { id: e.pointerId, y: e.clientY, t: performance.now() };
-    rot.dragging = true;
-    rot.vx = 0;
-  });
-  noteSlot.addEventListener('pointermove', (e) => {
-    if (!drag || e.pointerId !== drag.id) return;
-    const now = performance.now();
-    const delta = (e.clientY - drag.y) * CONFIG.dragSpeed;
-    rot.x += delta;
-    rot.vx = delta / Math.max(0.001, (now - drag.t) / 1000);
-    drag.y = e.clientY;
-    drag.t = now;
-  });
-  const endDrag = (e) => {
-    if (!drag || e.pointerId !== drag.id) return;
-    if (noteSlot.hasPointerCapture(e.pointerId)) noteSlot.releasePointerCapture(e.pointerId);
-    noteSlot.classList.remove('is-dragging');
-    // Если палец замер перед отпусканием, броска нет
-    if (performance.now() - drag.t > 80) rot.vx = 0;
-    drag = null;
-    rot.dragging = false;
-  };
-  noteSlot.addEventListener('pointerup', endDrag);
-  noteSlot.addEventListener('pointercancel', endDrag);
 
   /* --- Загрузка --- */
 
@@ -653,7 +608,6 @@ function start(renderer) {
     gsap.to(counter, { value: (loaded / total) * 100, duration: 0.6, ease: 'power2.out', onUpdate: renderCount, overwrite: true });
   };
   manager.onLoad = () => {
-    showNote(0, { instant: true });
     renderer.compile(scene, camera);
     gsap.to(counter, { value: 100, duration: 0.8, ease: 'power2.out', onUpdate: renderCount, overwrite: true, onComplete: intro });
   };
@@ -662,25 +616,42 @@ function start(renderer) {
 
   const loader = new THREE.TextureLoader(manager);
   ITEMS.forEach((item, i) => {
+    const card = cards[i];
     loader.load(item.src, (texture) => {
       prepareTexture(texture, maxAnisotropy);
       renderer.initTexture(texture);
-      textures[i].front = texture;
-      textures[i].aspect = texture.image.width / texture.image.height;
+      card.aspect = texture.image.width / texture.image.height;
+      card.front.map = texture;
+      card.front.needsUpdate = true;
+      if (!item.back) {
+        // Оборота нет — на обороте повторяется лицо
+        card.back.map = texture;
+        card.back.needsUpdate = true;
+      }
     });
     if (item.back) {
       loader.load(item.back, (texture) => {
         prepareTexture(texture, maxAnisotropy);
         renderer.initTexture(texture);
-        textures[i].back = texture;
+        card.back.map = texture;
+        card.back.needsUpdate = true;
       });
     }
   });
 
-  // Прелоадер: купюра ребром по центру → поворачивается в фас → уезжает к колесу
+  // Прелоадер: купюра ребром по центру → поворачивается в фас → уезжает к колесу, за ней собирается стопка
+  cards[0].hero = 1;
   function intro() {
     const quick = reducedMotion;
-    const tl = gsap.timeline({ onComplete: () => { busy = false; } });
+    const tl = gsap.timeline({
+      onComplete: () => {
+        cards[0].hero = 0;
+        mode = 'wheel';
+        root.dataset.view = 'wheel';
+        pose.bind = 'panel';
+        busy = false;
+      },
+    });
     tl.to(countEl, { yPercent: -40, opacity: 0, duration: quick ? 0 : 0.5, ease: 'power2.in' })
       .to(rot, { flip: 0, duration: quick ? 0 : 1.2, ease: 'power3.inOut' }, quick ? 0 : '-=0.1')
       .add(() => {
@@ -694,85 +665,153 @@ function start(renderer) {
         w: () => panelRect().w,
         duration: quick ? 0 : CONFIG.moveDuration,
         ease: 'power2.inOut',
-        onComplete: () => { pose.bind = 'panel'; },
       })
-      .from(wheelLayer, { x: () => -view.w * 0.4, opacity: 0, duration: quick ? 0 : 1, ease: 'power3.out' }, '<0.2')
+      .to(fade, { stack: 1, duration: quick ? 0 : 0.8, ease: 'power2.out' }, quick ? '<' : '<0.6')
+      .from(wheelLayer, { x: () => -view.w * 0.4, opacity: 0, duration: quick ? 0 : 1, ease: 'power3.out' }, quick ? '<' : '<-0.4')
       .from([switcher, langNav], { opacity: 0, duration: quick ? 0 : 0.6, ease: 'power2.out', stagger: 0.08 }, '<0.3');
   }
 
   applyLanguage();
+  root.dataset.view = 'wheel';
   Object.assign(pose, { x: view.w / 2, y: view.h / 2, w: panelRect().w });
+
+  /* --- Стопка --- */
+
+  // Слот k в стопке: 0 — передняя. Три первых непрозрачны, четвёртая полупрозрачна, дальше не видно.
+  function slotPose(k) {
+    const S = CONFIG.stack;
+    const opacity = k <= 2 ? 1 : k <= 3 ? lerp(1, 0.5, k - 2) : k <= 4 ? lerp(0.5, 0, k - 3) : 0;
+    return { dx: k * S.offsetX, dz: -k * S.depth, turn: k * S.turn, opacity };
+  }
+
+  // rel — непрерывное место купюры в стопке. Между N−1 и N купюра уходит
+  // с передней позиции в конец: отлетает влево, отступает вглубь и гаснет.
+  function stackPose(rel) {
+    const S = CONFIG.stack;
+    if (rel <= COUNT - 1) return slotPose(rel);
+    const p = COUNT - rel; // 0 — ещё спереди, 1 — уже в конце
+    const end = slotPose(COUNT - 1);
+    const arc = Math.sin(p * Math.PI);
+    return {
+      dx: lerp(0, end.dx, p) - arc * S.swing,
+      dz: lerp(0, end.dz, p) - arc * 0.15,
+      turn: lerp(0, end.turn, p) + arc * S.swingTurn,
+      // гаснет к концу пути полностью, без «призрака» у края стопки
+      opacity: 1 - clamp(p / 0.85, 0, 1) ** 2,
+    };
+  }
 
   /* --- Кадр --- */
 
   const damp = (factor, dt) => 1 - Math.pow(1 - factor, dt * 60);
-  let elapsed = 0;
 
   gsap.ticker.add((_time, deltaMs) => {
     const dt = Math.min(deltaMs / 1000, 0.05);
-    elapsed += dt;
     const still = reducedMotion;
 
     grid.update(dt);
     wheel.update(dt);
 
-    // В сетке купюра не видна — не тратим на сцену кадр
+    // В сетке купюры не видны — не тратим на сцену кадр
     if (mode === 'grid' && !busy) return;
 
-    // Форма перетекает вместе с поверхностью
-    const mix = shared.uMix.value;
-    const eased = mix * mix * (3 - 2 * mix);
-    const aspectB = note.b >= 0 ? shared.uAspectB.value : shared.uAspectA.value;
-    shared.uAspect.value = shared.uAspectA.value + (aspectB - shared.uAspectA.value) * eased;
-    if (mode === 'detail' && !busy) noteSlot.style.setProperty('--note-aspect', shared.uAspect.value.toFixed(4));
-    else if (mode === 'wheel') placeHitArea();
-
-    // Привязка позиции
     if (pose.bind === 'panel') Object.assign(pose, panelRect());
     else if (pose.bind === 'center') Object.assign(pose, { x: view.w / 2, y: view.h / 2, w: panelRect().w });
     else if (pose.bind === 'detail') Object.assign(pose, detailRect());
 
-    // Материал: бумага ↔ полимер
-    const sa = surfaceAt(note.a);
-    const sb = note.b >= 0 ? surfaceAt(note.b) : sa;
-    const lerpS = (key) => sa[key] + (sb[key] - sa[key]) * eased;
-    [front, back].forEach((m) => {
-      m.roughness = lerpS('roughness');
-      m.sheen = Math.max(0.001, lerpS('sheen'));
-      m.clearcoat = Math.max(0.001, lerpS('clearcoat'));
-      m.clearcoatRoughness = lerpS('clearcoatRoughness');
-      m.bumpScale = lerpS('bumpScale');
-    });
+    // Наклон к курсору: угол, к которому движется мышь, уходит назад на 3°
+    const over = pointer.mouse && !busy && !rot.dragging && isOverHero(pointer.x, pointer.y);
+    let tx = 0;
+    let ty = 0;
+    if (over && !still) {
+      const r = heroRect();
+      const nx = clamp((pointer.x - r.x) / (r.w / 2), -1, 1);
+      const ny = clamp((r.y - pointer.y) / (r.h / 2), -1, 1);
+      tx = -ny * CONFIG.hoverTilt;
+      ty = nx * CONFIG.hoverTilt;
+    }
+    tilt.x += (tx - tilt.x) * damp(0.1, dt);
+    tilt.y += (ty - tilt.y) * damp(0.1, dt);
+    root.classList.toggle('is-over-note', over && mode === 'detail');
+    if (mode === 'wheel') placeHitArea();
 
-    // Вращение: у колеса медленно вокруг вертикали, на странице — переворот по X
-    if (mode === 'wheel' && !busy && !still) {
-      rot.spin += CONFIG.spinSpeed * dt;
-    } else if (mode === 'detail' && !busy && !rot.dragging) {
-      rot.x += rot.vx * dt;
-      rot.vx *= Math.pow(0.05, dt);
-      if (Math.abs(rot.vx) < 0.6) {
-        rot.vx = 0;
-        rot.x += (Math.round(rot.x / Math.PI) * Math.PI - rot.x) * damp(0.08, dt);
+    // Переворот на странице: инерция и доводка до лица или оборота
+    if (mode === 'detail' && !busy && !rot.dragging) {
+      rot.y += rot.vy * dt;
+      rot.vy *= Math.pow(0.05, dt);
+      if (Math.abs(rot.vy) < 0.6) {
+        rot.vy = 0;
+        rot.y += (Math.round(rot.y / Math.PI) * Math.PI - rot.y) * damp(0.08, dt);
       }
     }
 
-    // Мир: пиксели → единицы сцены на плоскости z = 0
-    const k = view.worldH / view.h;
-    const width = pose.w * k;
-    const sway = still ? 0 : Math.sin(elapsed * CONFIG.swayFreq);
-    mesh.scale.set(width, width / shared.uAspect.value, width);
-    mesh.position.set((pose.x - view.w / 2) * k, -(pose.y - view.h / 2) * k + sway * CONFIG.swayAmp * width, 0);
-    mesh.rotation.set(rot.x + sway * 0.02, rot.spin + rot.flip, 0);
-
-    // Загиб: от скорости колеса, от броска на странице и волна во время смены поверхности
-    const speed = mode === 'wheel' ? Math.abs(wheel.velocity) * 0.12 : Math.abs(rot.vx) * 0.01;
+    const k = view.worldH / view.h; // мировых единиц на пиксель
+    const panel = panelRect();
+    const stackW = panel.w * k;
+    const focus = wheel.position;
+    const speed = mode === 'wheel' ? Math.abs(wheel.velocity) * 0.12 : Math.abs(rot.vy) * 0.01;
     const bendTarget = still ? 0 : -Math.min(speed, CONFIG.bendMax);
-    shared.uBend.value += (bendTarget - shared.uBend.value) * damp(0.12, dt);
-    shared.uWave.value = still ? 0 : CONFIG.waveAmp + Math.sin(mix * Math.PI) * 0.012 + Math.abs(shared.uBend.value) * 0.08;
-    shared.uTime.value += dt * 1.2;
+    const Z = CONFIG.zoom;
+
+    cards.forEach((c, i) => {
+      const m = c.mesh;
+      const rel = mod(i - focus, COUNT);
+      const sp = stackPose(rel);
+      const frontWeight = 1 - Math.min(1, Math.min(rel, COUNT - rel));
+
+      // Стопка у колеса
+      let x = panel.x + sp.dx * panel.w;
+      let y = panel.y;
+      let z = sp.dz * stackW;
+      let w = stackW;
+      let rx = tilt.x * frontWeight;
+      let ry = sp.turn + tilt.y * frontWeight;
+      let opacity = sp.opacity * fade.stack;
+
+      // Главная купюра: прелоадер, переезд, страница
+      if (c.hero > 0) {
+        const hw = pose.w * k;
+        const depth = c.heroIn ? Z.depthIn : Z.depthOut;
+        const heroZ = mode === 'detail' ? -(1 - c.hero) * depth * hw : 0;
+        const blend = mode === 'detail' || mode === 'intro' ? 1 : c.hero;
+        x = lerp(x, pose.x, blend);
+        y = lerp(y, pose.y, blend);
+        z = lerp(z, heroZ, blend);
+        w = lerp(w, hw, blend);
+        rx = lerp(rx, tilt.x, blend);
+        ry = lerp(ry, rot.y + rot.flip + tilt.y, blend);
+        opacity = mode === 'detail' ? c.hero : lerp(opacity, 1, blend);
+      }
+
+      m.visible = opacity > 0.003;
+      if (!m.visible) return;
+      m.scale.set(w, w / c.aspect, w);
+      m.position.set((x - view.w / 2) * k, -(y - view.h / 2) * k, z);
+      m.rotation.set(rx, ry, 0);
+
+      if (Math.abs(opacity - c.opacity) > 0.002) {
+        c.opacity = opacity;
+        c.materials.forEach((mat) => { mat.opacity = opacity; });
+      }
+
+      const u = c.uniforms;
+      u.uBend.value += (bendTarget - u.uBend.value) * damp(0.12, dt);
+      u.uWave.value = still ? 0 : CONFIG.waveAmp + Math.abs(u.uBend.value) * 0.08;
+      u.uTime.value += dt * 1.2;
+    });
 
     renderer.render(scene, camera);
   });
+
+  // Прозрачная кнопка поверх передней купюры: клик открывает её страницу
+  function placeHitArea() {
+    const r = panelRect();
+    const h = r.w / cards[frontIndex()].aspect;
+    hitArea.style.left = `${r.x - r.w / 2}px`;
+    hitArea.style.top = `${r.y - h / 2}px`;
+    hitArea.style.width = `${r.w}px`;
+    hitArea.style.height = `${h}px`;
+  }
 }
 
 /* ---------- Текстуры ---------- */
