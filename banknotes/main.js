@@ -45,7 +45,6 @@ const CONFIG = {
     dim: 0.5, // насколько дальние купюры уходят в цвет фона
     stagger: 0.05, // с, задержка между купюрами, когда башня сдвигается
     queueGap: 0.11, // с, пауза между сменами при быстрой прокрутке через несколько купюр
-    introStagger: 0.07, // с, купюры собираются в башню по очереди
     exitDir: { x: 0, y: 1 }, // куда уходит передняя купюра: вниз (как в CardSwap); вверх — y: -1
     refWidth: 460, // ширина карточки CardSwap, к которой привязаны px-расстояния
   },
@@ -946,14 +945,10 @@ function start(renderer) {
     });
   }
 
-  // Купюры собираются в башню по очереди из передней позиции
+  // При загрузке купюры сразу стоят на своих местах башни и просто проявляются
+  // (fade.stack); остальные 43 никуда не летят
   function deckIntro() {
-    const now = performance.now();
-    deck.cards.forEach((card) => {
-      Object.assign(card, slot(0));
-      card.from = 0;
-      card.hold = now + (card.pos * D.introStagger * 1000) / D.speed;
-    });
+    deckJump(deckFront());
   }
 
   function spring(card, target, omega, zeta, dt) {
