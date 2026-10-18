@@ -1,0 +1,8 @@
+{
+  "name": "paper-tender",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "npx serve ."
+  }
+}

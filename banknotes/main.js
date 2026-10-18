@@ -6,6 +6,8 @@ import Lenis from 'lenis';
 import { createGrid, createWheel } from './views.js';
 import { ITEMS, UI, LANGS } from './data.js';
 import { initDither } from './dither.js';
+import { placeholderCanvas, whenFontsReady } from './placeholder.js';
+import { loadRates } from './rates.js';
 
 /* ---------- Настройки ---------- */
 
@@ -45,6 +47,9 @@ const CONFIG = {
   zoom: { depthOut: 0.8, depthIn: 0.35, out: 0.5, in: 0.6, delay: 0.25 },
   // Прилипание купюры при прокрутке страницы
   sticky: { top: 0.15, minScale: 0.3, range: 1.2 },
+  // Оборот на 360° за всю прокрутку страницы купюры; старт после 5% высоты страницы
+  scrollSpin: { turns: 1, startAt: 0.05 },
+  stackDrop: 44, // px: на столько стопка у колеса ниже центра экрана (≈ 2.75rem)
   fov: 32,
   cameraZ: 5,
   maxTexture: 1024,
@@ -93,7 +98,7 @@ const t = () => UI[lang];
 const text = (i) => ({
   name: ITEMS[i].name[lang],
   caption: ITEMS[i].caption[lang],
-  issuer: ITEMS[i].issuer[lang],
+  issuer: ITEMS[i].issuer?.[lang] ?? '',
 });
 
 /* ---------- Запуск ---------- */
@@ -265,7 +270,7 @@ function start(renderer) {
   function panelRect() {
     return view.portrait
       ? { x: view.w * 0.5, y: view.h * 0.27, w: view.w * 0.56 * 1.05 }
-      : { x: view.w * 0.72, y: view.h * 0.5, w: Math.min(view.w * 0.34, 600) * 1.05 }; // +5%
+      : { x: view.w * 0.72, y: view.h * 0.5 + CONFIG.stackDrop, w: Math.min(view.w * 0.34, 600) * 1.05 }; // +5%
   }
 
   // Место купюры на странице: прилипает на 15vh и уменьшается до 30% при прокрутке
@@ -284,7 +289,7 @@ function start(renderer) {
 
   // pose — центр и ширина главной купюры в пикселях; bind — к чему она привязана каждый кадр
   const pose = { x: 0, y: 0, w: 1, bind: 'center' };
-  const rot = { y: 0, flip: Math.PI / 2, vy: 0, dragging: false };
+  const rot = { y: 0, flip: Math.PI / 2, vy: 0, dragging: false, scroll: 0, scrollOn: false };
   const tilt = { x: 0, y: 0 };
   const fade = { stack: 0 }; // видимость стопки (кроме главной купюры)
 
@@ -450,7 +455,7 @@ function start(renderer) {
     langNav.setAttribute('aria-label', ui.language);
     switcher.setAttribute('aria-label', ui.modes);
     viewButtons.forEach((b) => { b.textContent = ui[b.dataset.view]; });
-    document.querySelectorAll('[data-i18n]').forEach((n) => { n.textContent = ui[n.dataset.i18n]; });
+    document.querySelectorAll('[data-i18n]').forEach((n) => { n.textContent = ui[n.dataset.i18n].replaceAll('{n}', COUNT); });
     detail.querySelector('.detail__close').setAttribute('aria-label', ui.close);
     document.querySelector('.fallback').setAttribute('aria-label', ui.collection);
     wheel.refresh();
@@ -486,7 +491,11 @@ function start(renderer) {
 
     const plate = node('section', 'plate');
     const facts = node('dl', 'plate__facts');
-    (d?.facts ?? [[ui.issuer, issuer], [ui.denomination, caption]]).forEach(([label, value]) => {
+    // Пока банкноты нет, caption — это название валюты, а не номинал
+    const basics = ITEMS[i].src
+      ? [[ui.issuer, issuer], [ui.denomination, caption], [ui.currency, ITEMS[i].currency]]
+      : [[ui.currency, `${caption} (${ITEMS[i].currency})`]];
+    (d?.facts ?? basics.filter(([, value]) => value)).forEach(([label, value]) => {
       const fact = node('div');
       fact.append(node('dt', 'label', label), node('dd', '', value));
       facts.append(fact);
@@ -651,6 +660,7 @@ function start(renderer) {
     const tl = gsap.timeline({
       onComplete: () => {
         pose.bind = 'detail';
+        rot.scrollOn = true;
         busy = false;
         lenis.start();
       },
@@ -680,6 +690,10 @@ function start(renderer) {
     const quick = reducedMotion;
     const dur = quick ? 0 : CONFIG.moveDuration;
     const toWheel = origin === 'wheel';
+    // Оборот от прокрутки переходит в обычный поворот и доводится до лицевой стороны
+    rot.y += rot.scroll;
+    rot.scroll = 0;
+    rot.scrollOn = false;
     pose.bind = null;
     Object.assign(pose, detailRect());
     cards.forEach((c, i) => { gsap.killTweensOf(c); c.hero = i === current ? 1 : 0; });
@@ -763,8 +777,21 @@ function start(renderer) {
   manager.onError = () => {};
 
   const loader = new THREE.TextureLoader(manager);
+  const placeholders = [];
   ITEMS.forEach((item, i) => {
     const card = cards[i];
+    if (!item.src) {
+      // Картинки ещё нет — заглушка с кодом валюты
+      const canvas = placeholderCanvas(item);
+      const texture = new THREE.CanvasTexture(canvas);
+      texture.colorSpace = THREE.SRGBColorSpace;
+      texture.anisotropy = maxAnisotropy;
+      card.aspect = canvas.width / canvas.height;
+      card.front.map = texture;
+      card.back.map = texture;
+      placeholders.push(texture);
+      return;
+    }
     loader.load(item.src, (texture) => {
       prepareTexture(texture, maxAnisotropy);
       renderer.initTexture(texture);
@@ -786,6 +813,12 @@ function start(renderer) {
       });
     }
   });
+
+  whenFontsReady(ITEMS, () => {
+    placeholders.forEach((texture) => { texture.needsUpdate = true; });
+    grid.refresh();
+  });
+  loadRates();
 
   // Прелоадер: купюра ребром по центру → поворачивается в фас → уезжает к колесу, за ней собирается стопка
   cards[0].hero = 1;
@@ -892,6 +925,13 @@ function start(renderer) {
     root.classList.toggle('is-over-note', over && mode === 'detail');
     updateFlipHint(over && mode === 'detail');
     if (mode === 'detail') scaleTitle();
+    if (rot.scrollOn) {
+      // Полный оборот за всю прокрутку страницы, обратно — в обратную сторону
+      const doc = document.documentElement.scrollHeight;
+      const start = doc * CONFIG.scrollSpin.startAt;
+      const span = Math.max(1, doc - view.h - start);
+      rot.scroll = clamp((window.scrollY - start) / span, 0, 1) * TAU * CONFIG.scrollSpin.turns;
+    }
     if (mode === 'wheel') placeHitArea();
 
     // Переворот на странице: инерция и доводка до лица или оборота
@@ -937,7 +977,7 @@ function start(renderer) {
         z = lerp(z, heroZ, blend);
         w = lerp(w, hw, blend);
         rx = lerp(rx, tilt.x, blend);
-        ry = lerp(ry, rot.y + rot.flip + tilt.y, blend);
+        ry = lerp(ry, rot.y + rot.flip + rot.scroll + tilt.y, blend);
         opacity = mode === 'detail' ? c.hero : lerp(opacity, 1, blend);
       }
 

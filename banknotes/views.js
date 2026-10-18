@@ -2,6 +2,8 @@
 // Оба — DOM поверх сцены, со своей инерцией: цель двигается вводом, текущее значение
 // дотягивается к ней через lerp.
 
+import { imageFor } from './placeholder.js';
+
 const damp = (factor, dt) => 1 - Math.pow(1 - factor, dt * 60);
 const mod = (n, m) => ((n % m) + m) % m;
 
@@ -51,7 +53,7 @@ export function createGrid(container, items, { lerp, isReduced, text, onSelect }
   function fill(node, index) {
     if (node.dataset.index === String(index)) return;
     node.dataset.index = String(index);
-    node.querySelector('img').src = items[index].src;
+    node.querySelector('img').src = imageFor(items[index]);
     const t = text(index);
     node.querySelector('.grid-card__name').textContent = t.name;
     node.querySelector('.grid-card__tag').textContent = t.caption;
@@ -204,7 +206,16 @@ export function createWheel(container, items, { lerp, isReduced, text, labels, o
   const infoName = el('span', 'wheel-info__name');
   const infoCaption = el('span', 'wheel-chip');
   info.append(infoName, infoCaption);
-  container.append(list, info);
+
+  // Прогресс слева: по черте на банкноту. Активная — длинная и тёмная, соседние
+  // плавно короче, самая короткая — 10% активной. Длины следуют за колесом без скачков.
+  const progress = el('div', 'wheel-progress');
+  const ticks = items.map(() => {
+    const tick = el('span', 'wheel-progress__tick');
+    progress.append(tick);
+    return tick;
+  });
+  container.append(list, info, progress);
 
   const state = { current: 0, target: 0 };
   const geo = { r: 900, lineH: 80, cx: 0, cy: 0, fadeUp: 0.09, flat: false, left: 20 };
@@ -283,12 +294,26 @@ export function createWheel(container, items, { lerp, isReduced, text, labels, o
       row.li.classList.toggle('is-active', dist < 0.5);
     });
 
+    if (!geo.flat) updateProgress();
+
     const next = mod(base, items.length);
     if (next !== activeIndex) {
       activeIndex = next;
       showInfo(next);
       onChange(next);
     }
+  }
+
+  const PROGRESS = { min: 0.1, falloff: 3.5 };
+  function updateProgress() {
+    const pos = mod(state.current, items.length);
+    ticks.forEach((tick, i) => {
+      const d = Math.abs(i - pos);
+      const near = Math.exp(-d / PROGRESS.falloff); // 1 у активной, плавно к 0
+      const length = PROGRESS.min + (1 - PROGRESS.min) * near;
+      tick.style.transform = `scaleX(${length.toFixed(4)})`;
+      tick.style.opacity = (0.3 + 0.7 * Math.max(0, 1 - d)).toFixed(3);
+    });
   }
 
   function showInfo(index) {

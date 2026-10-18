@@ -13,3 +13,15 @@ npx serve banknotes
 - `views.js`: колесо и сетка.
 - `styles.css`: все цвета и размеры заданы в CSS-переменных в `:root`.
 - `assets/objects/`: картинки купюр, `assets/noise.png` — текстура шума.
+
+## Хостинг на Vercel и курсы валют
+
+Сайт статический, плюс одна серверная функция `api/rates.js`. Она берёт курсы из Open Exchange Rates и кэширует их на час.
+
+1. Зарегистрируйся на openexchangerates.org (бесплатного тарифа хватает) и скопируй App ID.
+2. На vercel.com → Add New → Project → импортируй репозиторий `pycuk-ux/line-noise-studio`.
+3. Root Directory: `banknotes`. Framework Preset: Other. Build Command и Output Directory оставь пустыми.
+4. Settings → Environment Variables: `OXR_APP_ID` = твой App ID.
+5. Deploy. Проверить функцию: `https://<проект>.vercel.app/api/rates`.
+
+Браузер обращается к `/api/rates` только на хостах из `RATES.hosts` в `rates.js`. Если подключишь свой домен, добавь его туда.

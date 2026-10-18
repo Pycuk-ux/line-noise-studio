@@ -7,7 +7,7 @@
   --color-line: rgba(31, 29, 24, 0.18);
   --color-card: #ddd0b8;
   --color-plate: #ddd1bb; /* плашки на странице купюры: чуть темнее фона */
-  --color-chip: rgba(31, 29, 24, 0.08);
+  --color-chip: #c9c0af; /* плашка номинала и активный пункт переключателей */
   --color-switch-bg: rgba(231, 220, 200, 0.86);
 
   /* Шрифты */
@@ -167,8 +167,6 @@ html.is-flipping * {
 
 .is-webgl .segmented {
   display: flex;
-  position: fixed;
-  z-index: var(--z-ui);
   gap: 2px;
   padding: 3px;
   background: var(--color-switch-bg);
@@ -196,20 +194,80 @@ html.is-flipping * {
 
 .segmented button[aria-pressed="true"] {
   color: var(--color-ink);
-  border-color: var(--color-accent);
-  background: var(--color-bg);
+  background: var(--color-chip);
 }
 
-.switcher {
-  left: 50%;
-  bottom: calc(var(--gutter) + env(safe-area-inset-bottom, 0px));
-  transform: translateX(-50%);
-}
-
-.lang {
+/* Правый верхний угол: вид коллекции и язык */
+.controls {
+  position: fixed;
   top: calc(var(--gutter) + env(safe-area-inset-top, 0px));
   right: calc(var(--gutter) + env(safe-area-inset-right, 0px));
+  z-index: var(--z-ui);
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
+
+/* Логотип и подпись по центру сверху, на одной высоте с переключателями */
+.masthead { display: none; }
+
+.is-webgl .masthead {
+  position: fixed;
+  top: calc(var(--gutter) + env(safe-area-inset-top, 0px));
+  left: 50%;
+  z-index: var(--z-ui);
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  text-align: center;
+  color: var(--color-ink);
+  pointer-events: none;
+  transition: opacity 0.4s;
+}
+
+.masthead__logo {
+  display: block;
+  width: 217px;
+  max-width: 50vw;
+  height: auto;
+  margin-top: 5px; /* центр логотипа на уровне центра переключателей */
+}
+
+.masthead__lead {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--color-ink-soft);
+  white-space: nowrap;
+}
+
+.is-webgl.is-loading .masthead,
+html[data-view="detail"] .masthead { opacity: 0; }
+
+/* Прогресс колеса слева */
+.wheel-progress {
+  position: absolute;
+  left: max(24px, env(safe-area-inset-left, 0px));
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.wheel-progress__tick {
+  display: block;
+  width: 52px;
+  height: 1px;
+  background: var(--color-ink);
+  transform-origin: 0 50%;
+  will-change: transform, opacity;
+}
+
+.wheel-view__list.is-flat ~ .wheel-progress { display: none; }
 
 /* На странице купюры выбор вида не нужен */
 html[data-view="detail"] .switcher { visibility: hidden; }
@@ -710,6 +768,17 @@ html.lenis body { height: auto; }
 /* ---------- Мобильный ---------- */
 
 @media (max-width: 720px) {
+  /* Телефон: вид коллекции остаётся внизу, логотип меньше */
+  .switcher {
+    position: fixed;
+    left: 50%;
+    bottom: calc(var(--gutter) + env(safe-area-inset-bottom, 0px));
+    transform: translateX(-50%);
+  }
+  .masthead__logo { width: 150px; }
+  .masthead__lead { font-size: 12px; }
+  .is-webgl .masthead { left: max(16px, env(safe-area-inset-left, 0px)); transform: none; align-items: flex-start; text-align: left; }
+
   .plate { padding: 28px 20px; }
   .plate__facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 
