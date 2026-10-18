@@ -10,20 +10,22 @@ import { ITEMS, UI, LANGS } from './data.js';
 
 const CONFIG = {
   thickness: 0.006, // толщина «бумаги» в долях ширины
-  lerp: 0.08, // инерция колеса и сетки
+  lerp: 0.06, // инерция колеса и сетки: меньше — мягче и дольше доезжает
   moveDuration: 1.1, // переезд купюры на страницу и обратно
   dragSpeed: 0.01, // рад на пиксель при перевороте
   hoverTilt: THREE.MathUtils.degToRad(5), // наклон к курсору: угол уходит назад на столько
   // Бумага: изгиб от вращения и движения, с пружиной (лёгкий отскок после остановки).
   // Изгиб — в долях ширины купюры на краю.
   paper: {
-    flipCurl: 0.05, // S-изгиб на каждый рад/с вращения: края отстают от поворота
-    curlMax: 0.35, // предел S-изгиба
+    flipCurl: 0.07, // S-изгиб на каждый рад/с вращения: края отстают от поворота
+    curlMax: 0.4, // предел S-изгиба
     flipCup: 0.015, // прогиб «чашкой» на каждый рад/с вращения
     moveCup: 0.03, // прогиб «чашкой» на каждую ширину/с движения
     cupMax: 0.14, // предел прогиба
-    stiffness: 140, // жёсткость: больше — бумага плотнее, быстрее выпрямляется
-    damping: 12, // затухание: меньше — дольше «дрожит» после остановки
+    moveLift: 0.12, // подъём отстающего края на каждую ширину/с движения вбок — эффект перелистывания
+    liftMax: 0.3, // предел подъёма края
+    stiffness: 80, // жёсткость: больше — бумага плотнее, быстрее выпрямляется
+    damping: 9, // затухание: меньше — дольше «дрожит» после остановки
     wave: 0.004, // «дыхание» поверхности в покое
   },
   // Стопка у колеса. Сдвиги и глубина — в долях ширины купюры.
@@ -115,7 +117,7 @@ function createRenderer(target) {
 
 /* ---------- Загиб бумаги в вершинном шейдере ---------- */
 
-// Профиль по X: «чашка» и S-изгиб от движения плюс бегущая волна.
+// Профиль по X: «чашка», S-изгиб и подъём отстающего края от движения плюс бегущая волна.
 // Нормаль правится той же производной, чтобы блик ехал по изгибу.
 function applyPaperBend(material, uniforms) {
   material.onBeforeCompile = (shader) => {
@@ -126,16 +128,22 @@ function applyPaperBend(material, uniforms) {
         `#include <common>
         uniform float uBend;
         uniform float uCurl;
+        uniform float uLift;
         uniform float uWave;
         uniform float uTime;
-        // x ∈ [−0.5, 0.5]; s = 2x ∈ [−1, 1]. uBend — «чашка», uCurl — S-изгиб, края в разные стороны.
+        // x ∈ [−0.5, 0.5]; s = 2x ∈ [−1, 1]. uBend — «чашка», uCurl — S-изгиб, края в разные стороны,
+        // uLift — подъём одного края к зрителю: > 0 поднимает левый (купюра едет вправо), < 0 — правый.
+        float liftSide(float s) { return uLift > 0.0 ? max(-s, 0.0) : max(s, 0.0); }
         float paperZ(float x) {
           float s = x * 2.0;
-          return uBend * x * x + uCurl * 0.5 * s * abs(s) + uWave * sin(x * 6.2832 + uTime);
+          float side = liftSide(s);
+          return uBend * x * x + uCurl * 0.5 * s * abs(s) + abs(uLift) * 0.5 * side * side
+            + uWave * sin(x * 6.2832 + uTime);
         }
         float paperDz(float x) {
           float s = x * 2.0;
-          return 2.0 * uBend * x + uCurl * 2.0 * abs(s) + uWave * 6.2832 * cos(x * 6.2832 + uTime);
+          return 2.0 * uBend * x + uCurl * 2.0 * abs(s) - 2.0 * uLift * liftSide(s)
+            + uWave * 6.2832 * cos(x * 6.2832 + uTime);
         }`,
       )
       .replace(
@@ -190,7 +198,7 @@ function start(renderer) {
 
   const cards = ITEMS.map((item, i) => {
     const s = CONFIG.surfaces[item.material === 'polymer' ? 'polymer' : 'cotton'];
-    const uniforms = { uBend: { value: 0 }, uCurl: { value: 0 }, uWave: { value: 0 }, uTime: { value: i * 1.7 } };
+    const uniforms = { uBend: { value: 0 }, uCurl: { value: 0 }, uLift: { value: 0 }, uWave: { value: 0 }, uTime: { value: i * 1.7 } };
     const surface = () => {
       const m = new THREE.MeshPhysicalMaterial({
         color: 0xffffff,
@@ -229,6 +237,7 @@ function start(renderer) {
       // Пружины изгиба и прошлое положение — для скорости
       curl: { x: 0, v: 0 },
       cup: { x: 0, v: 0 },
+      lift: { x: 0, v: 0 },
       prev: null,
     };
   });
@@ -830,9 +839,11 @@ function start(renderer) {
       // Скорость купюры: вращение вокруг вертикали (рад/с) и движение (ширин/с)
       let omega = 0;
       let speed = 0;
+      let vx = 0;
       if (wasVisible && c.prev && dt > 0) {
         omega = clamp((ry - c.prev.ry) / dt, -20, 20);
         speed = Math.min(10, Math.hypot(wx - c.prev.x, wy - c.prev.y, z - c.prev.z) / dt / w);
+        vx = clamp((wx - c.prev.x) / dt / w, -10, 10);
       }
       c.prev = { x: wx, y: wy, z, ry };
 
@@ -840,7 +851,9 @@ function start(renderer) {
       // Пружина даёт мягкий отскок, когда купюра останавливается.
       const curlTarget = still ? 0 : clamp(-omega * P.flipCurl, -P.curlMax, P.curlMax);
       const cupTarget = still ? 0 : -Math.min(P.cupMax, Math.abs(omega) * P.flipCup + speed * P.moveCup);
-      [[c.curl, curlTarget], [c.cup, cupTarget]].forEach(([spring, target]) => {
+      // Едет вправо — приподнимается левый край, влево — правый, как лист при перелистывании
+      const liftTarget = still ? 0 : clamp(vx * P.moveLift, -P.liftMax, P.liftMax);
+      [[c.curl, curlTarget], [c.cup, cupTarget], [c.lift, liftTarget]].forEach(([spring, target]) => {
         spring.v += (P.stiffness * (target - spring.x) - P.damping * spring.v) * dt;
         spring.x += spring.v * dt;
       });
@@ -853,6 +866,7 @@ function start(renderer) {
       const u = c.uniforms;
       u.uBend.value = c.cup.x;
       u.uCurl.value = c.curl.x;
+      u.uLift.value = c.lift.x;
       u.uWave.value = still ? 0 : P.wave + Math.abs(c.cup.x) * 0.08;
       u.uTime.value += dt * 1.2;
     });
