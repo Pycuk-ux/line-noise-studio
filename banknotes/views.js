@@ -231,8 +231,8 @@ export function createWheel(container, items, { lerp, isReduced, text, labels, o
     const w = window.innerWidth;
     const h = window.innerHeight;
     const portrait = w <= 720 || w / h < 0.85;
-    // На десктопе +8pt (≈ 10.7px) к прежнему размеру; на телефоне — под левую колонку
-    const font = portrait ? Math.max(26, w * 0.075) : Math.min(88, Math.max(40, w * 0.045)) + (8 * 4) / 3;
+    // На телефоне — под левую колонку
+    const font = portrait ? Math.max(26, w * 0.075) : Math.min(88, Math.max(40, w * 0.045));
     geo.flat = portrait;
     geo.left = Math.max(16, w * 0.04);
     list.classList.toggle('is-flat', portrait);
