@@ -31,18 +31,25 @@ const CONFIG = {
     damping: 9, // затухание: меньше — дольше «дрожит» после остановки
     wave: 0.004, // «дыхание» поверхности в покое
   },
-  // Стопка у колеса. Сдвиги и глубина — в долях ширины купюры.
-  stack: {
-    offsetX: 0.1, // каждая следующая купюра чуть правее
-    depth: 0.14, // и дальше от зрителя
-    turn: -0.06, // и чуть развёрнута
-    // Уход передней купюры в конец: вверх вместе с текстом → назад → вниз за стопку
-    gap: 0.06, // зазор над стопкой, когда купюра уже никого не перекрывает
-    lead: 0.04, // насколько купюра выходит к зрителю, пока едет вверх
-    tilt: 0.18, // рад: наклон верхнего края назад во время подъёма
-    phaseUp: 0.4, // доля пути на подъём
-    phaseBack: 0.6, // к этой доле купюра уже ушла вглубь
+  // Стопка у колеса — «башня». Механика и числа взяты из CardSwap:
+  // cardDistance 0, verticalDistance 48, depth 140, visibleCards 3, speed 1, bounce 0.35,
+  // hoverSpread 0.12, dim 0.5. Расстояния — в px при ширине купюры refWidth, дальше масштаб.
+  deck: {
+    cardDistance: 0, // сдвиг каждой следующей купюры вправо, px
+    verticalDistance: 48, // и вверх, px
+    depth: 140, // и вглубь, px
+    visibleCards: 3, // сколько купюр видно; следующая гаснет
+    speed: 1, // общая скорость пружин и очереди
+    bounce: 0.35, // упругость: 0 — без отскока, 1 — сильный
+    hoverSpread: 0.12, // насколько башня раздвигается при наведении
+    dim: 0.5, // насколько дальние купюры уходят в цвет фона
+    stagger: 0.05, // с, задержка между купюрами, когда башня сдвигается
+    queueGap: 0.11, // с, пауза между сменами при быстрой прокрутке через несколько купюр
+    introStagger: 0.07, // с, купюры собираются в башню по очереди
+    exitDir: { x: 0, y: 1 }, // куда уходит передняя купюра: вниз (как в CardSwap); вверх — y: -1
+    refWidth: 460, // ширина карточки CardSwap, к которой привязаны px-расстояния
   },
+
   // Смена купюры на странице: старая уходит вглубь, новая приходит из глубины
   zoom: { depthOut: 0.8, depthIn: 0.35, out: 0.5, in: 0.6, delay: 0.25 },
   // Прилипание купюры при прокрутке страницы
@@ -329,7 +336,7 @@ function start(renderer) {
     onOpen: (i) => openDetail(i, 'wheel'),
   });
 
-  const frontIndex = () => mod(Math.round(wheel.position), COUNT);
+  const frontIndex = () => deckFront();
 
   hitArea.addEventListener('click', () => openDetail(frontIndex(), 'wheel'));
   viewButtons.forEach((b) => b.addEventListener('click', () => switchView(b.dataset.view)));
@@ -701,6 +708,7 @@ function start(renderer) {
     // Исходный вид оживает сразу, чтобы въехать уже на нужной купюре
     if (toWheel) {
       wheel.jumpTo(current);
+      deckJump(current);
       wheel.setActive(true);
     } else {
       grid.setActive(true);
@@ -769,7 +777,6 @@ function start(renderer) {
     gsap.to(counter, { value: (loaded / total) * 100, duration: 0.6, ease: 'power2.out', onUpdate: renderCount, overwrite: true });
   };
   manager.onLoad = () => {
-    maxHeight = Math.max(...cards.map((c) => 1 / c.aspect));
     renderer.compile(scene, camera);
     gsap.to(counter, { value: 100, duration: 0.8, ease: 'power2.out', onUpdate: renderCount, overwrite: true, onComplete: intro });
   };
@@ -839,6 +846,7 @@ function start(renderer) {
         pose.bind = null;
         root.classList.remove('is-loading');
         wheel.setActive(true);
+        deckIntro();
       })
       .to(pose, {
         x: () => panelRect().x,
@@ -856,40 +864,146 @@ function start(renderer) {
   root.dataset.view = 'wheel';
   Object.assign(pose, { x: view.w / 2, y: view.h / 2, w: panelRect().w });
 
-  /* --- Стопка --- */
+  /* --- Башня купюр у колеса (механика CardSwap) --- */
 
-  // Слот k в стопке: 0 — передняя. Три первых непрозрачны, четвёртая полупрозрачна, дальше не видно.
-  function slotPose(k) {
-    const S = CONFIG.stack;
-    const opacity = k <= 2 ? 1 : k <= 3 ? lerp(1, 0.5, k - 2) : k <= 4 ? lerp(0.5, 0, k - 3) : 0;
-    return { dx: k * S.offsetX, dz: -k * S.depth, turn: k * S.turn, opacity };
+  // Каждая купюра — набор пружин x, y, z, p (p — место в башне, 0 — передняя).
+  // Смена передней: она уходит вниз из башни, затем — в конец; остальные по очереди
+  // подтягиваются вперёд. Назад: последняя приходит снизу, из-за башни, и встаёт вперёд.
+  const D = CONFIG.deck;
+  const STEP = 1 / 240;
+  const AXES = ['x', 'y', 'z', 'p'];
+  const deck = {
+    order: ITEMS.map((_, i) => i),
+    cards: ITEMS.map((_, i) => ({ pos: i, from: i, hold: 0, phase: 'rest', dir: D.exitDir, x: 0, y: 0, z: 0, p: i, v: { x: 0, y: 0, z: 0, p: 0 } })),
+    spread: 0,
+    spreadV: 0,
+    nextShift: 0,
+    scale: 1,
+  };
+  const deckFront = () => deck.order[0];
+
+  function slot(position) {
+    const q = Math.min(position, D.visibleCards);
+    const spread = 1 + deck.spread;
+    return { x: q * D.cardDistance * spread, y: -q * D.verticalDistance * spread, z: -q * D.depth, p: q };
   }
 
-  // rel — непрерывное место купюры в стопке. Между N−1 и N купюра уходит с передней
-  // позиции в конец, как настоящая: сначала вверх (вместе с текстом колеса), оставаясь
-  // перед стопкой, пока перекрывает её; только выйдя целиком над стопкой — назад;
-  // затем опускается за стопку и гаснет. Прокрутка вверх проигрывает путь обратно.
-  const smooth = (v) => v * v * (3 - 2 * v);
-  function stackPose(rel, aspect) {
-    const S = CONFIG.stack;
-    if (rel <= COUNT - 1) return { ...slotPose(rel), dy: 0, tilt: 0 };
-    const p = COUNT - rel; // 0 — ещё спереди, 1 — уже в конце
-    const end = slotPose(COUNT - 1);
-    const up = smooth(clamp(p / S.phaseUp, 0, 1));
-    const back = smooth(clamp((p - S.phaseUp) / (S.phaseBack - S.phaseUp), 0, 1));
-    const down = smooth(clamp((p - S.phaseBack) / (1 - S.phaseBack), 0, 1));
-    // Подъём на половину своей высоты + половину самой высокой купюры + зазор
-    const clear = 0.5 / aspect + 0.5 * maxHeight + S.gap;
-    return {
-      dx: end.dx * back,
-      dy: -clear * up * (1 - down),
-      dz: S.lead * up * (1 - back) + end.dz * back,
-      turn: end.turn * back,
-      tilt: -S.tilt * Math.sin(Math.PI * p),
-      opacity: 1 - down,
-    };
+  // Расстояние, на котором уходящая купюра уже не перекрывает башню, px до масштаба
+  const clearance = (index, dir) => {
+    const w = D.refWidth;
+    return Math.abs(dir.x) * w + Math.abs(dir.y) * (w / cards[index].aspect) + 12;
+  };
+
+  function targetOf(card, index, now) {
+    if (card.phase === 'exit') {
+      const base = slot(0);
+      const reach = clearance(index, card.dir) * 1.3;
+      return { x: base.x + card.dir.x * reach, y: base.y + card.dir.y * reach, z: base.z, p: 0 };
+    }
+    if (card.phase === 'enter') {
+      const base = slot(0);
+      return { x: base.x, y: base.y + clearance(index, D.exitDir) * 1.3, z: base.z, p: card.p };
+    }
+    return slot(Math.max(0, now < card.hold ? card.from : card.pos));
   }
-  let maxHeight = 0.6; // высота самой высокой купюры в долях ширины; уточняется после загрузки
+
+  function settleOrder(now) {
+    const stagger = (D.stagger / D.speed) * 1000;
+    deck.order.forEach((index, position) => {
+      const card = deck.cards[index];
+      if (card.pos === position) return;
+      card.from = card.pos;
+      card.pos = position;
+      card.hold = now + position * stagger;
+    });
+  }
+
+  function shift(direction) {
+    const now = performance.now();
+    if (direction > 0) {
+      const front = deck.cards[deck.order[0]];
+      deck.order = [...deck.order.slice(1), deck.order[0]];
+      settleOrder(now);
+      front.phase = 'exit';
+      front.dir = D.exitDir;
+      front.hold = 0;
+    } else {
+      const backIndex = deck.order[COUNT - 1];
+      const back = deck.cards[backIndex];
+      deck.order = [backIndex, ...deck.order.slice(0, COUNT - 1)];
+      settleOrder(now);
+      back.phase = 'enter';
+      back.hold = 0;
+    }
+  }
+
+  // Сразу поставить купюру index вперёд, без анимации (возврат со страницы купюры)
+  function deckJump(index) {
+    deck.order = ITEMS.map((_, i) => mod(index + i, COUNT));
+    deck.order.forEach((i, position) => {
+      const card = deck.cards[i];
+      Object.assign(card, slot(position), { pos: position, from: position, hold: 0, phase: 'rest', v: { x: 0, y: 0, z: 0, p: 0 } });
+    });
+  }
+
+  // Купюры собираются в башню по очереди из передней позиции
+  function deckIntro() {
+    const now = performance.now();
+    deck.cards.forEach((card) => {
+      Object.assign(card, slot(0));
+      card.from = 0;
+      card.hold = now + (card.pos * D.introStagger * 1000) / D.speed;
+    });
+  }
+
+  function spring(card, target, omega, zeta, dt) {
+    const k2 = omega * omega;
+    const d = 2 * zeta * omega;
+    const steps = Math.max(1, Math.ceil(dt / STEP));
+    const h = dt / steps;
+    for (let i = 0; i < steps; i++) {
+      for (const axis of AXES) {
+        card.v[axis] += (k2 * (target[axis] - card[axis]) - d * card.v[axis]) * h;
+        card[axis] += card.v[axis] * h;
+      }
+    }
+  }
+
+  function updateDeck(dt, hovered) {
+    const now = performance.now();
+    const still = reducedMotion;
+
+    // Колесо задаёт, какая купюра должна быть впереди; башня догоняет его по одной
+    if (mode === 'wheel' && wheel.index >= 0 && now >= deck.nextShift) {
+      const diff = mod(wheel.index - deckFront(), COUNT);
+      if (diff) {
+        shift(diff <= COUNT / 2 ? 1 : -1);
+        deck.nextShift = now + (D.queueGap * 1000) / D.speed;
+      }
+    }
+
+    // Раздвижка при наведении
+    const spreadTarget = hovered && !still ? D.hoverSpread : 0;
+    const so = TAU * 1.4;
+    deck.spreadV += (so * so * (spreadTarget - deck.spread) - 2 * 0.9 * so * deck.spreadV) * dt;
+    deck.spread += deck.spreadV * dt;
+
+    const restOmega = TAU * 1.7 * D.speed;
+    const restZeta = still ? 1 : 1 - 0.72 * D.bounce;
+    const moveOmega = TAU * 1.9 * D.speed;
+    deck.cards.forEach((card, index) => {
+      const target = targetOf(card, index, now);
+      const moving = card.phase === 'exit' || card.phase === 'enter';
+      spring(card, target, moving ? moveOmega : restOmega, moving ? 1 : restZeta, dt);
+      const base = slot(0);
+      if (card.phase === 'exit') {
+        const travelled = (card.x - base.x) * card.dir.x + (card.y - base.y) * card.dir.y;
+        if (travelled >= clearance(index, card.dir)) card.phase = 'rest';
+      } else if (card.phase === 'enter') {
+        if (card.y - base.y >= clearance(index, D.exitDir)) card.phase = 'rest';
+      }
+    });
+  }
 
   /* --- Кадр --- */
 
@@ -947,24 +1061,31 @@ function start(renderer) {
     const k = view.worldH / view.h; // мировых единиц на пиксель
     const panel = panelRect();
     const stackW = panel.w * k;
-    const focus = wheel.position;
     const Z = CONFIG.zoom;
     const P = CONFIG.paper;
 
+    // Башня: px-расстояния CardSwap масштабируются под ширину купюры
+    const towerScale = panel.w / D.refWidth;
+    const overTower = pointer.mouse && mode === 'wheel' && !busy
+      && Math.abs(pointer.x - panel.x) <= panel.w / 2
+      && pointer.y <= panel.y + panel.w / 2 && pointer.y >= panel.y - panel.w;
+    updateDeck(dt, overTower);
+
     cards.forEach((c, i) => {
       const m = c.mesh;
-      const rel = mod(i - focus, COUNT);
-      const sp = stackPose(rel, c.aspect);
-      const frontWeight = 1 - Math.min(1, Math.min(rel, COUNT - rel));
+      const dc = deck.cards[i];
+      const frontWeight = dc.pos === 0 && dc.phase === 'rest' ? clamp(1 - dc.p, 0, 1) : 0;
 
-      // Стопка у колеса
-      let x = panel.x + sp.dx * panel.w;
-      let y = panel.y + sp.dy * panel.w;
-      let z = sp.dz * stackW;
+      // Башня у колеса
+      let x = panel.x + dc.x * towerScale;
+      let y = panel.y + dc.y * towerScale;
+      let z = dc.z * towerScale * k;
       let w = stackW;
-      let rx = sp.tilt + tilt.x * frontWeight;
-      let ry = sp.turn + tilt.y * frontWeight;
-      let opacity = sp.opacity * fade.stack;
+      let rx = tilt.x * frontWeight;
+      let ry = tilt.y * frontWeight;
+      let opacity = clamp(D.visibleCards - dc.p, 0, 1) * fade.stack;
+      // Дальние купюры уходят в цвет фона (как тень dim в CardSwap)
+      let haze = D.dim * 0.62 * clamp(dc.p / Math.max(1, D.visibleCards - 1), 0, 1);
 
       // Главная купюра: прелоадер, переезд, страница
       if (c.hero > 0) {
@@ -979,7 +1100,9 @@ function start(renderer) {
         rx = lerp(rx, tilt.x, blend);
         ry = lerp(ry, rot.y + rot.flip + rot.scroll + tilt.y, blend);
         opacity = mode === 'detail' ? c.hero : lerp(opacity, 1, blend);
+        haze = lerp(haze, 0, blend);
       }
+      setHaze(c, haze);
 
       const wasVisible = m.visible;
       m.visible = opacity > 0.003;
@@ -1027,6 +1150,18 @@ function start(renderer) {
 
     renderer.render(scene, camera);
   });
+
+  // Купюра уходит в цвет фона: меньше своего цвета, больше свечения цветом фона
+  const hazeColor = new THREE.Color(getComputedStyle(document.documentElement).getPropertyValue('--color-bg').trim() || '#e7dcc8');
+  function setHaze(card, haze) {
+    if (Math.abs((card.haze ?? -1) - haze) < 0.002) return;
+    card.haze = haze;
+    card.materials.forEach((mat, j) => {
+      if (j < 2) mat.color.setScalar(1 - haze);
+      else mat.color.setHex(CONFIG.paperColor).multiplyScalar(1 - haze);
+      mat.emissive.copy(hazeColor).multiplyScalar(haze);
+    });
+  }
 
   // Прозрачная кнопка поверх передней купюры: клик открывает её страницу
   function placeHitArea() {
