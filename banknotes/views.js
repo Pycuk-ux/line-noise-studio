@@ -28,7 +28,7 @@ export function createGrid(container, items, { lerp, isReduced, text, onSelect }
   function measure() {
     size.w = window.innerWidth;
     size.h = window.innerHeight;
-    size.cardW = Math.min(420, Math.max(220, size.w * 0.26));
+    size.cardW = Math.min(420, Math.max(220, size.w * 0.26)) * 1.1; // +10% к прежнему размеру
     size.cardH = size.cardW * 0.62 + 44; // рамка + подпись
     size.cellW = size.cardW * 1.12;
     size.cellH = size.cardH * 1.14;
@@ -199,10 +199,15 @@ export function createGrid(container, items, { lerp, isReduced, text, onSelect }
 export function createWheel(container, items, { lerp, isReduced, text, labels, onChange, onHover, onOpen }) {
   const RADIUS_STEPS = 9; // видимых строк в каждую сторону
   const list = el('ul', 'wheel-view__list');
-  container.append(list);
+  // Название и номинал активной купюры справа — только в мобильном прямом списке
+  const info = el('div', 'wheel-view__info');
+  const infoName = el('span', 'wheel-info__name');
+  const infoCaption = el('span', 'wheel-chip');
+  info.append(infoName, infoCaption);
+  container.append(list, info);
 
   const state = { current: 0, target: 0 };
-  const geo = { r: 900, lineH: 80, cx: 0, cy: 0, fadeUp: 0.09 };
+  const geo = { r: 900, lineH: 80, cx: 0, cy: 0, fadeUp: 0.09, flat: false, left: 20 };
   let active = false;
   let activeIndex = -1;
   let snapTimer = 0;
@@ -226,7 +231,12 @@ export function createWheel(container, items, { lerp, isReduced, text, labels, o
     const w = window.innerWidth;
     const h = window.innerHeight;
     const portrait = w <= 720 || w / h < 0.85;
-    const font = portrait ? Math.max(30, w * 0.09) : Math.min(88, Math.max(40, w * 0.045));
+    // На десктопе +8pt (≈ 10.7px) к прежнему размеру; на телефоне — под левую колонку
+    const font = portrait ? Math.max(26, w * 0.075) : Math.min(88, Math.max(40, w * 0.045)) + (8 * 4) / 3;
+    geo.flat = portrait;
+    geo.left = Math.max(16, w * 0.04);
+    list.classList.toggle('is-flat', portrait);
+    info.style.setProperty('--info-y', `${h * 0.68}px`);
     geo.lineH = font * 1.12;
     geo.r = Math.max(h * 0.95, 640);
     geo.cy = h * (portrait ? 0.68 : 0.5);
@@ -258,12 +268,17 @@ export function createWheel(container, items, { lerp, isReduced, text, labels, o
       fill(row, mod(slot, items.length));
       const d = slot - state.current;
       row.offset = slot;
-      const angle = d * step;
-      const x = geo.cx + geo.r * Math.cos(angle);
-      const y = geo.cy + geo.r * Math.sin(angle);
       const dist = Math.abs(d);
       const fade = d < 0 ? geo.fadeUp : 0.09;
-      row.li.style.transform = `translate3d(${x}px, ${y}px, 0) rotate(${angle}rad) translateY(-50%)`;
+      if (geo.flat) {
+        // Телефон: прямой вертикальный список у левого края
+        row.li.style.transform = `translate3d(${geo.left}px, ${geo.cy + d * geo.lineH}px, 0) translateY(-50%)`;
+      } else {
+        const angle = d * step;
+        const x = geo.cx + geo.r * Math.cos(angle);
+        const y = geo.cy + geo.r * Math.sin(angle);
+        row.li.style.transform = `translate3d(${x}px, ${y}px, 0) rotate(${angle}rad) translateY(-50%)`;
+      }
       row.li.style.opacity = String(Math.max(0, 1 - Math.max(0, dist - 0.5) * fade));
       row.li.classList.toggle('is-active', dist < 0.5);
     });
@@ -271,8 +286,18 @@ export function createWheel(container, items, { lerp, isReduced, text, labels, o
     const next = mod(base, items.length);
     if (next !== activeIndex) {
       activeIndex = next;
+      showInfo(next);
       onChange(next);
     }
+  }
+
+  function showInfo(index) {
+    const t = text(index);
+    infoName.textContent = t.name;
+    infoCaption.textContent = t.caption;
+    info.classList.remove('is-entering');
+    void info.offsetWidth; // перезапуск анимации появления
+    info.classList.add('is-entering');
   }
 
   function scheduleSnap() {
@@ -353,7 +378,10 @@ export function createWheel(container, items, { lerp, isReduced, text, labels, o
     // Непрерывная позиция колеса: по ней едет стопка купюр
     get position() { return state.current; },
     get index() { return activeIndex; },
-    refresh() { rows.forEach((row) => { row.index = -1; }); },
+    refresh() {
+      rows.forEach((row) => { row.index = -1; });
+      if (activeIndex >= 0) showInfo(activeIndex);
+    },
     // Встать на купюру без прокрутки (например, после листания на странице купюры)
     jumpTo(index) {
       const base = Math.round(state.current);

@@ -11,7 +11,7 @@
   --color-switch-bg: rgba(231, 220, 200, 0.86);
 
   /* Шрифты */
-  --font-head: "Times New Roman", Times, serif;
+  --font-head: "Manrope", Arial, "Helvetica Neue", Helvetica, sans-serif;
   --font-text: "Manrope", Arial, "Helvetica Neue", Helvetica, sans-serif;
   --tracking-text: -0.03em;
   --tracking-head: -0.02em;
@@ -351,6 +351,34 @@ html[data-view="detail"] .switcher { visibility: hidden; }
   transform: none;
 }
 
+/* Телефон: список прямой, слева; название и номинал активной купюры — справа */
+.wheel-view__info { display: none; }
+
+.wheel-view__list.is-flat .wheel-item__tags { display: none; }
+
+.wheel-view__list.is-flat + .wheel-view__info {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  position: absolute;
+  right: max(16px, env(safe-area-inset-right, 0px));
+  top: var(--info-y, 68%);
+  max-width: 44vw;
+  transform: translateY(-50%);
+  text-align: right;
+  pointer-events: none;
+}
+
+.wheel-view__info.is-entering { animation: info-in 0.5s cubic-bezier(0.22, 1, 0.36, 1); }
+
+@keyframes info-in {
+  from { opacity: 0; transform: translateY(calc(-50% + 16px)); }
+  to { opacity: 1; transform: translateY(-50%); }
+}
+
+.wheel-info__name { font-size: 1.25rem; font-weight: 500; line-height: 1.15; }
+
 .wheel-chip--open {
   border: 0;
   cursor: pointer;
@@ -443,12 +471,26 @@ html[data-view="detail"] .switcher { visibility: hidden; }
   aspect-ratio: var(--note-aspect, 2);
 }
 
-.detail__hint {
+/* Подсказка у курсора */
+.flip-hint {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: var(--z-preloader);
+  margin: 0;
+  padding: 6px 10px;
+  border-radius: var(--radius-chip);
+  background: var(--color-ink);
+  color: var(--color-bg);
   font-size: var(--size-small);
-  color: var(--color-ink-soft);
   text-transform: uppercase;
-  text-align: center;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.25s;
 }
+
+.flip-hint.is-visible { opacity: 1; }
 
 .detail__body {
   width: 100%;
@@ -477,7 +519,10 @@ html[data-view="detail"] .switcher { visibility: hidden; }
   margin-bottom: -24px;
 }
 
-.detail-title > span { display: inline-block; }
+.detail-title > span {
+  display: inline-block;
+  transform-origin: 50% 0;
+}
 
 .label {
   margin: 0;
@@ -632,7 +677,7 @@ html[data-view="detail"] .switcher { visibility: hidden; }
 
 .note__name { font-size: clamp(28px, 3vw, 40px); line-height: 1; }
 .note__caption { color: var(--color-accent); }
-.note__quote { font-family: var(--font-head); font-style: italic; color: var(--color-ink-soft); }
+.note__quote { color: var(--color-ink-soft); }
 
 .is-webgl .fallback {
   position: absolute;
@@ -656,7 +701,6 @@ html.lenis body { height: auto; }
 @media (max-width: 720px) {
   .plate { padding: 28px 20px; }
   .plate__facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .detail__hint { display: none; }
 
   :root {
     --page-pad: 16px;

@@ -260,8 +260,8 @@ function start(renderer) {
   // Место стопки у колеса: справа на десктопе, сверху на телефоне
   function panelRect() {
     return view.portrait
-      ? { x: view.w * 0.5, y: view.h * 0.27, w: view.w * 0.56 }
-      : { x: view.w * 0.72, y: view.h * 0.5, w: Math.min(view.w * 0.34, 600) };
+      ? { x: view.w * 0.5, y: view.h * 0.27, w: view.w * 0.56 * 1.05 }
+      : { x: view.w * 0.72, y: view.h * 0.5, w: Math.min(view.w * 0.34, 600) * 1.05 }; // +5%
   }
 
   // Место купюры на странице: прилипает на 15vh и уменьшается до 30% при прокрутке
@@ -403,6 +403,33 @@ function start(renderer) {
   window.addEventListener('pointerup', endDrag);
   window.addEventListener('pointercancel', endDrag);
 
+  /* --- Подсказка переворота: курсор неподвижно на купюре 1 с --- */
+
+  const flipHint = document.querySelector('.flip-hint');
+  const hintState = { since: 0, x: -1, y: -1 };
+  function updateFlipHint(over) {
+    const now = performance.now();
+    if (!over || rot.dragging || Math.hypot(pointer.x - hintState.x, pointer.y - hintState.y) > 2) {
+      hintState.since = now;
+      hintState.x = pointer.x;
+      hintState.y = pointer.y;
+      flipHint.classList.remove('is-visible');
+      return;
+    }
+    if (now - hintState.since >= 1000 && !flipHint.classList.contains('is-visible')) {
+      flipHint.style.transform = `translate(${pointer.x + 14}px, ${pointer.y + 18}px)`;
+      flipHint.classList.add('is-visible');
+    }
+  }
+
+  // Заголовок страницы уменьшается до 85% по мере прокрутки, но едет вместе с текстом
+  function scaleTitle() {
+    const line = detailBody.querySelector('.detail-text:last-child .detail-title > span');
+    if (!line) return;
+    const p = clamp(window.scrollY / (view.h * 0.5), 0, 1);
+    line.style.transform = `scale(${1 - 0.15 * p})`;
+  }
+
   /* --- Язык --- */
 
   function setLanguage(next) {
@@ -419,7 +446,7 @@ function start(renderer) {
     langNav.setAttribute('aria-label', ui.language);
     switcher.setAttribute('aria-label', ui.modes);
     viewButtons.forEach((b) => { b.textContent = ui[b.dataset.view]; });
-    detail.querySelectorAll('[data-i18n]').forEach((n) => { n.textContent = ui[n.dataset.i18n]; });
+    document.querySelectorAll('[data-i18n]').forEach((n) => { n.textContent = ui[n.dataset.i18n]; });
     detail.querySelector('.detail__close').setAttribute('aria-label', ui.close);
     document.querySelector('.fallback').setAttribute('aria-label', ui.collection);
     wheel.refresh();
@@ -636,17 +663,13 @@ function start(renderer) {
       .to(reveal(), { opacity: 1, y: 0, duration: quick ? 0 : 0.6, ease: 'power3.out', stagger: 0.08 }, quick ? 0 : dur * 0.55);
   }
 
+  // Закрытие сразу, с того места, где пользователь сейчас: купюра летит к стопке
+  // из своего текущего (в том числе уменьшенного, прилипшего) положения
   function closeDetail() {
     if (busy || mode !== 'detail') return;
     busy = true;
-    if (window.scrollY > 1 && !reducedMotion) {
-      // Сначала плавно к началу страницы, потом обратная анимация
-      lenis.scrollTo(0, { duration: 0.6, force: true, onComplete: () => { lenis.stop(); runClose(); } });
-    } else {
-      lenis.stop();
-      window.scrollTo(0, 0);
-      runClose();
-    }
+    lenis.stop();
+    runClose();
   }
 
   function runClose() {
@@ -676,6 +699,8 @@ function start(renderer) {
         root.dataset.view = origin;
         pose.bind = toWheel ? 'panel' : null;
         gsap.set([wheelLayer, gridLayer], { clearProps: 'transform' });
+        lenis.scrollTo(0, { immediate: true, force: true });
+        window.scrollTo(0, 0);
         busy = false;
       },
     });
@@ -861,6 +886,8 @@ function start(renderer) {
     tilt.x += (tx - tilt.x) * damp(0.1, dt);
     tilt.y += (ty - tilt.y) * damp(0.1, dt);
     root.classList.toggle('is-over-note', over && mode === 'detail');
+    updateFlipHint(over && mode === 'detail');
+    if (mode === 'detail') scaleTitle();
     if (mode === 'wheel') placeHitArea();
 
     // Переворот на странице: инерция и доводка до лица или оборота

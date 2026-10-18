@@ -66,7 +66,6 @@
             <svg width="20" height="12" viewBox="0 0 20 12" aria-hidden="true"><path d="M19 6H2M6 1L1 6l5 5" stroke="currentColor" stroke-width="1.2" fill="none" /></svg>
             <span data-i18n="prev">К предыдущей</span>
           </button>
-          <p class="detail__hint" data-i18n="flip">Потяните влево или вправо, чтобы перевернуть</p>
           <button class="detail__step" type="button" data-step="1">
             <span data-i18n="next">К следующей</span>
             <svg width="20" height="12" viewBox="0 0 20 12" aria-hidden="true"><path d="M1 6h17M14 1l5 5-5 5" stroke="currentColor" stroke-width="1.2" fill="none" /></svg>
@@ -78,6 +77,9 @@
 
       <div class="detail__body" data-reveal aria-live="polite"></div>
     </main>
+
+    <!-- Подсказка у курсора: появляется, если курсор стоит на купюре неподвижно 1 с -->
+    <p class="flip-hint" data-i18n="flip" aria-hidden="true">Потяните влево или вправо, чтобы перевернуть</p>
 
     <!-- Список для скринридеров и для браузеров без WebGL -->
     <section class="fallback" aria-label="Коллекция">
