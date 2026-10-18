@@ -441,14 +441,96 @@ function start(renderer) {
 
   /* --- Текст страницы купюры --- */
 
+  // Заголовок → плашка с данными → разделы → плашка с источниками.
+  // Если у купюры ещё нет текста (details), страница показывает название, номинал и эмитента.
   function buildBody(i) {
     const { name, caption, issuer } = text(i);
-    const box = node('div', 'detail-text');
-    const dl = node('dl');
-    dl.append(node('dt', '', t().issuer), node('dd', '', issuer));
-    box.append(node('h1', '', name), node('p', 'detail-text__caption', caption), dl, node('p', 'detail-text__placeholder', t().placeholder));
+    const d = ITEMS[i].details?.[lang];
+    const ui = t();
+    const box = node('article', 'detail-text');
+
+    const title = node('h1', 'detail-title');
+    title.append(node('span', '', d?.title ?? `${caption} — ${name}`));
+    box.append(title);
+
+    const plate = node('section', 'plate');
+    const facts = node('dl', 'plate__facts');
+    (d?.facts ?? [[ui.issuer, issuer], [ui.denomination, caption]]).forEach(([label, value]) => {
+      const fact = node('div');
+      fact.append(node('dt', 'label', label), node('dd', '', value));
+      facts.append(fact);
+    });
+    plate.append(facts);
+    if (d?.summary) {
+      const summary = node('div', 'plate__summary');
+      summary.append(node('p', 'label', d.summary[0]), node('p', '', d.summary[1]));
+      plate.append(summary);
+    }
+    box.append(plate);
+
+    const sections = node('div', 'detail-sections');
+    if (!d) sections.append(node('p', 'detail-placeholder', ui.placeholder));
+    d?.sections.forEach((sec) => {
+      const el = node('section', 'detail-section');
+      el.append(node('h2', '', sec.title));
+      if (sec.list) {
+        const ol = node('ol', 'detail-list');
+        sec.list.forEach(([head, body]) => {
+          const li = node('li');
+          li.append(node('h3', '', head), node('p', '', body));
+          ol.append(li);
+        });
+        el.append(ol);
+      }
+      if (sec.people) {
+        const dl = node('dl', 'detail-people');
+        sec.people.forEach(([who, role]) => {
+          const row = node('div');
+          row.append(node('dt', '', who), node('dd', '', role));
+          dl.append(row);
+        });
+        el.append(dl);
+      }
+      sec.text?.forEach((para) => el.append(node('p', '', para)));
+      sections.append(el);
+    });
+    box.append(sections);
+
+    if (d?.sources) {
+      const sources = node('section', 'plate sources');
+      sources.append(node('h2', 'label', d.sources.title));
+      d.sources.groups.forEach((group) => {
+        const g = node('div', 'sources__group');
+        const ol = node('ol');
+        group.links.forEach(([href, label, note]) => {
+          const li = node('li');
+          const a = node('a', '', label);
+          a.href = href;
+          a.target = '_blank';
+          a.rel = 'noopener';
+          li.append(a);
+          if (note) li.append(node('span', 'sources__note', ` — ${note}`));
+          ol.append(li);
+        });
+        g.append(node('h3', 'label', group.title), ol);
+        sources.append(g);
+      });
+      box.append(sources);
+    }
     return box;
   }
+
+  // Заголовок занимает всю ширину страницы между полями: подбираем размер шрифта под строку
+  function fitTitles() {
+    detailBody.querySelectorAll('.detail-title').forEach((h1) => {
+      const line = h1.firstChild;
+      h1.style.fontSize = '100px';
+      const width = line.getBoundingClientRect().width;
+      if (width > 0) h1.style.fontSize = `${(100 * h1.clientWidth) / width}px`;
+    });
+  }
+  window.addEventListener('resize', fitTitles);
+  document.fonts?.addEventListener?.('loadingdone', fitTitles);
 
   // Уходящий текст уезжает вверх и гаснет, новый приходит снизу; в слоте не больше двух
   function swapBody(i, instant = false) {
@@ -459,12 +541,13 @@ function start(renderer) {
         return;
       }
       child.dataset.leaving = '1';
-      gsap.to(child, { yPercent: -30, opacity: 0, duration: 0.3, ease: 'power2.in', onComplete: () => child.remove() });
+      gsap.to(child, { y: -40, opacity: 0, duration: 0.3, ease: 'power2.in', onComplete: () => child.remove() });
     });
     const next = buildBody(i);
     detailBody.append(next);
+    fitTitles();
     if (instant || reducedMotion) return;
-    gsap.fromTo(next, { yPercent: 30, opacity: 0 }, { yPercent: 0, opacity: 1, duration: 0.6, ease: 'power3.out', delay: 0.1 });
+    gsap.fromTo(next, { y: 40, opacity: 0 }, { y: 0, opacity: 1, duration: 0.6, ease: 'power3.out', delay: 0.1 });
   }
 
   /* --- Переключение колесо ↔ сетка --- */

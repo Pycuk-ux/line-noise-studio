@@ -6,6 +6,9 @@
     <title>Paper Tender</title>
     <meta name="description" content="Коллекция банкнот: колесо названий, бесконечная сетка и страница каждой купюры." />
     <meta name="theme-color" content="#e7dcc8" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600&display=swap" />
     <link rel="stylesheet" href="styles.css" />
     <script>
       // Ранняя проверка WebGL, чтобы не мигала резервная сетка. main.js перепроверит.
@@ -53,15 +56,17 @@
     </nav>
 
     <main class="detail" hidden>
+      <!-- Крестик прилипает к верху при прокрутке: уйти со страницы можно с любого места -->
+      <button class="detail__close" type="button" aria-label="Закрыть" data-reveal>
+        <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 3l10 10M13 3L3 13" stroke="currentColor" stroke-width="1.2" fill="none" /></svg>
+      </button>
       <div class="detail__controls" data-reveal>
-        <button class="detail__close" type="button" aria-label="Закрыть">
-          <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 3l10 10M13 3L3 13" stroke="currentColor" stroke-width="1.2" fill="none" /></svg>
-        </button>
         <div class="detail__nav">
           <button class="detail__step" type="button" data-step="-1">
             <svg width="20" height="12" viewBox="0 0 20 12" aria-hidden="true"><path d="M19 6H2M6 1L1 6l5 5" stroke="currentColor" stroke-width="1.2" fill="none" /></svg>
             <span data-i18n="prev">К предыдущей</span>
           </button>
+          <p class="detail__hint" data-i18n="flip">Потяните влево или вправо, чтобы перевернуть</p>
           <button class="detail__step" type="button" data-step="1">
             <span data-i18n="next">К следующей</span>
             <svg width="20" height="12" viewBox="0 0 20 12" aria-hidden="true"><path d="M1 6h17M14 1l5 5-5 5" stroke="currentColor" stroke-width="1.2" fill="none" /></svg>
@@ -70,7 +75,6 @@
       </div>
 
       <div class="detail__note" aria-hidden="true"></div>
-      <p class="detail__hint" data-reveal data-i18n="flip">Потяните влево или вправо, чтобы перевернуть</p>
 
       <div class="detail__body" data-reveal aria-live="polite"></div>
     </main>
