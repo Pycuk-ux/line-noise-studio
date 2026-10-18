@@ -32,6 +32,7 @@ const CONFIG = {
   // Стопка у колеса. Сдвиги и глубина — в долях ширины купюры.
   stack: {
     offsetX: 0.1, // каждая следующая купюра чуть правее
+    offsetY: 0.035, // телефон: каждая следующая чуть выше
     depth: 0.14, // и дальше от зрителя
     turn: -0.06, // и чуть развёрнута
     // Уход передней купюры в конец: вверх вместе с текстом → назад → вниз за стопку
@@ -94,6 +95,7 @@ const text = (i) => ({
   name: ITEMS[i].name[lang],
   caption: ITEMS[i].caption[lang],
   issuer: ITEMS[i].issuer[lang],
+  rate: ITEMS[i].rate ? `1 ${ITEMS[i].rate.code} = $${ITEMS[i].rate.usd}` : '',
 });
 
 /* ---------- Запуск ---------- */
@@ -264,7 +266,7 @@ function start(renderer) {
   // Место стопки у колеса: справа на десктопе, сверху на телефоне
   function panelRect() {
     return view.portrait
-      ? { x: view.w * 0.5, y: view.h * 0.27, w: view.w * 0.56 * 1.05 }
+      ? { x: view.w * 0.5, y: view.h * 0.24, w: view.w * 0.8 }
       : { x: view.w * 0.72, y: view.h * 0.5, w: Math.min(view.w * 0.34, 600) * 1.05 }; // +5%
   }
 
@@ -829,7 +831,9 @@ function start(renderer) {
   function slotPose(k) {
     const S = CONFIG.stack;
     const opacity = k <= 2 ? 1 : k <= 3 ? lerp(1, 0.5, k - 2) : k <= 4 ? lerp(0.5, 0, k - 3) : 0;
-    return { dx: k * S.offsetX, dz: -k * S.depth, turn: k * S.turn, opacity };
+    // На телефоне задние купюры выглядывают сверху, на десктопе — справа
+    if (view.portrait) return { dx: 0, dy: -k * S.offsetY, dz: -k * S.depth, turn: 0, opacity };
+    return { dx: k * S.offsetX, dy: 0, dz: -k * S.depth, turn: k * S.turn, opacity };
   }
 
   // rel — непрерывное место купюры в стопке. Между N−1 и N купюра уходит с передней
@@ -839,7 +843,7 @@ function start(renderer) {
   const smooth = (v) => v * v * (3 - 2 * v);
   function stackPose(rel, aspect) {
     const S = CONFIG.stack;
-    if (rel <= COUNT - 1) return { ...slotPose(rel), dy: 0, tilt: 0 };
+    if (rel <= COUNT - 1) return { ...slotPose(rel), tilt: 0 };
     const p = COUNT - rel; // 0 — ещё спереди, 1 — уже в конце
     const end = slotPose(COUNT - 1);
     const up = smooth(clamp(p / S.phaseUp, 0, 1));
@@ -849,7 +853,7 @@ function start(renderer) {
     const clear = 0.5 / aspect + 0.5 * maxHeight + S.gap;
     return {
       dx: end.dx * back,
-      dy: -clear * up * (1 - down),
+      dy: -clear * up * (1 - down) + end.dy * back,
       dz: S.lead * up * (1 - back) + end.dz * back,
       turn: end.turn * back,
       tilt: -S.tilt * Math.sin(Math.PI * p),

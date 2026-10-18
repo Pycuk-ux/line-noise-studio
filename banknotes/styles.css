@@ -362,33 +362,44 @@ html[data-view="detail"] .switcher { visibility: hidden; }
   transform: none;
 }
 
-/* Телефон: список прямой, слева; название и номинал активной купюры — справа */
+/* Телефон: список по центру внизу; название, номинал и курс активной купюры — под стопкой */
 .wheel-view__info { display: none; }
 
 .wheel-view__list.is-flat .wheel-item__tags { display: none; }
 
+.wheel-view__list.is-flat .wheel-item {
+  transform-origin: 50% 50%;
+  will-change: transform, opacity;
+}
+
+.wheel-view__list.is-flat .wheel-item__name { color: var(--color-ink); }
+
 .wheel-view__list.is-flat + .wheel-view__info {
   display: flex;
   flex-direction: column;
-  align-items: flex-end;
-  gap: 6px;
+  align-items: center;
+  gap: 10px;
   position: absolute;
-  right: max(16px, env(safe-area-inset-right, 0px));
-  top: var(--info-y, 68%);
-  max-width: 44vw;
-  transform: translateY(-50%);
-  text-align: right;
+  left: 50%;
+  top: var(--info-y, 40%);
+  width: calc(100% - 32px);
+  transform: translateX(-50%);
+  text-align: center;
   pointer-events: none;
 }
 
 .wheel-view__info.is-entering { animation: info-in 0.5s cubic-bezier(0.22, 1, 0.36, 1); }
 
 @keyframes info-in {
-  from { opacity: 0; transform: translateY(calc(-50% + 16px)); }
-  to { opacity: 1; transform: translateY(-50%); }
+  from { opacity: 0; transform: translate(-50%, 12px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
 }
 
-.wheel-info__name { font-size: 1.25rem; font-weight: 500; line-height: 1.15; }
+.wheel-info__name { font-size: 1.5rem; font-weight: 600; line-height: 1.15; }
+
+.wheel-view__info .wheel-chip { padding: 6px 12px; }
+
+.wheel-info__rate { font-size: 1rem; font-variant-numeric: tabular-nums; }
 
 .wheel-chip--open {
   border: 0;

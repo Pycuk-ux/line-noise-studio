@@ -1,5 +1,7 @@
 // Коллекция и тексты интерфейса на двух языках.
 // back — оборот купюры; если его нет, на обороте повторяется лицо.
+// rate — курс к доллару США: сколько $ стоит 1 единица валюты. Привязанные к доллару
+// валюты (BBD, XCD, HKD) почти не меняются; остальные — ориентир, обновлять вручную.
 // details — текст страницы купюры: заголовок, плашка с данными, разделы и источники.
 // Если details нет, страница показывает название, номинал и эмитента.
 
@@ -10,6 +12,7 @@ export const ITEMS = [
     material: 'cotton',
     name: { ru: 'Бурунди', en: 'Burundi' },
     caption: { ru: '10 000 франков', en: '10.000 Francs' },
+    rate: { code: 'BIF', usd: 0.00034 },
     issuer: { ru: 'Банк Республики Бурунди', en: 'Banque de la République du Burundi' },
   },
   {
@@ -18,6 +21,7 @@ export const ITEMS = [
     material: 'cotton',
     name: { ru: 'Сент-Люсия', en: 'Saint Lucia' },
     caption: { ru: '5 долларов', en: '5 Dollars' },
+    rate: { code: 'XCD', usd: 0.37 },
     issuer: { ru: 'Barclays Bank (Dominion, Colonial and Overseas)', en: 'Barclays Bank (Dominion, Colonial and Overseas)' },
   },
   {
@@ -26,6 +30,7 @@ export const ITEMS = [
     material: 'polymer',
     name: { ru: 'Барбадос', en: 'Barbados' },
     caption: { ru: '100 долларов', en: '100 Dollars' },
+    rate: { code: 'BBD', usd: 0.5 },
     issuer: { ru: 'Центральный банк Барбадоса', en: 'Central Bank of Barbados' },
   },
   {
@@ -34,6 +39,7 @@ export const ITEMS = [
     material: 'cotton',
     name: { ru: 'Гонконг', en: 'Hong Kong' },
     caption: { ru: '10 гонконгских долларов', en: '10 Hong Kong Dollars' },
+    rate: { code: 'HKD', usd: 0.128 },
     issuer: { ru: 'Правительство САР Гонконг', en: 'Government of the Hong Kong (SAR)' },
   },
   {
@@ -42,6 +48,7 @@ export const ITEMS = [
     material: 'cotton',
     name: { ru: 'Таиланд', en: 'Thailand' },
     caption: { ru: '100 бат', en: '100 Baht' },
+    rate: { code: 'THB', usd: 0.031 },
     issuer: { ru: 'Правительство Таиланда', en: 'Government of Thailand' },
   },
   {
@@ -51,6 +58,7 @@ export const ITEMS = [
     material: 'cotton',
     name: { ru: 'Украина', en: 'Ukraine' },
     caption: { ru: '1 гривна', en: '1 Hryvnia' },
+    rate: { code: 'UAH', usd: 0.024 },
     issuer: { ru: 'Национальный банк Украины', en: 'National Bank of Ukraine' },
     details: {
       ru: {

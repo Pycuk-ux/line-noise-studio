@@ -203,7 +203,8 @@ export function createWheel(container, items, { lerp, isReduced, text, labels, o
   const info = el('div', 'wheel-view__info');
   const infoName = el('span', 'wheel-info__name');
   const infoCaption = el('span', 'wheel-chip');
-  info.append(infoName, infoCaption);
+  const infoRate = el('span', 'wheel-info__rate');
+  info.append(infoName, infoCaption, infoRate);
   container.append(list, info);
 
   const state = { current: 0, target: 0 };
@@ -231,15 +232,15 @@ export function createWheel(container, items, { lerp, isReduced, text, labels, o
     const w = window.innerWidth;
     const h = window.innerHeight;
     const portrait = w <= 720 || w / h < 0.85;
-    // На телефоне — под левую колонку
-    const font = portrait ? Math.max(26, w * 0.075) : Math.min(88, Math.max(40, w * 0.045));
+    // На телефоне — центрированный список, главная строка 24px (размеры строк — FLAT_STEPS)
+    const font = portrait ? 24 : Math.min(88, Math.max(40, w * 0.045));
     geo.flat = portrait;
-    geo.left = Math.max(16, w * 0.04);
+    geo.left = w / 2;
     list.classList.toggle('is-flat', portrait);
-    info.style.setProperty('--info-y', `${h * 0.68}px`);
-    geo.lineH = font * 1.12;
+    info.style.setProperty('--info-y', `${h * 0.4}px`);
+    geo.lineH = portrait ? 40 : font * 1.12;
     geo.r = Math.max(h * 0.95, 640);
-    geo.cy = h * (portrait ? 0.68 : 0.5);
+    geo.cy = h * (portrait ? 0.71 : 0.5);
     geo.cx = (portrait ? 20 : Math.max(24, w * 0.075)) - geo.r;
     // На телефоне купюра стоит над колесом — верхние строки гаснут быстрее
     geo.fadeUp = portrait ? 0.32 : 0.09;
@@ -271,8 +272,12 @@ export function createWheel(container, items, { lerp, isReduced, text, labels, o
       const dist = Math.abs(d);
       const fade = d < 0 ? geo.fadeUp : 0.09;
       if (geo.flat) {
-        // Телефон: прямой вертикальный список у левого края
-        row.li.style.transform = `translate3d(${geo.left}px, ${geo.cy + d * geo.lineH}px, 0) translateY(-50%)`;
+        // Телефон: прямой список по центру, 7 строк; размер и прозрачность — по расстоянию от главной
+        const { size, opacity } = flatStep(dist);
+        row.li.style.transform = `translate3d(${geo.left}px, ${geo.cy + d * geo.lineH}px, 0) translate(-50%, -50%) scale(${size / 24})`;
+        row.li.style.opacity = String(opacity);
+        row.li.classList.toggle('is-active', dist < 0.5);
+        return;
       } else {
         const angle = d * step;
         const x = geo.cx + geo.r * Math.cos(angle);
@@ -295,9 +300,20 @@ export function createWheel(container, items, { lerp, isReduced, text, labels, o
     const t = text(index);
     infoName.textContent = t.name;
     infoCaption.textContent = t.caption;
+    infoRate.textContent = t.rate;
     info.classList.remove('is-entering');
     void info.offsetWidth; // перезапуск анимации появления
     info.classList.add('is-entering');
+  }
+
+  // Телефон: главная 100% / 24px, дальше 75% / 20px, 40% / 16px, 10% / 14px, четвёртая строка уже не видна
+  const FLAT_STEPS = [[1, 24], [0.75, 20], [0.4, 16], [0.1, 14], [0, 14]];
+  function flatStep(dist) {
+    const i = Math.min(Math.floor(dist), FLAT_STEPS.length - 2);
+    const f = Math.min(1, dist - i);
+    const [o0, s0] = FLAT_STEPS[i];
+    const [o1, s1] = FLAT_STEPS[i + 1];
+    return { opacity: o0 + (o1 - o0) * f, size: s0 + (s1 - s0) * f };
   }
 
   function scheduleSnap() {
