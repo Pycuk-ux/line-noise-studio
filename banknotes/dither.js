@@ -5,6 +5,7 @@
 const SYMBOLS = [...'$€¥£₽₩฿₺₮₱₭₦₲₤₸₡₣'];
 
 export const DITHER = {
+  enabled: false, // пока скрыт; true — включить
   radius: 120, // px от курсора до края круга
   cell: 11, // шаг сетки символов, px
   fontSize: 10, // px
@@ -20,6 +21,10 @@ export const DITHER = {
 const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5].map((v) => (v + 0.5) / 16);
 
 export function initDither(canvas) {
+  if (!DITHER.enabled) {
+    canvas.hidden = true;
+    return;
+  }
   const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
   const fine = window.matchMedia('(hover: hover) and (pointer: fine)');
   const ctx = canvas.getContext('2d');
