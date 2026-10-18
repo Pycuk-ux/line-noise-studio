@@ -5,6 +5,7 @@ import { gsap } from 'gsap';
 import Lenis from 'lenis';
 import { createGrid, createWheel } from './views.js';
 import { ITEMS, UI, LANGS } from './data.js';
+import { initDither } from './dither.js';
 
 /* ---------- Настройки ---------- */
 
@@ -96,6 +97,9 @@ const text = (i) => ({
 });
 
 /* ---------- Запуск ---------- */
+
+// Дизеринг на фоне работает и без WebGL
+initDither(document.querySelector('.dither'));
 
 const canvas = document.querySelector('.stage');
 const renderer = root.classList.contains('is-webgl') ? createRenderer(canvas) : null;

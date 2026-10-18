@@ -92,6 +92,16 @@ button { font: inherit; letter-spacing: inherit; color: inherit; }
 
 /* ---------- Сцена и шум ---------- */
 
+/* Дизеринг символами валют вокруг курсора — над фоном, под всем остальным */
+.dither {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: var(--z-stage);
+  pointer-events: none;
+}
+
 .stage {
   display: none;
   position: fixed;
