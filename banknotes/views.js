@@ -1,6 +1,6 @@
-// Два дополнительных режима просмотра: бесконечная сетка и колесо названий.
+// Два режима просмотра: колесо названий и бесконечная сетка.
 // Оба — DOM поверх сцены, со своей инерцией: цель двигается вводом, текущее значение
-// дотягивается к ней через lerp, как ряд в основном режиме.
+// дотягивается к ней через lerp.
 
 const damp = (factor, dt) => 1 - Math.pow(1 - factor, dt * 60);
 const mod = (n, m) => ((n % m) + m) % m;
@@ -14,7 +14,8 @@ function el(tag, className = '', text = '') {
 
 /* ---------- Сетка ---------- */
 
-export function createGrid(container, items, { lerp, isReduced, onSelect }) {
+// text(index) → { name, caption } на текущем языке
+export function createGrid(container, items, { lerp, isReduced, text, onSelect }) {
   const plane = el('div', 'grid-view__plane');
   container.append(plane);
 
@@ -49,11 +50,11 @@ export function createGrid(container, items, { lerp, isReduced, onSelect }) {
 
   function fill(node, index) {
     if (node.dataset.index === String(index)) return;
-    const item = items[index];
     node.dataset.index = String(index);
-    node.querySelector('img').src = item.src;
-    node.querySelector('.grid-card__name').textContent = item.name;
-    node.querySelector('.grid-card__tag').textContent = item.materialLabel;
+    node.querySelector('img').src = items[index].src;
+    const t = text(index);
+    node.querySelector('.grid-card__name').textContent = t.name;
+    node.querySelector('.grid-card__tag').textContent = t.caption;
   }
 
   // Соседние ряды сдвинуты, чтобы одинаковые купюры не стояли столбиком
@@ -154,7 +155,7 @@ export function createGrid(container, items, { lerp, isReduced, onSelect }) {
       pos.ty += drag.vy * 220;
     } else {
       const card = e.target.closest?.('.grid-card');
-      if (card) onSelect(Number(card.dataset.index));
+      if (card) onSelect(Number(card.dataset.index), card.querySelector('.grid-card__frame').getBoundingClientRect());
     }
     if (drag.captured && container.hasPointerCapture(e.pointerId)) container.releasePointerCapture(e.pointerId);
     container.classList.remove('is-dragging');
@@ -165,9 +166,8 @@ export function createGrid(container, items, { lerp, isReduced, onSelect }) {
 
   window.addEventListener('keydown', (e) => {
     if (!active) return;
-    const step = size.cellW;
-    if (e.key === 'ArrowLeft') pos.tx += step;
-    else if (e.key === 'ArrowRight') pos.tx -= step;
+    if (e.key === 'ArrowLeft') pos.tx += size.cellW;
+    else if (e.key === 'ArrowRight') pos.tx -= size.cellW;
     else if (e.key === 'ArrowUp') pos.ty += size.cellH;
     else if (e.key === 'ArrowDown') pos.ty -= size.cellH;
     else return;
@@ -179,6 +179,11 @@ export function createGrid(container, items, { lerp, isReduced, onSelect }) {
 
   return {
     update,
+    // Сброс подписей после смены языка
+    refresh() {
+      cells.forEach((cell) => { delete cell.node.dataset.index; });
+      pool.forEach((node) => { delete node.dataset.index; });
+    },
     setActive(value) {
       active = value;
       if (value) {
@@ -191,7 +196,7 @@ export function createGrid(container, items, { lerp, isReduced, onSelect }) {
 
 /* ---------- Колесо ---------- */
 
-export function createWheel(container, items, { lerp, isReduced, onChange, onHover, onOpen }) {
+export function createWheel(container, items, { lerp, isReduced, text, labels, onChange, onHover, onOpen }) {
   const RADIUS_STEPS = 9; // видимых строк в каждую сторону
   const list = el('ul', 'wheel-view__list');
   container.append(list);
@@ -208,15 +213,13 @@ export function createWheel(container, items, { lerp, isReduced, onChange, onHov
     const name = el('span', 'wheel-item__name');
     const tags = el('span', 'wheel-item__tags');
     const caption = el('span', 'wheel-chip');
-    const material = el('span', 'wheel-chip');
     const open = el('button', 'wheel-chip wheel-chip--open', '↗');
     open.type = 'button';
     open.tabIndex = -1;
-    open.setAttribute('aria-label', 'Открыть в ряду');
-    tags.append(caption, material, open);
+    tags.append(caption, open);
     li.append(name, tags);
     list.append(li);
-    rows.push({ li, name, caption, material, open, k, index: -1, offset: 0 });
+    rows.push({ li, name, caption, open, k, index: -1, offset: 0 });
   }
 
   function measure() {
@@ -236,10 +239,10 @@ export function createWheel(container, items, { lerp, isReduced, onChange, onHov
   function fill(row, index) {
     if (row.index === index) return;
     row.index = index;
-    const item = items[index];
-    row.name.textContent = item.name;
-    row.caption.textContent = item.caption;
-    row.material.textContent = item.materialLabel;
+    const t = text(index);
+    row.name.textContent = t.name;
+    row.caption.textContent = t.caption;
+    row.open.setAttribute('aria-label', labels().open);
   }
 
   function update(dt) {
@@ -254,13 +257,13 @@ export function createWheel(container, items, { lerp, isReduced, onChange, onHov
       const slot = base + row.k;
       fill(row, mod(slot, items.length));
       const d = slot - state.current;
-      row.offset = row.k + base; // абсолютная позиция для клика
+      row.offset = slot;
       const angle = d * step;
       const x = geo.cx + geo.r * Math.cos(angle);
       const y = geo.cy + geo.r * Math.sin(angle);
       const dist = Math.abs(d);
-      row.li.style.transform = `translate3d(${x}px, ${y}px, 0) rotate(${angle}rad) translateY(-50%)`;
       const fade = d < 0 ? geo.fadeUp : 0.09;
+      row.li.style.transform = `translate3d(${x}px, ${y}px, 0) rotate(${angle}rad) translateY(-50%)`;
       row.li.style.opacity = String(Math.max(0, 1 - Math.max(0, dist - 0.5) * fade));
       row.li.classList.toggle('is-active', dist < 0.5);
     });
@@ -282,6 +285,7 @@ export function createWheel(container, items, { lerp, isReduced, onChange, onHov
     e.preventDefault();
     const scale = e.deltaMode === 1 ? 32 : 1;
     state.target += (e.deltaY * scale) / (geo.lineH * 2.2);
+    onHover(null); // прокрутка важнее наведения: справа — активная купюра
     scheduleSnap();
   }, { passive: false });
 
@@ -294,6 +298,7 @@ export function createWheel(container, items, { lerp, isReduced, onChange, onHov
     if (!drag || e.pointerId !== drag.id) return;
     if (!drag.moved && Math.abs(e.clientY - drag.sy) > 5) {
       drag.moved = true;
+      onHover(null);
       container.setPointerCapture(e.pointerId);
       container.classList.add('is-dragging');
     }
@@ -308,10 +313,11 @@ export function createWheel(container, items, { lerp, isReduced, onChange, onHov
       state.target = Math.round(state.target);
       if (container.hasPointerCapture(e.pointerId)) container.releasePointerCapture(e.pointerId);
     } else {
-      // Клик по строке прокручивает колесо к ней
+      // Клик по активной строке открывает купюру, по другой — докручивает к ней
       const li = e.target.closest?.('.wheel-item');
       const row = rows.find((r) => r.li === li);
-      if (row) state.target = row.offset;
+      if (row?.li.classList.contains('is-active')) onOpen(row.index);
+      else if (row) state.target = row.offset;
     }
     container.classList.remove('is-dragging');
     drag = null;
@@ -341,13 +347,22 @@ export function createWheel(container, items, { lerp, isReduced, onChange, onHov
   measure();
 
   return {
+    list,
     update,
     get velocity() { return state.target - state.current; },
-    setActive(value, startIndex = 0) {
+    get index() { return activeIndex; },
+    refresh() { rows.forEach((row) => { row.index = -1; }); },
+    // Встать на купюру без прокрутки (например, после листания на странице купюры)
+    jumpTo(index) {
+      const base = Math.round(state.current);
+      const slot = base + (mod(index - base, items.length));
+      const near = slot - base > items.length / 2 ? slot - items.length : slot;
+      state.current = state.target = near;
+    },
+    setActive(value) {
       active = value;
       if (value) {
         measure();
-        state.current = state.target = startIndex;
         activeIndex = -1;
         update(1);
       } else {

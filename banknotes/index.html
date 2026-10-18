@@ -1,10 +1,10 @@
 <!doctype html>
-<html lang="ru">
+<html lang="ru" data-view="wheel">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Paper Tender</title>
-    <meta name="description" content="Пять банкнот в одном горизонтальном ряду: Бурунди, Сент-Люсия, Барбадос, Гонконг, Таиланд." />
+    <meta name="description" content="Коллекция банкнот: колесо названий, бесконечная сетка и страница каждой купюры." />
     <meta name="theme-color" content="#e7dcc8" />
     <link rel="stylesheet" href="styles.css" />
     <script>
@@ -24,7 +24,6 @@
           "three": "https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js",
           "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/",
           "gsap": "https://cdn.jsdelivr.net/npm/gsap@3.15.0/index.js",
-          "gsap/ScrollTrigger": "https://cdn.jsdelivr.net/npm/gsap@3.15.0/ScrollTrigger.js",
           "lenis": "https://cdn.jsdelivr.net/npm/lenis@1.3.26/dist/lenis.mjs"
         }
       }
@@ -38,99 +37,55 @@
       <span class="preloader__count">0</span>
     </div>
 
-    <div class="hud" aria-hidden="true">
-      <div class="hud__title"></div>
-      <div class="hud__quote"></div>
-      <div class="hud__index"></div>
-    </div>
+    <nav class="segmented lang" aria-label="Язык">
+      <button type="button" data-lang="ru" aria-pressed="true">RU</button>
+      <button type="button" data-lang="en" aria-pressed="false">EN</button>
+    </nav>
 
-    <header class="brand">
-      <span class="brand__mark">Paper Tender</span>
-      <span class="brand__note">Коллекция банкнот</span>
-    </header>
+    <section class="wheel-view" aria-hidden="true">
+      <button class="wheel-view__hit" type="button" tabindex="-1" aria-hidden="true"></button>
+    </section>
+    <section class="grid-view" aria-hidden="true"></section>
 
-    <main>
-      <section class="intro">
-        <p class="intro__kicker">Пять стран · пять купюр</p>
-        <h1 class="intro__title">Бумага,<br />которой верят</h1>
-        <p class="intro__lead">Листайте вниз — ряд банкнот поедет вбок.</p>
-      </section>
+    <nav class="segmented switcher" aria-label="Вид коллекции">
+      <button type="button" data-view="wheel" aria-pressed="true">Колесо</button>
+      <button type="button" data-view="grid" aria-pressed="false">Сетка</button>
+    </nav>
 
-      <section class="track" aria-label="Коллекция">
-        <ol class="collection">
-          <li class="note" data-src="assets/objects/01.png" data-material="cotton">
-            <figure>
-              <img src="assets/objects/01.png" alt="Банкнота Бурунди номиналом 10 000 франков" width="600" height="431" loading="lazy" />
-              <figcaption>
-                <h2 class="note__name">Burundi</h2>
-                <p class="note__caption">10.000 Francs</p>
-                <p class="note__material">Хлопок и лён</p>
-                <blockquote class="note__quote">Banque de la République du Burundi</blockquote>
-              </figcaption>
-            </figure>
-          </li>
-          <li class="note" data-src="assets/objects/02.png" data-material="cotton">
-            <figure>
-              <img src="assets/objects/02.png" alt="Банкнота Сент-Люсии номиналом 5 долларов" width="600" height="326" loading="lazy" />
-              <figcaption>
-                <h2 class="note__name">Saint Lucia</h2>
-                <p class="note__caption">5 Dollars</p>
-                <p class="note__material">Хлопок и лён</p>
-                <blockquote class="note__quote">Barclays Bank (Dominion, Colonial and Overseas)</blockquote>
-              </figcaption>
-            </figure>
-          </li>
-          <li class="note" data-src="assets/objects/03.png" data-material="polymer">
-            <figure>
-              <img src="assets/objects/03.png" alt="Банкнота Барбадоса номиналом 100 долларов" width="754" height="326" loading="lazy" />
-              <figcaption>
-                <h2 class="note__name">Barbados</h2>
-                <p class="note__caption">100 Dollars</p>
-                <p class="note__material">Полимер</p>
-                <blockquote class="note__quote">Central Bank of Barbados</blockquote>
-              </figcaption>
-            </figure>
-          </li>
-          <li class="note" data-src="assets/objects/04.png" data-material="cotton">
-            <figure>
-              <img src="assets/objects/04.png" alt="Банкнота Гонконга номиналом 10 гонконгских долларов" width="668" height="326" loading="lazy" />
-              <figcaption>
-                <h2 class="note__name">Hong Kong</h2>
-                <p class="note__caption">10 Hong Kong Dollars</p>
-                <p class="note__material">Хлопок и лён</p>
-                <blockquote class="note__quote">Government of the Hong Kong (SAR)</blockquote>
-              </figcaption>
-            </figure>
-          </li>
-          <li class="note" data-src="assets/objects/05.png" data-material="cotton">
-            <figure>
-              <img src="assets/objects/05.png" alt="Банкнота Таиланда номиналом 100 бат" width="684" height="326" loading="lazy" />
-              <figcaption>
-                <h2 class="note__name">Thailand</h2>
-                <p class="note__caption">100 Baht</p>
-                <p class="note__material">Хлопок и лён</p>
-                <blockquote class="note__quote">Government of Thailand</blockquote>
-              </figcaption>
-            </figure>
-          </li>
-        </ol>
-      </section>
+    <main class="detail" hidden>
+      <div class="detail__controls" data-reveal>
+        <button class="detail__close" type="button" aria-label="Закрыть">
+          <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 3l10 10M13 3L3 13" stroke="currentColor" stroke-width="1.2" fill="none" /></svg>
+        </button>
+        <div class="detail__nav">
+          <button class="detail__step" type="button" data-step="-1">
+            <svg width="20" height="12" viewBox="0 0 20 12" aria-hidden="true"><path d="M19 6H2M6 1L1 6l5 5" stroke="currentColor" stroke-width="1.2" fill="none" /></svg>
+            <span data-i18n="prev">К предыдущей</span>
+          </button>
+          <button class="detail__step" type="button" data-step="1">
+            <span data-i18n="next">К следующей</span>
+            <svg width="20" height="12" viewBox="0 0 20 12" aria-hidden="true"><path d="M1 6h17M14 1l5 5-5 5" stroke="currentColor" stroke-width="1.2" fill="none" /></svg>
+          </button>
+        </div>
+      </div>
 
-      <section class="outro">
-        <p class="outro__kicker">Конец ряда</p>
-        <h2 class="outro__title">Деньги — это договорённость,<br />напечатанная на бумаге</h2>
-        <a class="outro__top" href="#top" data-scroll-top>Наверх</a>
-      </section>
+      <div class="detail__note" aria-hidden="true"></div>
+      <p class="detail__hint" data-reveal data-i18n="flip">Потяните вверх или вниз, чтобы перевернуть</p>
+
+      <div class="detail__body" data-reveal aria-live="polite"></div>
     </main>
 
-    <section class="grid-view" aria-hidden="true"></section>
-    <section class="wheel-view" aria-hidden="true"></section>
-
-    <nav class="switcher" aria-label="Вид коллекции">
-      <button type="button" data-mode="row" aria-pressed="true">Row</button>
-      <button type="button" data-mode="wheel" aria-pressed="false">Wheel</button>
-      <button type="button" data-mode="grid" aria-pressed="false">Grid</button>
-    </nav>
+    <!-- Список для скринридеров и для браузеров без WebGL -->
+    <section class="fallback" aria-label="Коллекция">
+      <ol class="collection">
+        <li class="note"><figure><img src="assets/objects/01.png" alt="Банкнота Бурунди, 10 000 франков" width="600" height="431" loading="lazy" /><figcaption><h2 class="note__name">Бурунди</h2><p class="note__caption">10 000 франков</p><p class="note__quote">Банк Республики Бурунди</p></figcaption></figure></li>
+        <li class="note"><figure><img src="assets/objects/02.png" alt="Банкнота Сент-Люсии, 5 долларов" width="600" height="326" loading="lazy" /><figcaption><h2 class="note__name">Сент-Люсия</h2><p class="note__caption">5 долларов</p><p class="note__quote">Barclays Bank (Dominion, Colonial and Overseas)</p></figcaption></figure></li>
+        <li class="note"><figure><img src="assets/objects/03.png" alt="Банкнота Барбадоса, 100 долларов" width="754" height="326" loading="lazy" /><figcaption><h2 class="note__name">Барбадос</h2><p class="note__caption">100 долларов</p><p class="note__quote">Центральный банк Барбадоса</p></figcaption></figure></li>
+        <li class="note"><figure><img src="assets/objects/04.png" alt="Банкнота Гонконга, 10 гонконгских долларов" width="668" height="326" loading="lazy" /><figcaption><h2 class="note__name">Гонконг</h2><p class="note__caption">10 гонконгских долларов</p><p class="note__quote">Правительство САР Гонконг</p></figcaption></figure></li>
+        <li class="note"><figure><img src="assets/objects/05.png" alt="Банкнота Таиланда, 100 бат" width="684" height="326" loading="lazy" /><figcaption><h2 class="note__name">Таиланд</h2><p class="note__caption">100 бат</p><p class="note__quote">Правительство Таиланда</p></figcaption></figure></li>
+        <li class="note"><figure><img src="assets/objects/06.png" alt="Банкнота Украины, 1 гривна" width="890" height="476" loading="lazy" /><figcaption><h2 class="note__name">Украина</h2><p class="note__caption">1 гривна</p><p class="note__quote">Национальный банк Украины</p></figcaption></figure></li>
+      </ol>
+    </section>
 
     <div class="grain" aria-hidden="true"></div>
   </body>
