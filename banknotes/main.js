@@ -11,18 +11,32 @@ import { ITEMS, UI, LANGS } from './data.js';
 const CONFIG = {
   thickness: 0.006, // толщина «бумаги» в долях ширины
   lerp: 0.08, // инерция колеса и сетки
-  bendMax: 0.14,
-  waveAmp: 0.004, // «дыхание» бумаги
   moveDuration: 1.1, // переезд купюры на страницу и обратно
   dragSpeed: 0.01, // рад на пиксель при перевороте
-  hoverTilt: THREE.MathUtils.degToRad(3), // наклон к курсору
-  // Стопка у колеса. Сдвиг и глубина — в долях ширины купюры.
+  hoverTilt: THREE.MathUtils.degToRad(5), // наклон к курсору: угол уходит назад на столько
+  // Бумага: изгиб от вращения и движения, с пружиной (лёгкий отскок после остановки).
+  // Изгиб — в долях ширины купюры на краю.
+  paper: {
+    flipCurl: 0.05, // S-изгиб на каждый рад/с вращения: края отстают от поворота
+    curlMax: 0.35, // предел S-изгиба
+    flipCup: 0.015, // прогиб «чашкой» на каждый рад/с вращения
+    moveCup: 0.03, // прогиб «чашкой» на каждую ширину/с движения
+    cupMax: 0.14, // предел прогиба
+    stiffness: 140, // жёсткость: больше — бумага плотнее, быстрее выпрямляется
+    damping: 12, // затухание: меньше — дольше «дрожит» после остановки
+    wave: 0.004, // «дыхание» поверхности в покое
+  },
+  // Стопка у колеса. Сдвиги и глубина — в долях ширины купюры.
   stack: {
     offsetX: 0.1, // каждая следующая купюра чуть правее
     depth: 0.14, // и дальше от зрителя
     turn: -0.06, // и чуть развёрнута
-    swing: 0.75, // уходящая купюра отлетает влево на эту долю ширины
-    swingTurn: 0.55, // и разворачивается по дороге
+    // Уход передней купюры в конец: вверх вместе с текстом → назад → вниз за стопку
+    gap: 0.06, // зазор над стопкой, когда купюра уже никого не перекрывает
+    lead: 0.04, // насколько купюра выходит к зрителю, пока едет вверх
+    tilt: 0.18, // рад: наклон верхнего края назад во время подъёма
+    phaseUp: 0.4, // доля пути на подъём
+    phaseBack: 0.6, // к этой доле купюра уже ушла вглубь
   },
   // Смена купюры на странице: старая уходит вглубь, новая приходит из глубины
   zoom: { depthOut: 0.8, depthIn: 0.35, out: 0.5, in: 0.6, delay: 0.25 },
@@ -41,7 +55,7 @@ const CONFIG = {
   fiberRepeat: 2.2,
   paperColor: 0xe9dfcc,
   envIntensity: 0.9,
-  rectIntensity: 2.6,
+  rectIntensity: 1.3, // блик, который скользит при наклоне
   exposure: 1,
 };
 
@@ -101,7 +115,7 @@ function createRenderer(target) {
 
 /* ---------- Загиб бумаги в вершинном шейдере ---------- */
 
-// Профиль по X: чашка от скорости плюс бегущая волна.
+// Профиль по X: «чашка» и S-изгиб от движения плюс бегущая волна.
 // Нормаль правится той же производной, чтобы блик ехал по изгибу.
 function applyPaperBend(material, uniforms) {
   material.onBeforeCompile = (shader) => {
@@ -111,10 +125,18 @@ function applyPaperBend(material, uniforms) {
         '#include <common>',
         `#include <common>
         uniform float uBend;
+        uniform float uCurl;
         uniform float uWave;
         uniform float uTime;
-        float paperZ(float x) { return uBend * x * x + uWave * sin(x * 6.2832 + uTime); }
-        float paperDz(float x) { return 2.0 * uBend * x + uWave * 6.2832 * cos(x * 6.2832 + uTime); }`,
+        // x ∈ [−0.5, 0.5]; s = 2x ∈ [−1, 1]. uBend — «чашка», uCurl — S-изгиб, края в разные стороны.
+        float paperZ(float x) {
+          float s = x * 2.0;
+          return uBend * x * x + uCurl * 0.5 * s * abs(s) + uWave * sin(x * 6.2832 + uTime);
+        }
+        float paperDz(float x) {
+          float s = x * 2.0;
+          return 2.0 * uBend * x + uCurl * 2.0 * abs(s) + uWave * 6.2832 * cos(x * 6.2832 + uTime);
+        }`,
       )
       .replace(
         '#include <beginnormal_vertex>',
@@ -168,7 +190,7 @@ function start(renderer) {
 
   const cards = ITEMS.map((item, i) => {
     const s = CONFIG.surfaces[item.material === 'polymer' ? 'polymer' : 'cotton'];
-    const uniforms = { uBend: { value: 0 }, uWave: { value: 0 }, uTime: { value: i * 1.7 } };
+    const uniforms = { uBend: { value: 0 }, uCurl: { value: 0 }, uWave: { value: 0 }, uTime: { value: i * 1.7 } };
     const surface = () => {
       const m = new THREE.MeshPhysicalMaterial({
         color: 0xffffff,
@@ -204,6 +226,10 @@ function start(renderer) {
       opacity: -1,
       hero: 0, // 0…1: насколько купюра — «главная» на странице или в переезде
       heroIn: false, // приходит из глубины (true) или уходит вглубь (false)
+      // Пружины изгиба и прошлое положение — для скорости
+      curl: { x: 0, v: 0 },
+      cup: { x: 0, v: 0 },
+      prev: null,
     };
   });
 
@@ -608,6 +634,7 @@ function start(renderer) {
     gsap.to(counter, { value: (loaded / total) * 100, duration: 0.6, ease: 'power2.out', onUpdate: renderCount, overwrite: true });
   };
   manager.onLoad = () => {
+    maxHeight = Math.max(...cards.map((c) => 1 / c.aspect));
     renderer.compile(scene, camera);
     gsap.to(counter, { value: 100, duration: 0.8, ease: 'power2.out', onUpdate: renderCount, overwrite: true, onComplete: intro });
   };
@@ -684,22 +711,31 @@ function start(renderer) {
     return { dx: k * S.offsetX, dz: -k * S.depth, turn: k * S.turn, opacity };
   }
 
-  // rel — непрерывное место купюры в стопке. Между N−1 и N купюра уходит
-  // с передней позиции в конец: отлетает влево, отступает вглубь и гаснет.
-  function stackPose(rel) {
+  // rel — непрерывное место купюры в стопке. Между N−1 и N купюра уходит с передней
+  // позиции в конец, как настоящая: сначала вверх (вместе с текстом колеса), оставаясь
+  // перед стопкой, пока перекрывает её; только выйдя целиком над стопкой — назад;
+  // затем опускается за стопку и гаснет. Прокрутка вверх проигрывает путь обратно.
+  const smooth = (v) => v * v * (3 - 2 * v);
+  function stackPose(rel, aspect) {
     const S = CONFIG.stack;
-    if (rel <= COUNT - 1) return slotPose(rel);
+    if (rel <= COUNT - 1) return { ...slotPose(rel), dy: 0, tilt: 0 };
     const p = COUNT - rel; // 0 — ещё спереди, 1 — уже в конце
     const end = slotPose(COUNT - 1);
-    const arc = Math.sin(p * Math.PI);
+    const up = smooth(clamp(p / S.phaseUp, 0, 1));
+    const back = smooth(clamp((p - S.phaseUp) / (S.phaseBack - S.phaseUp), 0, 1));
+    const down = smooth(clamp((p - S.phaseBack) / (1 - S.phaseBack), 0, 1));
+    // Подъём на половину своей высоты + половину самой высокой купюры + зазор
+    const clear = 0.5 / aspect + 0.5 * maxHeight + S.gap;
     return {
-      dx: lerp(0, end.dx, p) - arc * S.swing,
-      dz: lerp(0, end.dz, p) - arc * 0.15,
-      turn: lerp(0, end.turn, p) + arc * S.swingTurn,
-      // гаснет к концу пути полностью, без «призрака» у края стопки
-      opacity: 1 - clamp(p / 0.85, 0, 1) ** 2,
+      dx: end.dx * back,
+      dy: -clear * up * (1 - down),
+      dz: S.lead * up * (1 - back) + end.dz * back,
+      turn: end.turn * back,
+      tilt: -S.tilt * Math.sin(Math.PI * p),
+      opacity: 1 - down,
     };
   }
+  let maxHeight = 0.6; // высота самой высокой купюры в долях ширины; уточняется после загрузки
 
   /* --- Кадр --- */
 
@@ -719,7 +755,7 @@ function start(renderer) {
     else if (pose.bind === 'center') Object.assign(pose, { x: view.w / 2, y: view.h / 2, w: panelRect().w });
     else if (pose.bind === 'detail') Object.assign(pose, detailRect());
 
-    // Наклон к курсору: угол, к которому движется мышь, уходит назад на 3°
+    // Наклон к курсору: угол, к которому движется мышь, уходит назад на hoverTilt
     const over = pointer.mouse && !busy && !rot.dragging && isOverHero(pointer.x, pointer.y);
     let tx = 0;
     let ty = 0;
@@ -749,22 +785,21 @@ function start(renderer) {
     const panel = panelRect();
     const stackW = panel.w * k;
     const focus = wheel.position;
-    const speed = mode === 'wheel' ? Math.abs(wheel.velocity) * 0.12 : Math.abs(rot.vy) * 0.01;
-    const bendTarget = still ? 0 : -Math.min(speed, CONFIG.bendMax);
     const Z = CONFIG.zoom;
+    const P = CONFIG.paper;
 
     cards.forEach((c, i) => {
       const m = c.mesh;
       const rel = mod(i - focus, COUNT);
-      const sp = stackPose(rel);
+      const sp = stackPose(rel, c.aspect);
       const frontWeight = 1 - Math.min(1, Math.min(rel, COUNT - rel));
 
       // Стопка у колеса
       let x = panel.x + sp.dx * panel.w;
-      let y = panel.y;
+      let y = panel.y + sp.dy * panel.w;
       let z = sp.dz * stackW;
       let w = stackW;
-      let rx = tilt.x * frontWeight;
+      let rx = sp.tilt + tilt.x * frontWeight;
       let ry = sp.turn + tilt.y * frontWeight;
       let opacity = sp.opacity * fade.stack;
 
@@ -783,11 +818,32 @@ function start(renderer) {
         opacity = mode === 'detail' ? c.hero : lerp(opacity, 1, blend);
       }
 
+      const wasVisible = m.visible;
       m.visible = opacity > 0.003;
       if (!m.visible) return;
+      const wx = (x - view.w / 2) * k;
+      const wy = -(y - view.h / 2) * k;
       m.scale.set(w, w / c.aspect, w);
-      m.position.set((x - view.w / 2) * k, -(y - view.h / 2) * k, z);
+      m.position.set(wx, wy, z);
       m.rotation.set(rx, ry, 0);
+
+      // Скорость купюры: вращение вокруг вертикали (рад/с) и движение (ширин/с)
+      let omega = 0;
+      let speed = 0;
+      if (wasVisible && c.prev && dt > 0) {
+        omega = clamp((ry - c.prev.ry) / dt, -20, 20);
+        speed = Math.min(10, Math.hypot(wx - c.prev.x, wy - c.prev.y, z - c.prev.z) / dt / w);
+      }
+      c.prev = { x: wx, y: wy, z, ry };
+
+      // Бумага отстаёт от движения: края гнутся против вращения, середина прогибается от скорости.
+      // Пружина даёт мягкий отскок, когда купюра останавливается.
+      const curlTarget = still ? 0 : clamp(-omega * P.flipCurl, -P.curlMax, P.curlMax);
+      const cupTarget = still ? 0 : -Math.min(P.cupMax, Math.abs(omega) * P.flipCup + speed * P.moveCup);
+      [[c.curl, curlTarget], [c.cup, cupTarget]].forEach(([spring, target]) => {
+        spring.v += (P.stiffness * (target - spring.x) - P.damping * spring.v) * dt;
+        spring.x += spring.v * dt;
+      });
 
       if (Math.abs(opacity - c.opacity) > 0.002) {
         c.opacity = opacity;
@@ -795,8 +851,9 @@ function start(renderer) {
       }
 
       const u = c.uniforms;
-      u.uBend.value += (bendTarget - u.uBend.value) * damp(0.12, dt);
-      u.uWave.value = still ? 0 : CONFIG.waveAmp + Math.abs(u.uBend.value) * 0.08;
+      u.uBend.value = c.cup.x;
+      u.uCurl.value = c.curl.x;
+      u.uWave.value = still ? 0 : P.wave + Math.abs(c.cup.x) * 0.08;
       u.uTime.value += dt * 1.2;
     });
 
