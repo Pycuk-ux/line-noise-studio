@@ -1,0 +1,395 @@
+# Deals Inbox · Merge pointer (v0): clickable prototype
+
+A copy of `deals-prototype/` with the deal-merge proposal ("Deals merge pointer: v0 proposal", Will, 4 Nov 2026)
+built into the interface. The base prototype is unchanged. Static HTML/CSS/vanilla JS on the Gocanopy design
+system, mock data only.
+
+## What this copy adds (merge pointer v0)
+
+- **Merge into another deal**: in the ⋯ menu on inbox rows and kanban cards, in the drawer's ⋯, and as a button on
+  the Received list. A dialog searches deals (same city first). Closed deals are listed but can't be picked, because
+  an asset that returns after a pass stays a new deal. **Which deal stays?** defaults to the deal furthest along in
+  the pipeline (on a tie, the earlier first received). The user can pick the other. The dialog previews First
+  received, and warns when both deals are already in the pipeline.
+- **Merged deals are hidden, never deleted.** They get a "merged into" pointer (who, when) and leave the inbox, kanban,
+  map and header counts. *Merged & not a deal* in Sort lists them (list-only). A merged record opens with a banner
+  linking to the surviving deal, plus *Unmerge*. Undo in the toast unmerges too.
+- **Received list** in the deal drawer has one row per broker submission. Each row shows:
+  - Sent (the broker's date, which decides First received) and Received (when it reached GoCanopy, never editable).
+  - Broker, set by hand from a firm list (a colleague forwarding an email isn't a second broker). Contact,
+    document type and "forwarded by" sit under the broker.
+  - The quoted price, kept as sent.
+  - Email, which opens the original email and files (mock).
+  - A row ⋯ menu: *Set as first received* (reason required, logged and shown under the table, with *Use the earliest
+    sent date* to undo it), *Correct sent date* (reason required, marked "edited"), and, on rows from a merged deal,
+    *Open merged record* / *Unmerge*.
+- **First received** (amber chip, used for nothing else) goes to the earliest sent date, whichever deal survives.
+  Cards read Broker and the Received date from that row ("Savills +1", 26 Aug), so the list matches the tag even when
+  the surviving deal came from a later broker. The drawer overview shows First received + Broker the same way.
+- **Search** (name, city, broker): searching for a merged deal returns the surviving deal, with a "Matched merged deal"
+  note.
+- **Remove from deal**: an *In deal* switch on each asset in the drawer's asset table. Switching it off asks for a reason.
+  The asset stays listed, struck through, with the reason. It leaves the totals and the Total assets metric, and it can
+  be put back. The quoted price is untouched.
+- **Not a deal**: an inbox ⋯ action for market reports and newsletters. It uses the same filter as merge, is reversible
+  (*It's a deal: restore*) and keeps the document.
+
+Mock scenarios to try:
+- *The Symphony Group PLC, Tuscany Way* (Savills, sent 26 Aug, forwarded and received 28 Aug) and *…Wakefield
+  Europort* (Colliers, sent and received 27 Aug). Merge them: the LOI deal survives, and First received is Savills by
+  sent date, though by received time Colliers would win.
+- *Harbourside Retail Park* is already merged with *Harbourside RP, Malmö* (JLL, earlier).
+- *Kirseberg Logistics, Malmö* is a fresh Received duplicate of *Kirseberg Logistics Hub*.
+- *Hyllie Office Campus* is live while its earlier pass sits in the Archive: the merge dialog blocks the closed one.
+- *Nordic Logistics Market Report Q3 2026* is a candidate for *Not a deal*.
+
+Out of scope, as in the proposal: suggested matches at intake, broker extraction, the Vorkenntnis reply email,
+asset-level merge of a portfolio with one of its assets, and the thread-reply bug.
+
+## Run
+
+Live (private Artifact): https://claude.ai/artifact/Er7Hap18MwgZuAKQmYfbGg. Base prototype: https://claude.ai/artifact/QFehnUScTAf2ygpCEudiXQ. Rebuild the single-file version with `python3 tools/build-artifact.py OUT.html`.
+
+```bash
+cd deals-merge-prototype
+python3 -m http.server 8081
+# open http://localhost:8081
+```
+
+DS stylesheets and icons load from `gocanopy-design-system.vercel.app`, so the page needs network access.
+No build step.
+
+**Tests (optional):** `bash tests/make-fixtures.sh && BASE_URL=http://localhost:8081/ node tests/e2e.cjs` (266 checks, incl. section 20 for merge) while the server runs. The test
+needs Playwright and serves the Vercel DS from a local clone (`GOCANOPY_DS_ROOT`, default `../../gocanopy-design-system`).
+It makes 123 checks (acceptance checklist, map, multi-asset, draft undo, stage grouping, board, card fields, card menu, details and edit drawers); the latest run passed all 123 with 0 console errors or warnings.
+
+## Structure
+
+```
+index.html            Deals Inbox (Figma 18819:252983) + modal/toast mount points
+css/app.css           page styles (DS tokens only)
+css/deal-modal.css    modal, stepper, form, upload, preview (DS tokens only)
+js/mock-data.js       deals, users, locations, funds… (copy from Figma)
+js/format.js          formats, unit conversion, Rent/psm + NIY maths
+js/state.js           the single state object, field schema, validation, isDirty, localStorage draft
+js/ui.js              focus trap, toast (DS Alert), close-confirmation dialog
+js/upload.js          dropzone, limits, simulated progress, DnD + keyboard reorder, remove
+js/deal-modal.js      modal shell, stepper, Key/General/Physical/Financial steps, close + draft logic
+js/preview.js         Preview step (mirrors Deal Details), AI flags, deal object
+js/inbox.js           inbox list, add-deal + highlight
+assets/img/           deal photos cropped from the provided screenshots (Figma assets were unreachable)
+js/map.js             interactive map: vector base map, pins, pin settings, legend, pan/zoom
+js/deal-panel.js      deal details drawer + edit deal drawer
+css/deal-panel.css    drawer styles (DS tokens only)
+docs/screens/         screenshots of every state
+tests/                Playwright e2e (acceptance checklist)
+TOKENS.md             token report: components, provisionals, off-system values
+```
+
+## What was built
+
+- **Deals Inbox**, close to the Figma frame: navbar, header with total chip and unit controls, tabs, filters,
+  row cards (5 mock deals), pagination and map. The **New deal** primary button sits above the map, on the right.
+- **Add New Deal modal**: 960px for the input steps (fixed height, scrolling body) and 1200px for Preview.
+  - **Stepper** uses the stage progress-bar pattern (done = check, current = tinted, upcoming = white, locked =
+    disabled). Completed steps are clickable. Later steps unlock once every step before them is valid. Footer:
+    Save as Draft · Back · Next / Add Deal.
+  - **Key Info** *(all fields required)*:
+    - Area, Price, Occupancy, Rent, **Rent/psm** (auto, read-only), **NIY** (prefilled and editable; tagged
+      "edited" when overridden, with "Reset to calculated"), Number of assets.
+    - Values are stored as sqm and per year, so Yearly/Monthly and SQM/SQF only change what is shown. With SQF
+      selected the metric reads **Rent/psf**; SQM is the default. Currency defaults to EUR and changes the symbol
+      only, with no conversion.
+    - **Photos** *(optional)*:
+      - Drag-drop or browse, `image/*` only, at most 10 files of up to 20MB each. Rejected files are listed by
+        name with the reason.
+      - Simulated per-file progress, an N/10 counter, and a "Cover" label on the first photo.
+      - Reorder by drag and drop, or with the keyboard (focus the handle, then ←/→/Home/End). Remove with focus
+        handling and screen-reader announcements.
+      - At 10/10 the dropzone is disabled.
+  - **General Info** *(optional)*: Deal name; Location / Region (autocomplete); Date received (defaults to
+    today); Industry chips; Deal stage (defaults to Received); Fund; Team (multi-select with avatars); Next
+    deadline (type + date); Broker (company + contact); Deal Source (market + process).
+  - **Physical Info** *(optional)*: GLA / NLA, Land area, Year built / renovated (renovated can't be earlier
+    than built), Floors, Units, Parking, Condition.
+  - **Financial Info** *(optional)*: NOI, Operating expenses, ERV, Debt service, CapEx, Purchaser costs, WAULT,
+    then **Assumption**: Exit yield, Rent growth, Hold period, LTV, Cost of debt. Nothing from Key Info is
+    repeated.
+  - **Preview** mirrors Deal Details: header (name, industry chip, stage chip, location, asset count), cover
+    carousel, stage bar, key-metrics grid, Overview rows, Physical, and Financial. Each section has a right-aligned
+    ghost **Edit** that jumps to its step with all state kept.
+    - **AI generation** toggles (AI Summary, Key Strengths, Investment Risks) are all on by default. They are
+      flags only, stored on the deal object as `record.ai`.
+- **Close logic**: the ✕ button, Esc and an overlay click share one path.
+  - With nothing entered, the modal closes immediately and resets.
+  - With anything entered (dirty), a dialog offers **Save as Draft / Discard / Continue editing**. Esc inside the
+    dialog means Continue editing.
+- **Draft**: saved to `localStorage`, including photos re-encoded as compressed JPEGs. If storage is full, the
+  photos are dropped and the toast says so. Reopening restores the draft on the step it was saved from, with a
+  "Draft restored · Start over" banner.
+- **Success**: the modal closes, a toast confirms, and the deal is added at the top of the list with a 4-second
+  highlight. The header count and total value update.
+- **Accessibility**:
+  - `role=dialog` with `aria-modal`; the page behind is `inert`; focus is trapped and returns to the trigger.
+  - `aria-current="step"`; a sr-only step heading receives focus on each step change; errors use
+    `aria-invalid` and `aria-describedby`, and focus moves to the first invalid field.
+  - Comboboxes follow the ARIA pattern (Esc closes only the list). Industry chips are a `radiogroup` with roving
+    tabindex.
+
+## Iteration 2 changes
+
+- **Settings icon** sits centred again. The DS `setting` glyph had invalid CSS (`calc(50%-0.5px)`); a small shim in
+  `js/format.js` repairs it, along with `arrow-right` (now back on Next). Both are DS bugs to fix upstream.
+- **View switches** match Figma: left = List / Board (Board is visual only for now), right = Hide map / Show map
+  (works: the list takes the full width when the map is off).
+- **Interactive map** (`js/map.js`):
+  - drag to pan, wheel or +/− to zoom, layers button resets the view; keyboard: arrows pan, +/− zoom;
+  - pins styled as in Figma (stage colour + industry icon + value);
+  - **pin settings dropdown**: what the pin shows (Price, Rent, Rent/psm, Area, NIY, Occupancy) and toggles for
+    *Industry icon* and *Value label*; with both off, pins become stage-coloured dots;
+  - legend filters pins by stage; hovering a card highlights its pin, clicking a pin highlights its card;
+  - a newly added deal gets a pulsing pin. The base map is drawn from DS tokens (tiles and the Figma raster are unavailable).
+- **Modal units**: Yearly/Monthly removed (rent is yearly). SQM/SQF + currency now sit on the "Key metrics" heading
+  row; Physical and Financial follow that choice and have no unit controls of their own.
+- **Auto-filled values** (Rent/psm, NIY) are static: not focusable, no hover, grey box with an "auto" tag. NIY keeps
+  an **Override** action that turns it into an input, and **Reset to calculated** brings the auto value back.
+- **Multi-asset deals** (CEO comment): Key Info has an **Assets** list. Each asset starts with *Asset type* and
+  *Address* (required); add or remove assets. Number of assets is derived from the list. Physical Info has one block
+  per asset, and Preview shows an assets table like the Deal Details "Asset" table. Deal-level Industry is prefilled
+  from the first asset.
+- The inbox now lists all 11 active deals (2 without price), each with a pin.
+
+## Iteration 3 changes
+
+- Inbox cards: hover (and hovering the card's map pin) fills the card with `#F9FAFB` (`--surface-secondary`) instead of an outline.
+- Key metrics: the "* Required" note is gone; the asterisk next to each label is enough.
+- Asset container: no border, `#F3F4F6` fill (`--color-grey-100`).
+- **Deal name moved to Key Info** (top of the step, required). General Info no longer asks for Industry: the deal's
+  industry comes from its assets (one type → that type, several types → Mixed-use).
+- **Saved draft banner** spans the modal width with **Continue** and **Delete draft** on the right. Delete clears the
+  form and shows a "Draft deleted · Undo" bar (focus moves to Undo; it disappears after 8 s). Undo restores the draft.
+
+## Iteration 4 changes
+
+- **Draft delete**: the draft card disappears and a separate **Undo** toast pops up at the bottom of the modal
+  (8 s, dismissible). Undo brings the draft and its card back.
+- **Modal header** is white; the stepper bar gets a thin border so it still reads on white.
+- **Deal name pinned in the header** ("Add New Deal · Harbour Gate Logistics Park") from General Info onwards.
+- **Sort → Deal stage** groups the list by stage (Figma 18829:253921, built from the brief — Figma was rate-limited):
+  each stage is a `--surface-secondary` container; its header shows the abbreviation, the count in brackets and the
+  stage's total on the right (empty when the stage has no priced deals) and is filled with the stage colour.
+  Headers are `position: sticky`; once cards slide under, the 4 px ring around the header fills grey and a soft
+  shadow appears. Stages are 16 px apart; empty stages show "(0)".
+- **Kanban board** (left switch → Board; Figma 18829:254538, from the brief): one column per stage with the same
+  sticky header behaviour (each column scrolls on its own), compact deal cards, horizontal scroll, no pagination.
+- **Card fields** (settings icon): choose what deal cards show — Area, Rent, Rent/psm, NIY, WAULT, Occupancy, Deal
+  source. Applies to list and board cards and is remembered in the browser.
+
+## Iteration 5 changes
+
+- **Kanban card** rebuilt from the provided screenshot: assignee (left) and price (right), clickable title, location
+  with "(N assets)", photo slider (counter + prev/next; no navigation for a single photo; an empty placeholder when
+  there are no photos — same as the list), industry + status chips, the field rows chosen in card settings (new
+  option: Received), then a divider with comments (left, only if any) and Edit + "more" (right).
+- **More menu** (list and board cards): Archive deal / Delete deal. Both remove the card and show a toast with Undo.
+- **Clickable deal title** (underline on hover) opens the **deal details drawer**, sliding in from the right, with the
+  Deal Details | Full page content: header, photos, stage bar, key metrics, Overview/Physical/Financial tabs, AI
+  Summary, Asset table, map, Comps, Financial Model, Deal Memo, Key Highlights, Investment Risks, Sources.
+  Top bar: » closes with a slide-out, full-page icon expands to the whole window, ↑/↓ move between deals in the
+  current list/board order without closing (with "N of M"), Edit on the right.
+- **Edit deal drawer** (from the drawer's Edit or a card's pencil): slides in over the details drawer, `--surface-main`
+  background, one white card per section (Key Info, Assets, General, Physical, Financial). The header (title + tabs)
+  is sticky with 16 px bottom padding and a shadow once content scrolls under; the active tab follows the card in
+  view, and clicking a tab scrolls to its card. Save changes updates the card, map pin and drawer; Cancel / ✕ / Esc
+  with unsaved changes closes and shows a "Changes discarded" toast with **Undo**, which reopens the edit with them.
+- Mock metrics are now consistent: Rent/psm and NIY are derived from rent, area and price everywhere.
+
+## Iteration 6 changes
+
+- **Kanban spacing:** +4 px between cards in a column (now `--space-2`, 8 px) and +4 px between the info rows
+  (Area / Rent / Deal source…, now `--space-2`).
+- **Stage dropdown on cards:** the stage chip on list cards is a button; it opens a menu of all stages (current one
+  checked). Picking one moves the deal (also between stage groups), shows a toast and is written to the deal log.
+- **Sort → "Archived only":** lists archived deals (with an empty state when there are none); their menu offers
+  Restore deal / Delete deal.
+- **Per-asset metrics (New deal modal and Edit drawer):** every asset is a collapsible card. The header shows
+  "Asset N · type · address · price"; clicking it opens type, address, Area, Price, Occupancy, Rent and the auto
+  Rent/psm and NIY for that asset. In the modal, empty assets and assets with errors open automatically; filled
+  ones start collapsed. In the edit drawer, all cards start collapsed and a newly added asset opens. Per-asset
+  metrics are optional (the deal-level Key metrics stay required) and appear in the Preview and drawer asset tables.
+- **Autofill (prototype helper):** a ghost button at the end of the Deal name input fills every required Key Info
+  field (name, metrics, asset type and address) so you can click through the flow quickly. It only fills empty fields.
+- **Details drawer tabs** (Figma 18831:258397): Deal Details · Assets · Comps · AI Assistant · Documents · Comments ·
+  Logs. Assets, Comps, AI Assistant and Documents are shown but disabled for now. **Comments** (18831:260095): thread
+  with avatars and relative times, composer with Send (disabled while empty); posting updates the tab count and
+  the card's comment count. **Logs** (18831:260029): activity feed — stage changes, edits (lists the changed
+  sections), comments, archive/restore and creation, on top of mock history. ←/→/Home/End move between enabled tabs.
+- Figma was still rate-limited (Starter plan), so the tabs, Comments and Logs were built from the brief.
+
+## Iteration 7 — matched to the Figma screens (file NGftdU9JMlH3iYtVmwPQaW)
+
+Screens compared: Sorted by stage (16292:70411), Kanban + hover (16292:70931), Edit deal Drawer V.2 (16292:69875),
+Deal Details viewport (16292:69220 / 68565), Log and Comments (16292:70814 / 70876), Map variation (16292:71767).
+
+- **Map / pin settings:** "Pin settings" menu with *Show industry icon*, *Show description* and *Description: Price | Yield*.
+  The map button shows `EUR` (price) or `EUR/sqm` (yield) and becomes icon-only when the description is off; pins go
+  icon + value → icon-only → stage-coloured rings. Pins now have the stage-coloured border; hovering a card turns its
+  pin dark (`--brand-primary`), as in the "Pin on map reacts" frame.
+- **Grouped list:** header reads `Total amount: €…`; cards inside a stage group drop the stage chip (the group already
+  says it). Owners are tinted 24px circles; unassigned deals show an outlined "+" circle.
+- **Kanban:** 264px columns / 256px cards, radius 4 with the "sm" shadow, 120px photo with the 1 / N counter and round
+  arrows, label-left / value-right rows, and a footer with edit · comments · more aligned right. Locations use country
+  codes ("Wakefield, UK (12 assets)").
+- **Edit deal drawer V.2:** 420px; "Edit deal" title; pill tabs (Key info, Assets, Overview, Physical, Financial);
+  every section is a collapsible white card; single-column 40px fields. Key info follows Figma: Area, Rent (€/sqm),
+  Price, Rent, Total assets, Occupancy, Cap rate (the three computed ones stay read-only). Deal name, dates, stage,
+  owner, fund and source moved to Overview; Next deadline is now editable. Footer has two equal buttons; Save stays
+  disabled until something changes.
+- **Deal details drawer:** 1152px; top bar with », full page, ↑/↓, then **Edit** and **⋮** (Archive / Delete). Tabs
+  in Figma order — Deal Details, Assets, Comps, Documents, AI Assistant, Comments, Log — at the large size. Header:
+  photo thumbnail with slider, industry chip + **stage dropdown**, title, address. Seven key metrics (… Rent (€/sqm),
+  Total assets, Cap rate). Overview + AI Summary (dated, one-line tags, "Show more"), mini map with **Show Comps**
+  and numbered asset / comp pins, sortable **Assets** table with a Total row, then Key Highlights / Investment Risks.
+  The stage bar, Comps, Financial Model, Deal Memo and Sources blocks were removed — they are not on this screen in
+  Figma and belong to the Comps / AI Assistant / Documents tabs.
+- **Comments:** composer on top ("Start typing to leave a comment", @ button, Send), newest first, tinted initial
+  avatars, time on the right, @mentions highlighted, Copy + Reply (prefills @name) for others, Copy + Edit for your own.
+- **Log:** "All event types" filter (stage changes, edits, comments, archive & restore, AI & highlights, deal received),
+  Time | Log text table grouped by Today / Yesterday / date, relative times today and HH:MM before, "You" for the
+  current user. Edits are logged per field ("updated Price: €61,200,000 → €65,000,000").
+
+Not matched on purpose / still open:
+- The Figma map is a raster tile image; Figma assets can't be downloaded through this environment's proxy (and the
+  Artifact blocks tile servers), so the token-drawn vector map stays.
+- Industry glyphs (bed, box, briefcase) are not in the DS icon set — `building` is used everywhere.
+- 13px Figma text is snapped to 12/14; the DS Segmented control is used where Figma draws a grey-track switch.
+- Figma copy slips fixed: "Finiancial" → Financial, the duplicated "Physical" pill → Assets, "Date received" showing
+  "Structured Process" → a date.
+- The Add New Deal modal still says Rent/psm and NIY; the drawers now say Rent (€/sqm) and Cap rate as in Figma. Tell
+  me if the modal should switch too.
+
+## Iteration 8 — map pin card (Figma 16335:70120)
+
+- **One pin per asset.** Portfolio assets are scattered around the deal's point (mock geodata), and the map opens
+  zoomed in on the city centre, so multi-asset deals run past the viewport like on the real map.
+- **Click a pin → property popup** anchored to the pin (flips below when there's no room): photo, owner, status,
+  ⋯ (Open / Edit / Archive), deal title (opens the deal drawer), asset address, **Asset info / Deal info** tabs
+  (Price, Area, Rent (€/€psm), Received · Stage, Deal price, Total area, Cap rate). Click empty map, the pin again or
+  Esc to close. The list is no longer touched by map interactions (no card fill, no scroll/flash).
+- **‹ 1/N ›** steps through the deal's assets; an off-screen asset is panned into view in 300 ms.
+- **Zoom out to all assets** appears only when some of the deal's assets are outside the viewport; it fits them all in
+  a 300 ms ease-in-out zoom and then hides.
+- **Row hover / keyboard focus → all of the deal's asset pins highlight** (150 ms delay, others dimmed, no pan/zoom).
+- **Open deal is inverted on the map:** while its popup is open, every asset pin of that deal swaps to the dark stage
+  colour fill with light text; the asset the card points at also gets a ring.
+- **Zoom out ↔ Zoom in back:** after "Zoom out to all assets" the button becomes "Zoom in back", which returns (300 ms)
+  to the exact view the user had before. Closing the popup or opening another deal forgets that view.
+
+## Iteration 9 — card behaviour (Figma 16338:68868)
+
+- **Row card layout** (16338:69956): title with **yield % + price** on the right (each shows a "Yield" / "Price"
+  tooltip on hover); meta row = industry chip + location on the left, **stage · status · owner** on the right;
+  metrics row starts with *Received*. The whole card opens the deal (the title button stays the keyboard entry).
+  Hover = `--surface-white-hover` + shadow.
+- **Floating action plate**: edit | more, bottom-right, shown on hover / keyboard focus
+  (always visible on touch screens).
+- **Chips** (16338:69753): industry chip on `--surface-main` with **new industry icons** (truck, office, apartment,
+  database, store, factory, home, buildings), drawn inline since the DS has no property-type glyphs. The **stage chip**
+  is a pill with a progress-pie icon (empty ring for Received → full disc for CL). The new **status chip** is
+  New / Live / Tracking / Dead. *Declined* is no longer a stage: it is a Dead status with an outcome.
+- **Stage dropdown** (16338:69754), on the card, kanban card and drawer header: *Received*, **Stage**
+  (SCR…CL chips, ✓ on current), **Outcome** (Lost / Passed / Withdrawn / Cancelled → status Dead, reason in the
+  chip tooltip) and an **On hold** checkbox (Tracking ↔ Live). Every change is logged and gets a toast with Undo.
+  Moving a Dead deal to a stage reopens it (Live). A New deal moved past Received becomes Live.
+- **Kanban drag & drop** (Notion-style): the card stays in place while a 20% ghost follows the cursor. A 4px green bar
+  marks the drop slot (top of column or between cards). Dropping changes the stage and keeps the position.
+  Esc cancels. Columns and the board auto-scroll near the edges. 7 columns now (Received → CL).
+- **Sort by stage in both directions:** *Stage: SCR → CL* and *Stage: CL → SCR* (the grouped list flips; kanban
+  columns keep pipeline order).
+- **Follow-up:** the comment count moved out of the plate and now sits next to the stage chip. The plate shows
+  only on hover: keyboard focus still shows it, but focus returned after closing the drawer no longer does (this was
+  the bug). Truck / Office / Apartment / Database are now the designer's Figma exports. Store / Factory / Home /
+  Buildings are still drawn to the same 16px grid until exported.
+- **Close reason dialog** (16339:73985): picking an Outcome opens *Select the reason*. The dropdown placeholder
+  follows the outcome ("Lost reason"…) and the reasons come from the Figma variants (Lost ×6, Passed ×3, Withdrawn ×2,
+  Cancelled ×4, plus *Other*). There is an optional short description, required for *Other*.
+  *Confirm* (disabled until a reason is picked) closes the deal with the reason, which shows in the Dead chip tooltip,
+  the log and the toast. *Skip* closes it without a reason. ✕, Esc or the backdrop leave the deal unchanged.
+- **Closed deals go to the Archive:** a deal can't be at a stage and closed at the same time. Confirming (or Skipping)
+  an Outcome sets the status to Dead and moves the deal from the inbox, map and kanban to *Archived deals*. There the
+  card shows the outcome chip (Lost / Passed / Withdrawn / Cancelled) and the reason (or "No reason given")
+  instead of the stage chip, with no deadline. The outcome chip opens the same menu: you can change the outcome, or
+  reopen the deal by picking a stage or On hold, which brings it back to the inbox. *Restore deal* reopens it as Live.
+  Undo in the toast puts the deal back where it was. The mock archive starts with one closed deal (Lost, "Vendor
+  expectation too high").
+- **Kanban "Property card"** (256px): a 96px full-bleed photo with the industry + status chips (top-left). The photo counter and arrows show on hover. Below: title (2 lines) + price, short location, and info
+  rows 20px high and 4px apart. A divider, then the footer: owner, comment count, and ⋯ pushed to the right. The stage
+  chip is gone: the column is the stage, and you change it by drag & drop. The pencil moved into ⋯ (*Edit deal*).
+- **Archive is list-only:** choosing *Archived deals* switches Kanban to the card rows and disables the Kanban toggle
+  (it has a tooltip saying why). Leaving the Archive makes Kanban available again.
+- **Assignees:** the card plate shows the primary owner's initials, or "YA +3" when more people are assigned
+  (the tooltip lists everyone). Clicking it opens the assignee picker (DS search field, DS checkboxes, DS `star`
+  icon). Checkbox = assigned, star = primary. Assigned people come first and the order stays fixed while the picker
+  is open. Changes apply live: the first person checked on an unassigned deal becomes primary, and unassigning the
+  primary passes primary to the next person. A legend at the bottom explains the icons. Esc / click outside closes it.
+  Data: `d.owner` = primary, `d.team` = the others.
+- **Pin description:** Price was removed. The dropdown has Yield (default), Price/sqm and Occupancy.
+- **Received stage plate** uses `--surface-main` (#E9EDEE).
+- **Asset arrows keep the card still:** pressing ‹ / › in the pin card no longer moves the card. The map pans (300 ms)
+  so the next asset's pin lands on exactly the screen spot the previous one had. Rapid clicks keep the original spot.
+  Dragging or zooming the map during the pan hands control back to the user. To make edge assets reachable, panning
+  now allows half a viewport of slack past the map edge.
+- **Collapsible stage groups** (grouped list): a chevron sits before the stage name in the header (^ open, ⌄ collapsed).
+  The header button has `aria-expanded`; the count and total stay visible. The state survives re-renders and
+  sort direction changes. Kanban columns don't collapse.
+- **Pin settings:** the Price/Yield switcher became a **Description dropdown** with Price, Yield (%), Price/sqm and Occupancy.
+  The map button shows the chosen metric. Price stays the default. Pins use the new industry icons.
+
+## Deviations from Figma
+
+1. **DS components win over Figma** when they disagree: the navbar is rounded, the tabs are 14px, the segmented
+   switch is outlined, filter buttons have borders, fields are about 46px tall, and avatars have no tint.
+   Each case is listed in `TOKENS.md` §1 for fixing in the DS.
+2. **13px text is snapped** to 12 or 14 (no 13px step in the DS). The 2px card gap became 4px.
+3. **Modal follows the brief, not the Figma draft (18819:251376):**
+   - The draft's pill tabs became the progress-bar stepper.
+   - Its "Overview" step is named "General Info".
+   - Its "Rent (€/sqm)" and "Total assets" fields are now "Rent/psm" and "Number of assets", matching the
+     approved Deal Details page.
+   - The footer is Save as Draft / Back / Next instead of Cancel / Next step.
+4. **Icons:** there are no industry glyphs in the DS, so `building` / `house` stand in. Next uses
+   `chevron-right` because the DS `arrow-right` glyph is broken.
+5. **Photos and map** are crops of the provided screenshots, because `figma.com` asset URLs are blocked here.
+6. **Physical and Financial fields** use the brief's fallback lists. The Physical/Financial tab variants of
+   18819:251710 don't exist in the file.
+
+## Critique of the brief
+
+- **Required fields conflict with real data.** All Key Info is required, yet the inbox reports
+  "2 without price", so price is evidently optional in real deals. Meanwhile Deal name (required in the brief)
+  became optional, so a deal can be saved as "Untitled deal".
+- **Stepper vs. stage bar.** Reusing the stage progress-bar pattern for the stepper puts two identical-looking
+  bars on screen in Preview (the step bar and the deal stage) with different meanings.
+- **Step locking adds little.** Only Key Info is required, so once it's valid every step unlocks at once.
+- **"Pixel-close" and "reuse components exactly" can't both hold** while the DS components differ from Figma. I
+  chose strict reuse and flagged each gap.
+- **Unit controls.** The inbox header has its own Yearly/Monthly · SQM/SQF · EUR controls. The brief didn't say
+  whether the modal should inherit them, so the modal keeps its own (defaulting to the house standard) and the
+  header controls are visual only.
+- **localStorage is a poor home for photo drafts** (about 5MB quota). This works for the prototype but needs
+  server-side drafts in the product. There is also only one draft slot and no draft indicator in the inbox.
+- **Field gaps:** missing Physical/Financial designs, "WALT" vs Figma's "WAULT" (WAULT used), and unclear
+  units for "Purchaser costs" (implemented as %). NOI could be derived as rent − opex rather than typed.
+
+## Questions for iteration 2
+
+1. Should **Deal name** be required, and should **Price** become optional (to match "without price" deals)?
+2. Stepper visual: keep the stage-bar look or switch to a numbered stepper to avoid confusion with the stage bar?
+3. Should the modal inherit the inbox header units and currency, and should those header toggles re-render the cards?
+4. Drafts: support several drafts with a "Drafts" view or chip in the inbox? Server-side storage?
+5. DS backlog: tinted or surface Avatar variants, warning/info Badge, Select / Combobox / Modal components, a
+   read-only field state, elevation tokens, a 13px type step, industry glyphs and colours, and fixing
+   `arrow-right`. Which of these should land before iteration 2?
+6. Should NOI be auto-calculated (Rent − Operating expenses, editable like NIY)? Is Purchaser costs a % or an amount?
+7. Do we need responsive / tablet layouts for the modal?
+8. Real Physical/Financial tab designs for Deal Details, so the step fields can mirror them exactly?
