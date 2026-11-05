@@ -7,20 +7,19 @@ system, mock data only.
 ## What this copy adds (merge pointer v0)
 
 - **Merge into another deal**: in the ⋯ menu on inbox rows and kanban cards, in the drawer's ⋯, and as a button on
-  the Received list. A dialog suggests likely duplicates and searches all deals. Closed deals are listed but can't be picked, because
+  the Received list. A dialog suggests 4 similar deals and searches all deals. Closed deals are listed but can't be picked, because
   an asset that returns after a pass stays a new deal. **Which deal stays?** defaults to the deal furthest along in
   the pipeline (on a tie, the earlier first received). The user can pick the other. It warns when both deals are
   already in the pipeline.
-  - Before anything is typed, the dialog lists only **possible duplicates**: up to 4 deals that look like the same
-    asset. Each comes with its reasons: *Similar name*, *Same city*, *Nearby on the map*, *Similar area*, *Similar
-    price* (mock scoring, standing in for the future intake matcher). Any other deal is found by search (name, city,
-    broker). A closed look-alike is shown but blocked.
+  - Before anything is typed, the dialog lists **Suggested**: the 4 deals most like this one (likely duplicates
+    first, by name, city, map distance, area and price; mock scoring). Cards are plain, with no reason chips,
+    because an analyst who merges already knows the deals match. Any other deal is found by search (name, city,
+    broker). A closed look-alike is shown but blocked. Every deal gets suggestions, so there is no empty state.
   - After **Merge**, the drawer always opens on the merged deal, whether the merge started from the inbox, kanban or
     the drawer.
   - Each row and survivor card shows the sent date and the received date + time ("Sent 26 Aug · Received 28 Aug 08:42").
-  - **After merge** preview (hypothesis): as soon as a second deal is picked, the dialog shows the merged deal as it
-    will look. That is the kept deal's stage, status and owner, plus the combined Received rows with First received
-    marked. It updates when the survivor changes. The footer stays visible while the dialog scrolls.
+  - The footer stays visible while the dialog scrolls. (An "After merge" preview was tried and removed: it added load
+    without helping the decision.)
 - **Merged deals are hidden, never deleted.** They get a "merged into" pointer (who, when) and leave the inbox, kanban,
   map and header counts. *Merged & not a deal* in Sort lists them (list-only). A merged record opens with a banner
   linking to the surviving deal, plus *Unmerge*. Undo in the toast unmerges too.

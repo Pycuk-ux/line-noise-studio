@@ -608,8 +608,8 @@ function ok(cond, msg) { if (cond) { pass++; console.log('  ✓', msg); } else {
   await page.click('.deal-menu [data-pick="merge"]');
   ok(await page.isVisible('.merge-dlg') && (await page.evaluate(() => document.activeElement.type)) === 'search', 'Merge dialog opens with deal search');
   const mSugg = await page.$$eval('.merge-cand', (e) => e.map((x) => x.dataset.mgPick));
-  ok(mSugg.length >= 1 && mSugg.length <= 4 && mSugg[0] === 'd4' && (await txt('.merge-dlg__list')).includes('Possible duplicates'), 'only likely duplicates (max 4), best match first');
-  ok((await txt('[data-mg-pick="d4"] .merge-cand__hints')).includes('Similar name') && !mSugg.includes('d5') && !mSugg.includes('d15'), 'each suggestion says why; unrelated deals are not suggested');
+  ok(mSugg.length === 4 && mSugg[0] === 'd4' && (await txt('.merge-dlg__list')).includes('Suggested'), 'Suggested: 4 deals, the likeliest duplicate first');
+  ok(!(await page.$('.merge-cand .ds-badge, .merge-cand__hints')) && !mSugg.includes('d15'), 'plain cards, no reason chips');
   await page.fill('.merge-dlg input[type=search]', 'techforward');
   ok((await page.$$eval('.merge-cand', (e) => e.map((x) => x.dataset.mgPick))).join() === 'd5', 'any other deal is found by search');
   await page.fill('.merge-dlg input[type=search]', '');
@@ -617,11 +617,10 @@ function ok(cond, msg) { if (cond) { pass++; console.log('  ✓', msg); } else {
   await page.fill('.merge-dlg input[type=search]', 'tuscany');
   await page.click('[data-mg-pick="d4"]');
   ok((await page.$eval('input[name="mg-keep"]:checked', (e) => e.value)) === 'd4', 'default survivor: the deal furthest along (LOI)');
-  ok((await txt('.merge-preview')).includes('After merge') && (await txt('.merge-preview .merge-keep__name')).includes('Wakefield Europort') && (await page.$$('.merge-preview__rows li')).length === 2, 'After merge preview: the kept deal with both Received rows');
-  ok((await txt('.merge-preview__rows li.is-first')).includes('Savills') && (await txt('.merge-preview__rows li.is-first')).includes('Received 28 Aug 2026 08:42') && (await txt('.merge-dlg__keep')).includes('Both deals are in the pipeline'), 'preview: First received by sent date, received time shown + both-in-pipeline warning');
+  ok(!(await page.$('.merge-preview')) && (await txt('.merge-dlg__keep')).includes('Both deals are in the pipeline'), 'no After merge block; both-in-pipeline warning');
   ok((await txt('.merge-keep__opt:has(input[value="d1"])')).includes('Received 28 Aug 2026 08:42'), 'survivor cards show the received time');
   await page.click('.merge-keep__opt:has(input[value="d1"])');
-  ok((await txt('.merge-preview .merge-keep__name')).trim() === 'The Symphony Group PLC, Tuscany Way' && (await txt('.merge-preview__rows li.is-first')).includes('Savills'), 'preview follows the chosen survivor; First received unchanged');
+  ok((await page.$eval('input[name="mg-keep"]:checked', (e) => e.value)) === 'd1', 'survivor can be switched');
   await page.click('.merge-keep__opt:has(input[value="d4"])');
   await page.screenshot({ path: OUT('merge-dialog.png') });
   await page.click('[data-mg="go"]'); await page.waitForTimeout(200);
@@ -682,7 +681,7 @@ function ok(cond, msg) { if (cond) { pass++; console.log('  ✓', msg); } else {
   await page.keyboard.press('Escape');
   await page.hover('.row-card[data-id="d14"] .row-card__media'); await page.click('.row-card[data-id="d14"] [data-deal-menu]');
   await page.click('.deal-menu [data-pick="merge"]');
-  ok((await page.$$eval('.merge-cand', (e) => e.map((x) => x.dataset.mgPick))).join() === 'd7' && (await txt('.merge-cand__hints')).includes('Nearby on the map'), 'Received duplicate: its pipeline twin is the suggestion');
+  ok((await page.$$eval('.merge-cand', (e) => e.map((x) => x.dataset.mgPick)))[0] === 'd7', 'Received duplicate: its pipeline twin is suggested first');
   await page.click('[data-mg-pick="d7"]');
   ok((await page.$eval('input[name="mg-keep"]:checked', (e) => e.value)) === 'd7' && !(await txt('.merge-dlg__keep')).includes('Both deals are in the pipeline'), 'Received duplicate → keeps the pipeline deal, no warning');
   await page.click('.merge-keep__opt:has(input[value="d14"])');
@@ -693,6 +692,16 @@ function ok(cond, msg) { if (cond) { pass++; console.log('  ✓', msg); } else {
   await page.locator('.toast-region .ds-alert:has(.ds-alert__msg:text-is("Deals merged")) [data-toast-act]').last().click(); await page.waitForTimeout(100);
   ok(!!(await page.$('.row-card[data-id="d14"]')) && (await mStat('d7', 'Broker')) === 'Cushman & Wakefield', 'Undo unmerges');
   await page.click('[data-dp="close"].ds-btn'); await page.waitForTimeout(400);
+
+  ok(await page.evaluate(async () => {
+    for (const d of GC.inbox.deals.slice()) {
+      GC.merge.open(d.id);
+      const n = document.querySelectorAll('.merge-cand').length;
+      document.querySelector('.merge-dlg [data-dlg-close]').click();
+      if (n !== 4) return false;
+    }
+    return true;
+  }), 'every open deal gets 4 suggestions (no empty state)');
 
   // Not a deal + the hidden view
   await page.hover('.row-card[data-id="d15"] .row-card__media'); await page.click('.row-card[data-id="d15"] [data-deal-menu]');

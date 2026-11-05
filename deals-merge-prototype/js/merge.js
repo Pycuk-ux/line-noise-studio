@@ -60,18 +60,18 @@ window.GC = window.GC || {};
   const words = (t) => new Set((t || "").toLowerCase().split(/[^a-z0-9åäöé]+/).filter((w) => w.length > 2 && !STOP.has(w)));
   const near = (a, b, tol) => a > 0 && b > 0 && Math.abs(a - b) / Math.max(a, b) <= tol;
   function likeness(a, b) {
-    const why = [];
     let score = 0;
     const wa = words(a.name), wb = words(b.name);
     const shared = [...wa].filter((w) => wb.has(w)).length;
     const jac = shared / Math.max(1, new Set([...wa, ...wb]).size);
-    if (shared && jac >= 0.3) { score += 3 + jac * 2; why.push("Similar name"); }
-    if (a.location && a.location === b.location) { score += 1; why.push("Same city"); }
-    if (a.map && b.map && Math.hypot(a.map.x - b.map.x, a.map.y - b.map.y) < 60) { score += 2; why.push("Nearby on the map"); }
+    if (shared && jac >= 0.3) score += 3 + jac * 2;
+    if (a.location && a.location === b.location) { score += 1; }
+    if (a.map && b.map && Math.hypot(a.map.x - b.map.x, a.map.y - b.map.y) < 60) { score += 2; }
     if (a.industry && a.industry === b.industry) score += 0.5;
-    if (near(a.areaSqm, b.areaSqm, 0.12)) { score += 1; why.push("Similar area"); }
-    if (near(a.price, b.price, 0.12)) { score += 0.5; why.push("Similar price"); }
-    return { score, why };
+    if (a.map && b.map) score += Math.max(0, 1 - Math.hypot(a.map.x - b.map.x, a.map.y - b.map.y) / 800); // closer = higher
+    if (near(a.areaSqm, b.areaSqm, 0.12)) { score += 1; }
+    if (near(a.price, b.price, 0.12)) { score += 0.5; }
+    return { score };
   }
   const stageRank = (d) => Math.max(0, GC.STAGE_ORDER.indexOf(d.stage));
 
@@ -227,10 +227,9 @@ window.GC = window.GC || {};
     if (!src || !GC.inbox.deals.includes(src)) return;
     let target = null, keep = null, q = "";
     const loc = (d) => (d.location || "").split(",")[0];
-    // Likely duplicates only: up to 4 deals that look like the same asset. Anything else is found by search.
+    // Suggested: the 4 deals most like this one (likely duplicates first, then the closest). Anything else via search.
     const all = () => GC.inbox.deals.filter((d) => d !== src).concat(GC.inbox.archived);
-    const scored = all().map((d) => Object.assign({ d }, likeness(src, d))).filter((x) => x.score >= 2.5)
-      .sort((a, b) => b.score - a.score).slice(0, 4);
+    const scored = all().map((d) => Object.assign({ d }, likeness(src, d))).sort((a, b) => b.score - a.score).slice(0, 4);
     const candidates = () => {
       if (!q) return scored;
       return all().filter((d) => [d.name, d.location, ...submissions(d).map((x) => x.broker)].some((t) => (t || "").toLowerCase().includes(q)))
@@ -254,42 +253,23 @@ window.GC = window.GC || {};
     const stageChip = (d) => `<span class="stage-chip stage-chip--static" data-stage="${esc(d.stage)}">${GC.stageIcon(d.stage)}${esc(GC.stageLabel(d.stage))}</span>`;
     function drawList() {
       const c = candidates();
-      const cand = ({ d, why }) => {
+      const cand = ({ d }) => {
         const closed = d.status === "dead";
         return `<button type="button" class="merge-cand" role="radio" aria-checked="${target === d}" data-mg-pick="${d.id}"${closed ? ' aria-disabled="true"' : ""}>
           <span class="merge-cand__main"><span class="merge-cand__name">${esc(d.name)}</span>
             <span class="merge-cand__sub">${esc([d.location, brokerLabel(d)].filter(Boolean).join(" · "))}</span>
             <span class="merge-cand__sub">${whenHtml(d)}</span>
             ${closed ? `<span class="merge-cand__why">Closed (${esc(d.outcome)}). A deal can't be merged into a closed one: an asset that returns after a pass stays a new deal.</span>` : ""}
-            ${why && why.length ? `<span class="merge-cand__hints">${why.map((w) => `<span class="ds-badge" data-type="neutral">${esc(w)}</span>`).join("")}</span>` : ""}</span>
+</span>
           ${closed ? GC.statusChip(d) : stageChip(d)}
         </button>`;
       };
       if (!c.length) {
-        listEl.innerHTML = `<p class="assign-menu__empty">${q ? `No deals match “${esc(q)}”` : "No likely duplicates found. Search for the deal by name, city or broker."}</p>`;
+        listEl.innerHTML = `<p class="assign-menu__empty">${q ? `No deals match “${esc(q)}”` : "Search for the deal by name, city or broker."}</p>`;
         return;
       }
       listEl.classList.toggle("is-suggest", !q); // 4 suggestions at most: show them all without scrolling
-      listEl.innerHTML = `<p class="merge-dlg__group">${q ? `Search results <span class="count">(${c.length})</span>` : "Possible duplicates"}</p>${c.map(cand).join("")}`;
-    }
-    /** The merged deal as it will look: the kept deal with both deals' Received rows. */
-    function previewHtml() {
-      const gone = keep === src ? target : src;
-      const rows = submissions(keep).concat(submissions(gone)).sort(bySent);
-      const ov = keep.firstOverride && rows.find((x) => x.id === keep.firstOverride.subId);
-      const fr = ov || rows[0];
-      return `<p class="merge-keep__label">After merge</p>
-        <div class="merge-preview__card">
-          <div class="merge-preview__head"><span class="merge-keep__name">${esc(keep.name)}</span>
-            <span class="merge-keep__row">${stageChip(keep)}${GC.statusChip(keep)}${keep.owner ? GC.ownerPlate(keep) : ""}</span></div>
-          <p class="merge-preview__eyebrow">Received (${rows.length})</p>
-          <ul class="merge-preview__rows">${rows.map((x) => `<li${x === fr ? ' class="is-first"' : ""}>
-              <span class="merge-preview__date">${day(x.sentAt)}</span>
-              <span class="merge-preview__who"><span class="merge-preview__line"><b>${esc(x.broker || "Broker not set")}</b> · ${esc(x.doc)}${x === fr ? ` <span class="first-chip">First received</span>` : ""}</span>
-                <span class="merge-keep__muted">Received ${day(x.receivedAt)} ${time(x.receivedAt)}${x.forwardedBy ? `, forwarded by ${esc(x.forwardedBy)}` : ""}</span></span>
-              <span class="merge-preview__price">${x.price != null ? esc(F().moneyShort(x.price, x.currency)) : "n/a"}</span></li>`).join("")}</ul>
-          <p class="merge-keep__muted">Stage, owner, funds and work stay on the deal you keep. “${esc(gone.name)}” is hidden, not deleted.</p>
-        </div>`;
+      listEl.innerHTML = `<p class="merge-dlg__group">${q ? `Search results <span class="count">(${c.length})</span>` : "Suggested"}</p>${c.map(cand).join("")}`;
     }
     function drawKeep() {
       keepEl.hidden = !target;
@@ -308,7 +288,6 @@ window.GC = window.GC || {};
       const bothPipeline = src.stage !== "Received" && target.stage !== "Received";
       keepEl.innerHTML = `<p class="merge-keep__label" id="mg-keep-l">Which deal stays?</p>
         <div class="merge-keep" role="radiogroup" aria-labelledby="mg-keep-l">${pair.map(opt).join("")}</div>
-        <div class="merge-preview" aria-live="polite">${previewHtml()}</div>
         ${bothPipeline ? `<div class="ds-alert" data-status="error" role="alert"><div class="ds-alert__row"><span class="ds-alert__icon">${GC.icon("alert-circle")}</span>
           <p class="ds-alert__msg">Both deals are in the pipeline</p></div>
           <p class="ds-alert__subtext">Comments, notes and the log of the deal you merge stay on it and open from its Received row. Check you keep the right deal.</p></div>` : ""}`;
@@ -326,7 +305,6 @@ window.GC = window.GC || {};
     keepEl.addEventListener("change", (e) => {
       if (e.target.name !== "mg-keep") return;
       keep = GC.inbox.find(e.target.value);
-      keepEl.querySelector(".merge-preview").innerHTML = previewHtml();
     });
     box.querySelector("input[type=search]").addEventListener("input", (e) => { q = e.target.value.trim().toLowerCase(); drawList(); });
     go.addEventListener("click", () => {
