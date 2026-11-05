@@ -55,6 +55,24 @@ window.GC = window.GC || {};
     while (x && x.mergedInto && guard++ < 10) x = GC.inbox.find(x.mergedInto.id);
     return x;
   }
+  // ---------- How alike two deals are (mock duplicate detection for the merge dialog) ----------
+  const STOP = new Set(["the", "plc", "ltd", "group", "and", "of", "park", "hub", "rp", "uk", "sweden", "malmö"]);
+  const words = (t) => new Set((t || "").toLowerCase().split(/[^a-z0-9åäöé]+/).filter((w) => w.length > 2 && !STOP.has(w)));
+  const near = (a, b, tol) => a > 0 && b > 0 && Math.abs(a - b) / Math.max(a, b) <= tol;
+  function likeness(a, b) {
+    const why = [];
+    let score = 0;
+    const wa = words(a.name), wb = words(b.name);
+    const shared = [...wa].filter((w) => wb.has(w)).length;
+    const jac = shared / Math.max(1, new Set([...wa, ...wb]).size);
+    if (shared && jac >= 0.3) { score += 3 + jac * 2; why.push("Similar name"); }
+    if (a.location && a.location === b.location) { score += 1; why.push("Same city"); }
+    if (a.map && b.map && Math.hypot(a.map.x - b.map.x, a.map.y - b.map.y) < 60) { score += 2; why.push("Nearby on the map"); }
+    if (a.industry && a.industry === b.industry) score += 0.5;
+    if (near(a.areaSqm, b.areaSqm, 0.12)) { score += 1; why.push("Similar area"); }
+    if (near(a.price, b.price, 0.12)) { score += 0.5; why.push("Similar price"); }
+    return { score, why };
+  }
   const stageRank = (d) => Math.max(0, GC.STAGE_ORDER.indexOf(d.stage));
 
   // ============================================================
@@ -209,13 +227,15 @@ window.GC = window.GC || {};
     if (!src || !GC.inbox.deals.includes(src)) return;
     let target = null, keep = null, q = "";
     const loc = (d) => (d.location || "").split(",")[0];
+    // Likely duplicates only: up to 4 deals that look like the same asset. Anything else is found by search.
+    const all = () => GC.inbox.deals.filter((d) => d !== src).concat(GC.inbox.archived);
+    const scored = all().map((d) => Object.assign({ d }, likeness(src, d))).filter((x) => x.score >= 2.5)
+      .sort((a, b) => b.score - a.score).slice(0, 4);
     const candidates = () => {
-      const open = GC.inbox.deals.filter((d) => d !== src);
-      const closed = GC.inbox.archived;
-      const match = (d) => !q || [d.name, d.location, d.broker].some((t) => (t || "").toLowerCase().includes(q));
-      // Same city first: the likeliest duplicates.
-      const rank = (d) => (loc(d) === loc(src) ? 0 : 1);
-      return open.filter(match).sort((a, b) => rank(a) - rank(b)).concat(closed.filter(match));
+      if (!q) return scored;
+      return all().filter((d) => [d.name, d.location, ...submissions(d).map((x) => x.broker)].some((t) => (t || "").toLowerCase().includes(q)))
+        .map((d) => scored.find((x) => x.d === d) || Object.assign({ d }, likeness(src, d)))
+        .sort((a, b) => b.score - a.score);
     };
     const dlg = overlay(`<div class="dm merge-dlg" role="dialog" aria-modal="true" aria-labelledby="mg-title" data-ds-provisional="modal" tabindex="-1">
         ${headHtml("mg-title", "Merge into another deal")}
@@ -234,25 +254,23 @@ window.GC = window.GC || {};
     const stageChip = (d) => `<span class="stage-chip stage-chip--static" data-stage="${esc(d.stage)}">${GC.stageIcon(d.stage)}${esc(GC.stageLabel(d.stage))}</span>`;
     function drawList() {
       const c = candidates();
-      const cand = (d) => {
+      const cand = ({ d, why }) => {
         const closed = d.status === "dead";
-        const same = !closed && loc(d) === loc(src);
         return `<button type="button" class="merge-cand" role="radio" aria-checked="${target === d}" data-mg-pick="${d.id}"${closed ? ' aria-disabled="true"' : ""}>
           <span class="merge-cand__main"><span class="merge-cand__name">${esc(d.name)}</span>
             <span class="merge-cand__sub">${esc([d.location, brokerLabel(d)].filter(Boolean).join(" · "))}</span>
             <span class="merge-cand__sub">${whenHtml(d)}</span>
-            ${closed ? `<span class="merge-cand__why">Closed (${esc(d.outcome)}). A deal can't be merged into a closed one: an asset that returns after a pass stays a new deal.</span>` : ""}</span>
-          ${closed ? GC.statusChip(d) : stageChip(d)}${same ? `<span class="ds-badge merge-cand__hint" data-type="info">Same city</span>` : ""}
+            ${closed ? `<span class="merge-cand__why">Closed (${esc(d.outcome)}). A deal can't be merged into a closed one: an asset that returns after a pass stays a new deal.</span>` : ""}
+            ${why && why.length ? `<span class="merge-cand__hints">${why.map((w) => `<span class="ds-badge" data-type="neutral">${esc(w)}</span>`).join("")}</span>` : ""}</span>
+          ${closed ? GC.statusChip(d) : stageChip(d)}
         </button>`;
       };
-      if (!c.length) { listEl.innerHTML = `<p class="assign-menu__empty">No deals match “${esc(q)}”</p>`; return; }
-      // Every deal is listed under the search; the search only narrows it. Same city first, closed deals last.
-      const groups = [
-        ["Suggested: same city", c.filter((d) => d.status !== "dead" && loc(d) === loc(src))],
-        ["All deals", c.filter((d) => d.status !== "dead" && loc(d) !== loc(src))],
-        ["Closed", c.filter((d) => d.status === "dead")],
-      ].filter(([, l]) => l.length);
-      listEl.innerHTML = groups.map(([t, l]) => `<p class="merge-dlg__group">${esc(t)} <span class="count">(${l.length})</span></p>${l.map(cand).join("")}`).join("");
+      if (!c.length) {
+        listEl.innerHTML = `<p class="assign-menu__empty">${q ? `No deals match “${esc(q)}”` : "No likely duplicates found. Search for the deal by name, city or broker."}</p>`;
+        return;
+      }
+      listEl.classList.toggle("is-suggest", !q); // 4 suggestions at most: show them all without scrolling
+      listEl.innerHTML = `<p class="merge-dlg__group">${q ? `Search results <span class="count">(${c.length})</span>` : "Possible duplicates"}</p>${c.map(cand).join("")}`;
     }
     /** The merged deal as it will look: the kept deal with both deals' Received rows. */
     function previewHtml() {
@@ -314,10 +332,9 @@ window.GC = window.GC || {};
     go.addEventListener("click", () => {
       if (!target) return;
       const gone = keep === src ? target : src;
-      const panelOpen = !!document.querySelector(".dp");
       dlg.close(null);
       GC.inbox.merge(gone.id, keep.id);
-      if (panelOpen) GC.dealPanel.open(keep.id);
+      GC.dealPanel.open(keep.id); // land on the merged deal, wherever the merge started
     });
     drawList();
     box.querySelector("input[type=search]").focus();
