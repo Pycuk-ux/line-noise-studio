@@ -9,8 +9,14 @@ system, mock data only.
 - **Merge into another deal**: in the ⋯ menu on inbox rows and kanban cards, in the drawer's ⋯, and as a button on
   the Received list. A dialog searches deals (same city first). Closed deals are listed but can't be picked, because
   an asset that returns after a pass stays a new deal. **Which deal stays?** defaults to the deal furthest along in
-  the pipeline (on a tie, the earlier first received). The user can pick the other. The dialog previews First
-  received, and warns when both deals are already in the pipeline.
+  the pipeline (on a tie, the earlier first received). The user can pick the other. It warns when both deals are
+  already in the pipeline.
+  - Every deal is listed under the search before anything is typed, grouped as *Suggested: same city*, *All deals*
+    and *Closed*. The search only narrows the list.
+  - Each row and survivor card shows the sent date and the received date + time ("Sent 26 Aug · Received 28 Aug 08:42").
+  - **After merge** preview (hypothesis): as soon as a second deal is picked, the dialog shows the merged deal as it
+    will look. That is the kept deal's stage, status and owner, plus the combined Received rows with First received
+    marked. It updates when the survivor changes. The footer stays visible while the dialog scrolls.
 - **Merged deals are hidden, never deleted.** They get a "merged into" pointer (who, when) and leave the inbox, kanban,
   map and header counts. *Merged & not a deal* in Sort lists them (list-only). A merged record opens with a banner
   linking to the surviving deal, plus *Unmerge*. Undo in the toast unmerges too.
@@ -59,7 +65,7 @@ python3 -m http.server 8081
 DS stylesheets and icons load from `gocanopy-design-system.vercel.app`, so the page needs network access.
 No build step.
 
-**Tests (optional):** `bash tests/make-fixtures.sh && BASE_URL=http://localhost:8081/ node tests/e2e.cjs` (266 checks, incl. section 20 for merge) while the server runs. The test
+**Tests (optional):** `bash tests/make-fixtures.sh && BASE_URL=http://localhost:8081/ node tests/e2e.cjs` (271 checks, incl. section 20 for merge) while the server runs. The test
 needs Playwright and serves the Vercel DS from a local clone (`GOCANOPY_DS_ROOT`, default `../../gocanopy-design-system`).
 It makes 123 checks (acceptance checklist, map, multi-asset, draft undo, stage grouping, board, card fields, card menu, details and edit drawers); the latest run passed all 123 with 0 console errors or warnings.
 

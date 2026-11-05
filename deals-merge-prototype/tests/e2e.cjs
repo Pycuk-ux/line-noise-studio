@@ -607,10 +607,17 @@ function ok(cond, msg) { if (cond) { pass++; console.log('  ✓', msg); } else {
   await page.hover('.row-card[data-id="d1"] .row-card__media'); await page.click('.row-card[data-id="d1"] [data-deal-menu]');
   await page.click('.deal-menu [data-pick="merge"]');
   ok(await page.isVisible('.merge-dlg') && (await page.evaluate(() => document.activeElement.type)) === 'search', 'Merge dialog opens with deal search');
+  ok((await page.$$('.merge-cand')).length === (await page.$$('#deal-list .row-card')).length - 1 + 1 && (await txt('.merge-dlg__list')).includes('Suggested: same city') && (await txt('.merge-dlg__list')).includes('All deals') && (await txt('.merge-dlg__list')).includes('Closed'), 'all deals listed under the search before typing (grouped: same city, all, closed)');
+  ok((await txt('[data-mg-pick="d4"]')).includes('Sent 27 Aug 2026 · Received 27 Aug 2026 16:20'), 'rows show sent date and received time');
   await page.fill('.merge-dlg input[type=search]', 'tuscany');
   await page.click('[data-mg-pick="d4"]');
   ok((await page.$eval('input[name="mg-keep"]:checked', (e) => e.value)) === 'd4', 'default survivor: the deal furthest along (LOI)');
-  ok((await txt('.merge-dlg__keep')).includes('Savills, 26 Aug 2026') && (await txt('.merge-dlg__keep')).includes('Both deals are in the pipeline'), 'preview: First received from the earliest sent date + both-in-pipeline warning');
+  ok((await txt('.merge-preview')).includes('After merge') && (await txt('.merge-preview .merge-keep__name')).includes('Wakefield Europort') && (await page.$$('.merge-preview__rows li')).length === 2, 'After merge preview: the kept deal with both Received rows');
+  ok((await txt('.merge-preview__rows li.is-first')).includes('Savills') && (await txt('.merge-preview__rows li.is-first')).includes('Received 28 Aug 2026 08:42') && (await txt('.merge-dlg__keep')).includes('Both deals are in the pipeline'), 'preview: First received by sent date, received time shown + both-in-pipeline warning');
+  ok((await txt('.merge-keep__opt:has(input[value="d1"])')).includes('Received 28 Aug 2026 08:42'), 'survivor cards show the received time');
+  await page.click('.merge-keep__opt:has(input[value="d1"])');
+  ok((await txt('.merge-preview .merge-keep__name')).trim() === 'The Symphony Group PLC, Tuscany Way' && (await txt('.merge-preview__rows li.is-first')).includes('Savills'), 'preview follows the chosen survivor; First received unchanged');
+  await page.click('.merge-keep__opt:has(input[value="d4"])');
   await page.screenshot({ path: OUT('merge-dialog.png') });
   await page.click('[data-mg="go"]'); await page.waitForTimeout(200);
   ok(!(await page.$('.row-card[data-id="d1"]')) && (await mStat('d4', 'Broker')) === 'Savills +1' && (await mStat('d4', 'Received')) === '26 Aug 2026', 'after merge: one deal; Broker and date read from First received (Savills, though Colliers survived)');
@@ -669,7 +676,7 @@ function ok(cond, msg) { if (cond) { pass++; console.log('  ✓', msg); } else {
   await page.keyboard.press('Escape');
   await page.hover('.row-card[data-id="d14"] .row-card__media'); await page.click('.row-card[data-id="d14"] [data-deal-menu]');
   await page.click('.deal-menu [data-pick="merge"]');
-  ok((await page.$$eval('.merge-cand', (e) => e.map((x) => x.dataset.mgPick)))[0] !== undefined && (await txt('.merge-cand:first-child')).includes('Same city'), 'same-city deals listed first');
+  ok((await page.$$eval('.merge-cand', (e) => e.map((x) => x.dataset.mgPick)))[0] !== undefined && (await page.$eval('.merge-cand', (e) => e.textContent)).includes('Same city'), 'same-city deals listed first');
   await page.click('[data-mg-pick="d7"]');
   ok((await page.$eval('input[name="mg-keep"]:checked', (e) => e.value)) === 'd7' && !(await txt('.merge-dlg__keep')).includes('Both deals are in the pipeline'), 'Received duplicate → keeps the pipeline deal, no warning');
   await page.click('.merge-keep__opt:has(input[value="d14"])');

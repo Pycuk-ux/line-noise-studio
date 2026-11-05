@@ -745,3 +745,20 @@ body.is-dragging .board-card:hover { box-shadow: 0 1px 2px var(--color-alpha-lig
 .email-dlg__files li { display: flex; align-items: center; gap: var(--space-2); }
 @media (max-width: 640px) { .merge-keep { grid-template-columns: 1fr; } }
 .merge-dlg .ds-alert, .merge-banner { width: auto; max-width: none; box-shadow: none; border: 1px solid var(--border-default); }
+/* Merge dialog: grouped deal list + live "After merge" preview */
+.merge-dlg__list { max-height: 300px; }
+.merge-dlg__group { margin: var(--space-2) 0 0; color: var(--text-tertiary); font-size: var(--text-label-sm-size); line-height: var(--text-label-sm-line); font-weight: var(--w-medium); }
+.merge-dlg__group:first-child { margin-top: 0; }
+.merge-preview__card { display: flex; flex-direction: column; gap: var(--space-2); margin-top: var(--space-2); padding: var(--space-3); border: 1px solid var(--brand-secondary); border-radius: var(--radius-4); background: var(--surface-white); }
+.merge-preview__head { display: flex; flex-direction: column; gap: var(--space-2); }
+.merge-preview__eyebrow { margin: var(--space-1) 0 0; padding-bottom: var(--space-1); border-bottom: 1px solid var(--border-default); color: var(--text-tertiary); font-size: var(--label-xs-size); font-weight: var(--w-medium); text-transform: uppercase; letter-spacing: 0.04em; }
+.merge-preview__rows { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.merge-preview__rows li { display: grid; grid-template-columns: 96px minmax(0, 1fr) auto; gap: var(--space-2); padding: var(--space-2) 0; border-bottom: 1px solid var(--border-default); font-size: var(--text-label-md-size); line-height: var(--text-label-md-line); }
+.merge-preview__rows li:last-child { border-bottom: none; }
+.merge-preview__date, .merge-preview__price { font-variant-numeric: tabular-nums; color: var(--text-primary); }
+.merge-preview__date { color: var(--text-secondary); }
+.merge-preview__who { display: flex; flex-direction: column; gap: var(--space-1); min-width: 0; color: var(--text-primary); }
+.merge-preview__who .first-chip { align-self: flex-start; }
+.merge-dlg > * { flex-shrink: 0; }
+.merge-dlg .reason-dlg__foot { position: sticky; bottom: calc(-1 * var(--space-3)); margin: 0 calc(-1 * var(--space-3)) calc(-1 * var(--space-3)); padding: var(--space-3); background: var(--surface-white); border-top: 1px solid var(--border-default); }
+.merge-preview__line { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-1); }

@@ -229,19 +229,49 @@ window.GC = window.GC || {};
           <button type="button" class="ds-btn" data-type="primary" data-size="lg" data-mg="go" disabled>Merge</button>
         </div></div>`);
     const box = dlg.box, listEl = box.querySelector(".merge-dlg__list"), keepEl = box.querySelector(".merge-dlg__keep"), go = box.querySelector('[data-mg="go"]');
+    // "Sent 26 Aug 2026 · Received 28 Aug 2026 08:42" from the deal's First received row
+    const whenHtml = (d) => { const f = first(d); return f ? `Sent ${day(f.sentAt)} · Received ${day(f.receivedAt)} ${time(f.receivedAt)}` : ""; };
     const stageChip = (d) => `<span class="stage-chip stage-chip--static" data-stage="${esc(d.stage)}">${GC.stageIcon(d.stage)}${esc(GC.stageLabel(d.stage))}</span>`;
     function drawList() {
       const c = candidates();
-      listEl.innerHTML = c.length ? c.map((d) => {
+      const cand = (d) => {
         const closed = d.status === "dead";
         const same = !closed && loc(d) === loc(src);
         return `<button type="button" class="merge-cand" role="radio" aria-checked="${target === d}" data-mg-pick="${d.id}"${closed ? ' aria-disabled="true"' : ""}>
           <span class="merge-cand__main"><span class="merge-cand__name">${esc(d.name)}</span>
-            <span class="merge-cand__sub">${esc([d.location, brokerLabel(d), day(firstDate(d))].filter(Boolean).join(" · "))}</span>
+            <span class="merge-cand__sub">${esc([d.location, brokerLabel(d)].filter(Boolean).join(" · "))}</span>
+            <span class="merge-cand__sub">${whenHtml(d)}</span>
             ${closed ? `<span class="merge-cand__why">Closed (${esc(d.outcome)}). A deal can't be merged into a closed one: an asset that returns after a pass stays a new deal.</span>` : ""}</span>
           ${closed ? GC.statusChip(d) : stageChip(d)}${same ? `<span class="ds-badge merge-cand__hint" data-type="info">Same city</span>` : ""}
         </button>`;
-      }).join("") : `<p class="assign-menu__empty">No deals match “${esc(q)}”</p>`;
+      };
+      if (!c.length) { listEl.innerHTML = `<p class="assign-menu__empty">No deals match “${esc(q)}”</p>`; return; }
+      // Every deal is listed under the search; the search only narrows it. Same city first, closed deals last.
+      const groups = [
+        ["Suggested: same city", c.filter((d) => d.status !== "dead" && loc(d) === loc(src))],
+        ["All deals", c.filter((d) => d.status !== "dead" && loc(d) !== loc(src))],
+        ["Closed", c.filter((d) => d.status === "dead")],
+      ].filter(([, l]) => l.length);
+      listEl.innerHTML = groups.map(([t, l]) => `<p class="merge-dlg__group">${esc(t)} <span class="count">(${l.length})</span></p>${l.map(cand).join("")}`).join("");
+    }
+    /** The merged deal as it will look: the kept deal with both deals' Received rows. */
+    function previewHtml() {
+      const gone = keep === src ? target : src;
+      const rows = submissions(keep).concat(submissions(gone)).sort(bySent);
+      const ov = keep.firstOverride && rows.find((x) => x.id === keep.firstOverride.subId);
+      const fr = ov || rows[0];
+      return `<p class="merge-keep__label">After merge</p>
+        <div class="merge-preview__card">
+          <div class="merge-preview__head"><span class="merge-keep__name">${esc(keep.name)}</span>
+            <span class="merge-keep__row">${stageChip(keep)}${GC.statusChip(keep)}${keep.owner ? GC.ownerPlate(keep) : ""}</span></div>
+          <p class="merge-preview__eyebrow">Received (${rows.length})</p>
+          <ul class="merge-preview__rows">${rows.map((x) => `<li${x === fr ? ' class="is-first"' : ""}>
+              <span class="merge-preview__date">${day(x.sentAt)}</span>
+              <span class="merge-preview__who"><span class="merge-preview__line"><b>${esc(x.broker || "Broker not set")}</b> · ${esc(x.doc)}${x === fr ? ` <span class="first-chip">First received</span>` : ""}</span>
+                <span class="merge-keep__muted">Received ${day(x.receivedAt)} ${time(x.receivedAt)}${x.forwardedBy ? `, forwarded by ${esc(x.forwardedBy)}` : ""}</span></span>
+              <span class="merge-preview__price">${x.price != null ? esc(F().moneyShort(x.price, x.currency)) : "n/a"}</span></li>`).join("")}</ul>
+          <p class="merge-keep__muted">Stage, owner, funds and work stay on the deal you keep. “${esc(gone.name)}” is hidden, not deleted.</p>
+        </div>`;
     }
     function drawKeep() {
       keepEl.hidden = !target;
@@ -252,17 +282,15 @@ window.GC = window.GC || {};
           <input type="radio" name="mg-keep" value="${d.id}"${keep === d ? " checked" : ""}>
           <span class="merge-keep__card"><span class="merge-keep__name">${esc(d.name)}</span>
             <span class="merge-keep__row">${stageChip(d)}${GC.statusChip(d)}${d.owner ? GC.ownerPlate(d) : `<span class="merge-keep__muted">No owner</span>`}</span>
-            <span class="merge-keep__muted">${esc([brokerLabel(d) || "Broker not set", day(firstDate(d))].join(" · "))}</span>
+            <span class="merge-keep__muted">${esc(brokerLabel(d) || "Broker not set")}</span>
+            <span class="merge-keep__muted">${whenHtml(d)}</span>
             ${d === def ? `<span class="merge-keep__muted">Further along in the pipeline</span>` : ""}</span></label>`;
       const def = stageRank(src) > stageRank(target) ? src : stageRank(target) > stageRank(src) ? target
         : (bySent(first(src), first(target)) <= 0 ? src : target);
-      // Preview of First received across both deals.
-      const all = submissions(src).concat(submissions(target)).sort(bySent)[0];
       const bothPipeline = src.stage !== "Received" && target.stage !== "Received";
       keepEl.innerHTML = `<p class="merge-keep__label" id="mg-keep-l">Which deal stays?</p>
         <div class="merge-keep" role="radiogroup" aria-labelledby="mg-keep-l">${pair.map(opt).join("")}</div>
-        <p class="mini-dlg__text">Stage, owner, funds and work stay on the deal you keep. The other deal's submission joins its Received list.
-          First received: <span class="first-chip">${esc(all.broker || "Broker not set")}, ${day(all.sentAt)}</span></p>
+        <div class="merge-preview" aria-live="polite">${previewHtml()}</div>
         ${bothPipeline ? `<div class="ds-alert" data-status="error" role="alert"><div class="ds-alert__row"><span class="ds-alert__icon">${GC.icon("alert-circle")}</span>
           <p class="ds-alert__msg">Both deals are in the pipeline</p></div>
           <p class="ds-alert__subtext">Comments, notes and the log of the deal you merge stay on it and open from its Received row. Check you keep the right deal.</p></div>` : ""}`;
@@ -277,7 +305,11 @@ window.GC = window.GC || {};
       drawList(); drawKeep();
       const again = listEl.querySelector(`[data-mg-pick="${target.id}"]`); if (again) again.focus();
     });
-    keepEl.addEventListener("change", (e) => { if (e.target.name === "mg-keep") { keep = GC.inbox.find(e.target.value); } });
+    keepEl.addEventListener("change", (e) => {
+      if (e.target.name !== "mg-keep") return;
+      keep = GC.inbox.find(e.target.value);
+      keepEl.querySelector(".merge-preview").innerHTML = previewHtml();
+    });
     box.querySelector("input[type=search]").addEventListener("input", (e) => { q = e.target.value.trim().toLowerCase(); drawList(); });
     go.addEventListener("click", () => {
       if (!target) return;
