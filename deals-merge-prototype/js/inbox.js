@@ -8,7 +8,9 @@ window.GC = window.GC || {};
   // Merged deals and "Not a deal" records: filtered out of every list, count and the map, never deleted.
   const hidden = (GC.MOCK.hiddenDeals || []).slice();
   const isHiddenView = () => view.sort === "hidden";
-  const source = () => (view.sort === "archived" ? archived : isHiddenView() ? hidden : deals);
+  const inPipeline = (d) => d.stage !== "Received";
+  const incoming = () => deals.filter((d) => !inPipeline(d));
+  const source = () => (view.sort === "archived" ? archived : isHiddenView() ? hidden : deals.filter(inPipeline));
   const ME = "Liam O'Connor";
   /** Activity log entry (shown in the details drawer → Logs). */
   function log(d, text, type) { d.log = d.log || []; d.log.unshift({ who: ME, text, type: type || "edit", at: new Date().toISOString() }); }
@@ -31,7 +33,7 @@ window.GC = window.GC || {};
   const fields = { area: true, rent: true, psm: true, niy: false, wault: true, occupancy: true, source: true, received: true };
   try { Object.assign(fields, JSON.parse(localStorage.getItem(FIELD_KEY) || "{}")); } catch (e) { /* storage unavailable */ }
 
-  const view = { layout: "list", sort: "newest" };
+  const view = { layout: "list", sort: "newest", tab: "inbox" };
 
   function statPairs(d) {
     const f = GC.fmt, sym = f.currencySymbol(d.currency || "EUR");
@@ -191,7 +193,8 @@ window.GC = window.GC || {};
 
   /** "Deal stage" sort runs both ways: SCR → CL (pipeline order) or CL → SCR. Kanban columns keep pipeline order. */
   const isStageSort = () => view.sort === "stage" || view.sort === "stage-desc";
-  const stageOrder = () => (view.sort === "stage-desc" ? STAGES.slice().reverse() : STAGES);
+  const PIPE = () => STAGES.filter((st) => st.id !== "Received");
+  const stageOrder = () => (view.sort === "stage-desc" ? PIPE().reverse() : PIPE());
 
   // The list date is the First received row's sent date, so it matches the tag.
   const dateOf = (d) => (GC.merge.firstDate(d) || d.dateReceived || "");
@@ -232,7 +235,11 @@ window.GC = window.GC || {};
   // ---------- Render ----------
   function renderSummary() {
     document.getElementById("inbox-total").textContent = GC.fmt.moneyShort(summary.totalValue, "EUR");
-    document.getElementById("inbox-sub").textContent = `${summary.activeDeals} active deals | ${summary.withoutPrice} without price`;
+    const n = incoming().length;
+    document.getElementById("inbox-sub").textContent = `${summary.activeDeals} deals in pipeline | ${n} to review in Inbox | ${summary.withoutPrice} without price`;
+    const chip = document.getElementById("triage-count");
+    if (chip) { chip.textContent = n; chip.hidden = !n; }
+    if (GC.triage) GC.triage.render();
   }
 
   /** The Archive has no pipeline, so it is always a list: Kanban is switched off while it's shown. */
@@ -264,7 +271,7 @@ window.GC = window.GC || {};
           ${stageHead(st, items)}${items.length ? `<ul class="card-list" id="sg-${st.id}"${collapsed.has(st.id) ? " hidden" : ""}>${items.map((d) => cardHtml(d, true)).join("")}</ul>` : ""}</section>`;
       }).join("");
     } else {
-      root.innerHTML = STAGES.map((st) => {
+      root.innerHTML = PIPE().map((st) => {
         const items = boardSort(list.filter((d) => d.stage === st.id));
         return `<section class="board-col stage-group" data-ds-provisional="board-column" data-stage="${st.id}" aria-label="${esc(st.id)}, ${items.length} deals">
           ${stageHead(st, items, true)}<ul class="card-list">${items.map(boardCardHtml).join("")}</ul></section>`;
@@ -318,6 +325,7 @@ window.GC = window.GC || {};
   // ---------- Controls ----------
   function bindControls() {
     document.getElementById("sort-select").addEventListener("change", (e) => { view.sort = e.target.value; boardOrder = null; render(); });
+    document.querySelectorAll("[data-page-tab]").forEach((b) => b.addEventListener("click", () => setTab(b.dataset.pageTab)));
     const q = document.querySelector(".search-field input");
     q.placeholder = "Search deals, cities or brokers"; q.setAttribute("aria-label", "Search deals, cities or brokers");
     q.addEventListener("input", () => { view.q = q.value; render(); });
@@ -350,18 +358,24 @@ window.GC = window.GC || {};
   }
 
   function addDeal(deal) {
+    // Entered by hand: received now, no broker yet (set it from the Received list).
+    if (!deal.receivedAt) deal.receivedAt = new Date().toISOString().slice(0, 16);
+    if (!deal.broker) deal.enteredBy = ME;
+    if (!("quotedPrice" in deal)) deal.quotedPrice = deal.price;
     deals.unshift(deal);
     log(deal, "created the deal", "received");
-    summary.activeDeals += 1;
-    if (deal.price > 0) summary.totalValue += deal.price; else summary.withoutPrice += 1;
-    render();
+    recount();
+    // A deal at Received is a decision for the Inbox; one created further along goes straight to the pipeline.
+    if (!inPipeline(deal) && view.tab !== "inbox") setTab("inbox");
+    else if (inPipeline(deal) && view.tab !== "pipeline") setTab("pipeline");
+    else render();
     if (GC.map) GC.map.placeNewDeal(deal);
-    const li = document.querySelector(`.deal-card[data-id="${deal.id}"]`);
+    const li = document.querySelector(`.deal-card[data-id="${deal.id}"], .triage-card[data-id="${deal.id}"]`);
     if (li) {
       li.scrollIntoView({ block: "nearest", behavior: "smooth" });
       setTimeout(() => {
         deal.isNew = false;
-        const el = document.querySelector(`.deal-card[data-id="${deal.id}"]`);
+        const el = document.querySelector(`.deal-card[data-id="${deal.id}"], .triage-card[data-id="${deal.id}"]`);
         if (el) el.classList.remove("is-new");
         if (GC.map) GC.map.renderPins();
       }, 4000);
@@ -375,13 +389,14 @@ window.GC = window.GC || {};
   function order() {
     const list = sorted(source());
     if (view.layout !== "board" && !isStageSort()) return list;
-    return (view.layout === "board" ? STAGES : stageOrder()).flatMap((st) => { const items = list.filter((d) => d.stage === st.id); return view.layout === "board" ? boardSort(items) : items; });
+    return (view.layout === "board" ? PIPE() : stageOrder()).flatMap((st) => { const items = list.filter((d) => d.stage === st.id); return view.layout === "board" ? boardSort(items) : items; });
   }
 
   function recount() {
-    summary.activeDeals = deals.length;
-    summary.withoutPrice = deals.filter((d) => !(d.price > 0)).length;
-    summary.totalValue = deals.reduce((a, d) => a + (d.price > 0 ? d.price : 0), 0);
+    const pipe = deals.filter(inPipeline);
+    summary.activeDeals = pipe.length;
+    summary.withoutPrice = pipe.filter((d) => !(d.price > 0)).length;
+    summary.totalValue = pipe.reduce((a, d) => a + (d.price > 0 ? d.price : 0), 0);
   }
 
   /** Archive / restore / delete with Undo. */
@@ -403,7 +418,7 @@ window.GC = window.GC || {};
     });
   }
 
-  function refresh(id) { render(); if (GC.dealPanel) GC.dealPanel.refresh(id); }
+  function refresh(id) { recount(); render(); if (GC.dealPanel) GC.dealPanel.refresh(id); }
   function snapshot(d) { return { stage: d.stage, status: d.status, outcome: d.outcome, outcomeReason: d.outcomeReason, outcomeNote: d.outcomeNote }; }
 
   /** Closed deals live in the Archive; reopening brings them back to the inbox. */
@@ -431,6 +446,7 @@ window.GC = window.GC || {};
 
   /** Moving a deal along the pipeline reopens a closed deal and makes a New one Live. */
   function setStage(id, stage) {
+    // (Received = back to the Inbox; it leaves the pipeline lists and counts.)
     const d = find(id);
     if (!d || (d.stage === stage && d.status !== "dead")) return;
     const prev = d.stage, snap = snapshot(d), undo = undoTo(d, snap);
@@ -760,6 +776,32 @@ window.GC = window.GC || {};
     window.addEventListener("pointercancel", cleanup);
   }
 
+  // ---------- Inbox decisions ----------
+  /** Take an incoming deal into the pipeline: stage SCR, status Live, the analyst becomes owner if nobody is. */
+  function accept(id) {
+    const d = find(id);
+    if (!d || !deals.includes(d) || inPipeline(d)) return;
+    const snap = { stage: d.stage, status: d.status, owner: d.owner };
+    d.stage = "SCR"; d.status = "live";
+    if (!d.owner) d.owner = "LO";
+    log(d, "moved the deal to the pipeline (SCR)", "stage");
+    recount(); render();
+    if (GC.dealPanel) GC.dealPanel.refresh(id);
+    GC.toast("Moved to pipeline", `“${d.name}” is now at SCR.`, "success",
+      { label: "Undo", onClick: () => { Object.assign(d, snap); recount(); render(); if (GC.dealPanel) GC.dealPanel.refresh(id); } });
+  }
+  let mapSized = false;
+  function setTab(t) {
+    view.tab = t;
+    document.querySelectorAll("[data-page-tab]").forEach((b) => b.setAttribute("aria-selected", b.dataset.pageTab === t ? "true" : "false"));
+    document.querySelector(".filters").hidden = t !== "pipeline";
+    document.getElementById("content").hidden = t !== "pipeline";
+    document.getElementById("triage-view").hidden = t !== "inbox";
+    render();
+    // The map was mounted while hidden: size it the first time the Pipeline shows.
+    if (t === "pipeline" && GC.map && !mapSized) { mapSized = true; GC.map.fit(); }
+  }
+
   // ---------- Merge pointer (v0) ----------
   /** Merge `srcId` into `targetId`: the source gets a "merged into" pointer and leaves every list; nothing is deleted. */
   function merge(srcId, targetId) {
@@ -817,5 +859,5 @@ window.GC = window.GC || {};
   function update() { recount(); render(); }
 
   recount(); // the header counts only what the shared filter shows (no merged / not-a-deal / closed deals)
-  GC.inbox = { hidden, merge, unmerge, setNotADeal, stageBlock, render, addDeal, deals, archived, bindLinking, view, fields, order, update, removeDeal, setStage, setOutcome, toggleHold, find, log, openMenu, openStageMenu, popup, ME };
+  GC.inbox = { incoming, accept, setTab, hidden, merge, unmerge, setNotADeal, stageBlock, render, addDeal, deals, archived, bindLinking, view, fields, order, update, removeDeal, setStage, setOutcome, toggleHold, find, log, openMenu, openStageMenu, popup, ME };
 })();

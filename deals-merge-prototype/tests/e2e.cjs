@@ -18,15 +18,20 @@ function ok(cond, msg) { if (cond) { pass++; console.log('  ✓', msg); } else {
     await page.selectOption(asset(1, 'type'), o.type); await fill(asset(1, 'address'), o.address);
   };
 
-  console.log('0. Inbox + map');
-  ok((await page.$$('.deal-list .row-card')).length === 13, '13 deals listed (merged and not-a-deal records hidden)');
-  ok((await page.$$('.map-pin')).length === 37, 'one pin per asset (37 assets across the open deals; merged deal and report not on the map)');
+  console.log('00. Inbox (incoming deals to review)');
+  ok(await page.isVisible('#triage-view') && !(await page.isVisible('#content')) && (await page.$eval('[data-page-tab="inbox"]', (b) => b.getAttribute('aria-selected'))) === 'true', 'page opens on the Inbox tab');
+  ok((await page.$$('.triage-card')).length === 5 && (await txt('#triage-count')) === '5', 'Inbox lists the 5 incoming deals; tab shows the count');
+  await page.click('[data-page-tab="pipeline"]'); await page.waitForTimeout(150);
+
+  console.log('0. Pipeline + map');
+  ok((await page.$$('.deal-list .row-card')).length === 12, '12 deals in the pipeline (incoming, merged and not-a-deal records excluded)');
+  ok((await page.$$('.map-pin')).length === 38, 'one pin per asset (38 assets across the open deals; merged deal and report not on the map)');
   const gear = await page.$eval('[aria-label="Table settings"] svg', (e) => { const r = e.getBoundingClientRect(), b = e.closest('button').getBoundingClientRect(); return Math.abs((r.top + r.height / 2) - (b.top + b.height / 2)); });
   ok(gear < 2, `settings icon vertically centred (Δ${gear.toFixed(1)}px)`);
   await page.click('[data-map="off"]');
   ok(!(await page.isVisible('#map-panel')), 'map hidden by the switch');
   await page.click('[data-map="on"]');
-  ok(await page.isVisible('#map-panel') && (await page.$$('.map-pin')).length === 37, 'map shown again with pins');
+  ok(await page.isVisible('#map-panel') && (await page.$$('.map-pin')).length === 38, 'map shown again with pins');
   await page.click('.map-ctl');
   ok(await page.isVisible('#map-menu'), 'pin settings dropdown opens');
   ok((await txt('#map-menu-t')) === 'Pin settings' && (await txt('.map-ctl__label')) === 'Yield', 'Pin settings dropdown; button shows the metric (Yield by default)');
@@ -89,23 +94,23 @@ function ok(cond, msg) { if (cond) { pass++; console.log('  ✓', msg); } else {
 
   console.log('0b. Grouped by stage, board, card fields');
   await page.selectOption('#sort-select', 'stage');
-  ok((await page.$$('#deal-list .stage-group')).length === 7, '7 stage groups (Received → CL)');
-  ok((await page.$$eval('#deal-list .stage-group', (els) => els.map((e) => e.dataset.stage))).join() === 'Received,SCR,QUAL,LOI,DD,SPA,Completed', 'stage sort SCR → CL');
+  ok((await page.$$('#deal-list .stage-group')).length === 6, '6 stage groups in the pipeline (SCR → CL; Received is the Inbox)');
+  ok((await page.$$eval('#deal-list .stage-group', (els) => els.map((e) => e.dataset.stage))).join() === 'SCR,QUAL,LOI,DD,SPA,Completed', 'stage sort SCR → CL');
   await page.click('[data-collapse="SCR"]');
-  ok(await page.$eval('[data-collapse="SCR"]', (b) => b.getAttribute('aria-expanded')) === 'false' && !(await page.isVisible('#sg-SCR')) && (await txt('.stage-group[data-stage="SCR"] .stage-group__name')) === 'SCR (3)', 'stage group collapses (count stays)');
+  ok(await page.$eval('[data-collapse="SCR"]', (b) => b.getAttribute('aria-expanded')) === 'false' && !(await page.isVisible('#sg-SCR')) && (await txt('.stage-group[data-stage="SCR"] .stage-group__name')) === 'SCR (4)', 'stage group collapses (count stays)');
   ok(await page.evaluate(() => document.activeElement.dataset.collapse) === 'SCR', 'focus stays on the toggle');
   await page.click('[data-collapse="SCR"]');
   ok(await page.isVisible('#sg-SCR'), 'stage group expands again');
   await page.selectOption('#sort-select', 'stage-desc');
-  ok((await page.$$eval('#deal-list .stage-group', (els) => els.map((e) => e.dataset.stage))).join() === 'Completed,SPA,DD,LOI,QUAL,SCR,Received', 'stage sort CL → SCR');
+  ok((await page.$$eval('#deal-list .stage-group', (els) => els.map((e) => e.dataset.stage))).join() === 'Completed,SPA,DD,LOI,QUAL,SCR', 'stage sort CL → SCR');
   await page.selectOption('#sort-select', 'stage');
-  ok((await txt('.stage-group[data-stage="SCR"] .stage-group__name')) === 'SCR (3)' && (await txt('.stage-group[data-stage="SCR"] .stage-group__total')) === 'Total amount: €122.4M', 'SCR header: count + "Total amount"');
+  ok((await txt('.stage-group[data-stage="SCR"] .stage-group__name')) === 'SCR (4)' && (await txt('.stage-group[data-stage="SCR"] .stage-group__total')) === 'Total amount: €122.4M', 'SCR header: count + "Total amount"');
   ok((await txt('.stage-group[data-stage="Completed"] .stage-group__name')).endsWith('(0)') && (await txt('.stage-group[data-stage="Completed"] .stage-group__total')) === '', 'empty stage: (0), no total');
   ok(await page.$eval('.stage-group[data-stage="SCR"] .stage-group__head', (e) => getComputedStyle(e).backgroundColor) === 'rgb(254, 252, 232)', 'header filled with the stage colour');
   await page.$eval('#deal-list', (e) => (e.scrollTop = e.querySelector('.stage-group[data-stage="SCR"]').offsetTop + 200)); await page.waitForTimeout(150);
   ok(await page.$eval('.stage-group[data-stage="SCR"] .stage-group__sticky', (e) => e.classList.contains('is-stuck') && getComputedStyle(e).position === 'sticky'), 'sticky header gets the stuck state on scroll');
   await page.click('[data-layout="board"]');
-  ok((await page.$$('#deal-list .board-col')).length === 7 && !(await page.isVisible('#list-footer')), 'board: 7 columns, no pagination');
+  ok((await page.$$('#deal-list .board-col')).length === 6 && !(await page.isVisible('#list-footer')), 'board: 6 columns, no pagination');
   await page.$eval('.board-col[data-stage="SCR"]', (e) => (e.scrollTop = 150)); await page.waitForTimeout(150);
   ok(await page.$eval('.board-col[data-stage="SCR"] .stage-group__sticky', (e) => e.classList.contains('is-stuck')), 'board column header sticks on scroll');
   await page.screenshot({ path: OUT('board.png') });
@@ -122,7 +127,7 @@ function ok(cond, msg) { if (cond) { pass++; console.log('  ✓', msg); } else {
   await page.click('#card-fields-menu label:has([data-card-field="area"])');
   await page.click('#card-fields-menu label:has([data-card-field="niy"])');
   await page.keyboard.press('Escape');
-  ok((await page.$$('.deal-list .card-list > .row-card')).length === 13, 'back to the flat list');
+  ok((await page.$$('.deal-list .card-list > .row-card')).length === 12, 'back to the flat list');
 
   console.log('1. Open + empty close');
   await page.click('#add-deal-btn');
@@ -288,8 +293,9 @@ function ok(cond, msg) { if (cond) { pass++; console.log('  ✓', msg); } else {
   await page.click('[data-step="4"]');
   await page.click('[data-act="add"]');
   ok(!(await page.$('.dm')), 'modal closed');
-  ok((await txt('.deal-list .row-card:first-child .row-card__name')) === 'Project Gateway - Venlo Logistics', 'new deal at top of inbox');
-  ok((await page.$$('.map-pin')).length === 38 && !!(await page.$('.map-pin.is-new')), 'new deal has a pin on the map');
+  ok(await page.isVisible('#triage-view') && (await txt('.triage-card:first-child .triage-card__name')) === 'Project Gateway - Venlo Logistics' && !!(await page.$('.triage-card.is-new')), 'new deal (stage Received) lands at the top of the Inbox');
+  await page.click('[data-page-tab="pipeline"]'); await page.waitForTimeout(150);
+  ok((await page.$$('.map-pin')).length === 39 && !!(await page.$('.map-pin.is-new')), 'new deal has a pin on the map');
   await page.screenshot({ path: OUT('success.png') });
 
   console.log('13. Kanban card, actions menu, details + edit drawers');
@@ -311,9 +317,9 @@ function ok(cond, msg) { if (cond) { pass++; console.log('  ✓', msg); } else {
   await page.click('.board-card[data-id="d7"] [data-deal-menu]');
   ok(await page.isVisible('.deal-menu [data-pick="edit"]') && await page.isVisible('.deal-menu [data-pick="archived"]') && await page.isVisible('.deal-menu [data-pick="deleted"]'), 'menu: Edit + Archive + Delete');
   await page.click('.deal-menu [data-pick="archived"]');
-  ok(!(await page.$('.deal-card[data-id="d7"]')) && (await txt('#inbox-sub')).startsWith('13 active'), 'archived deal removed (14 → 13)');
+  ok(!(await page.$('.deal-card[data-id="d7"]')) && (await txt('#inbox-sub')).startsWith('11 deals in pipeline'), 'archived deal removed (12 → 11)');
   await page.click('.toast-region [data-toast-act]');
-  ok(!!(await page.$('.deal-card[data-id="d7"]')) && (await txt('#inbox-sub')).startsWith('14 active'), 'Undo restores it');
+  ok(!!(await page.$('.deal-card[data-id="d7"]')) && (await txt('#inbox-sub')).startsWith('12 deals in pipeline'), 'Undo restores it');
 
   await page.hover(card + ' .deal-link');
   ok(await page.$eval(card + ' .deal-link', (e) => getComputedStyle(e).textDecorationLine) === 'underline', 'title underlines on hover');
@@ -534,7 +540,8 @@ function ok(cond, msg) { if (cond) { pass++; console.log('  ✓', msg); } else {
   console.log('18c. Asset arrows keep the card in place');
   await page.click('[data-zoom="reset"]'); await page.waitForTimeout(100);
   await page.click('.map-pin[data-id="d1"][data-asset="0"]'); await page.waitForTimeout(200);
-  const spinAt = async (i) => page.$eval(`.map-pin[data-id="d1"][data-asset="${i}"]`, (e) => { const r = e.getBoundingClientRect(); return [Math.round(r.x + r.width / 2), Math.round(r.y + r.height / 2)]; });
+  // Pin anchor point in map coordinates (style left/top); the hovered pin's box can be offset by its hover state.
+  const spinAt = async (i) => page.$eval(`.map-pin[data-id="d1"][data-asset="${i}"]`, (e) => [Math.round(parseFloat(e.style.left)), Math.round(parseFloat(e.style.top))]);
   const scardAt = async () => page.$eval('.map-popup', (e) => { const r = e.getBoundingClientRect(); return [Math.round(r.x), Math.round(r.y)]; });
   const sp0 = await spinAt(0), sc0 = await scardAt();
   await page.click('.map-popup [data-pp="next"]'); await page.waitForTimeout(150);
@@ -679,19 +686,42 @@ function ok(cond, msg) { if (cond) { pass++; console.log('  ✓', msg); } else {
   await page.click('[data-mg-pick="d12"]', { force: true });
   ok(await page.$eval('[data-mg="go"]', (b) => b.disabled), 'merge stays disabled');
   await page.keyboard.press('Escape');
-  await page.hover('.row-card[data-id="d14"] .row-card__media'); await page.click('.row-card[data-id="d14"] [data-deal-menu]');
-  await page.click('.deal-menu [data-pick="merge"]');
-  ok((await page.$$eval('.merge-cand', (e) => e.map((x) => x.dataset.mgPick)))[0] === 'd7', 'Received duplicate: its pipeline twin is suggested first');
-  await page.click('[data-mg-pick="d7"]');
-  ok((await page.$eval('input[name="mg-keep"]:checked', (e) => e.value)) === 'd7' && !(await txt('.merge-dlg__keep')).includes('Both deals are in the pipeline'), 'Received duplicate → keeps the pipeline deal, no warning');
+
+  // ---------- Inbox: decisions on incoming deals ----------
+  console.log('21. Inbox decisions');
+  await page.click('[data-page-tab="inbox"]'); await page.waitForTimeout(150);
+  const tIds = async () => page.$$eval('.triage-card', (e) => e.map((x) => x.dataset.id));
+  const tCount = (await tIds()).length;
+  ok(!(await tIds()).includes('d1') && (await tIds()).includes('d14') && (await tIds()).includes('d16'), 'Inbox = deals at Received only');
+  ok((await txt('.triage-card[data-id="d16"] .triage-card__rcv')).includes('Colliers') && (await txt('.triage-card[data-id="d16"] .triage-card__rcv')).includes('Received 4 Nov 2026 10:12'), 'card shows who sent it, sent date and received time');
+  ok((await txt('.triage-card[data-id="d16"] .triage-dup')).includes('Weserport') && (await txt('.triage-card[data-id="d16"] .triage-dup .first-chip')) === 'Savills, 3 Oct 2026', 'possible duplicate flagged with who would be first received (Savills, earlier)');
+  ok(!!(await page.$('.triage-card[data-id="d16"] [data-tr="merge"][data-type="primary"]')) && !!(await page.$('.triage-card[data-id="d19"] [data-tr="accept"][data-type="primary"]')) && !(await page.$('.triage-card[data-id="d19"] .triage-dup')), 'duplicate → Merge is the main action; a new deal → Move to pipeline');
+  await page.screenshot({ path: OUT('inbox.png') });
+  // Merge from the Inbox: the match is pre-picked, the pipeline deal stays
+  await page.click('.triage-card[data-id="d14"] [data-tr="merge"]'); await page.waitForTimeout(150);
+  ok((await page.$eval('[data-mg-pick="d7"]', (b) => b.getAttribute('aria-checked'))) === 'true' && (await page.$eval('input[name="mg-keep"]:checked', (e) => e.value)) === 'd7' && !(await txt('.merge-dlg__keep')).includes('Both deals are in the pipeline'), 'Merge opens with the match picked; the pipeline deal stays; no warning');
   await page.click('.merge-keep__opt:has(input[value="d14"])');
   ok((await page.$eval('input[name="mg-keep"]:checked', (e) => e.value)) === 'd14', 'user can pick the other survivor');
   await page.click('.merge-keep__opt:has(input[value="d7"])');
-  await page.click('[data-mg="go"]'); await page.waitForTimeout(150);
-  ok((await mStat('d7', 'Broker')) === 'Cushman & Wakefield +1', 'merged: first broker kept on the pipeline deal');
-  await page.locator('.toast-region .ds-alert:has(.ds-alert__msg:text-is("Deals merged")) [data-toast-act]').last().click(); await page.waitForTimeout(100);
-  ok(!!(await page.$('.row-card[data-id="d14"]')) && (await mStat('d7', 'Broker')) === 'Cushman & Wakefield', 'Undo unmerges');
+  await page.click('[data-mg="go"]'); await page.waitForTimeout(500);
+  ok(await page.isVisible('.dp') && (await txt('#dp-title')) === 'Kirseberg Logistics Hub' && (await page.$$('.rcv-table tbody tr')).length === 2, 'after merge the drawer opens on the pipeline deal with both Received rows');
+  ok(!(await tIds()).includes('d14') && (await txt('#triage-count')) === String(tCount - 1), 'the duplicate leaves the Inbox');
+  await page.locator('.toast-region .ds-alert:has(.ds-alert__msg:text-is("Deals merged")) [data-toast-act]').last().click(); await page.waitForTimeout(150);
+  ok((await tIds()).includes('d14'), 'Undo puts it back in the Inbox');
   await page.click('[data-dp="close"].ds-btn'); await page.waitForTimeout(400);
+  // Move to pipeline
+  await page.click('.triage-card[data-id="d19"] [data-tr="accept"]'); await page.waitForTimeout(150);
+  ok(!(await tIds()).includes('d19') && (await page.evaluate(() => [GC.inbox.find('d19').stage, GC.inbox.find('d19').owner].join())) === 'SCR,LO' && (await txt('.toast-region')).includes('Moved to pipeline'), 'Move to pipeline: SCR, analyst becomes owner');
+  await page.locator('.toast-region .ds-alert:has(.ds-alert__msg:text-is("Moved to pipeline")) [data-toast-act]').last().click(); await page.waitForTimeout(150);
+  ok((await tIds()).includes('d19'), 'Undo returns it to the Inbox');
+  // Pass (closes with a reason → Archive)
+  await page.click('.triage-card[data-id="d19"] [data-tr="more"]');
+  await page.click('.deal-menu [data-pick="pass"]');
+  await page.selectOption('#rd-reason', 'Not shortlisted'); await page.click('[data-rd="confirm"]'); await page.waitForTimeout(150);
+  ok(!(await tIds()).includes('d19') && (await page.evaluate(() => GC.inbox.archived.some((d) => d.id === 'd19' && d.outcome === 'Passed'))), 'Pass closes it with a reason and moves it to the Archive');
+  // Not a deal
+  await page.click('.triage-card[data-id="d15"] [data-tr="notdeal"]'); await page.waitForTimeout(100);
+  ok(!(await tIds()).includes('d15') && (await txt('.toast-region')).includes('Marked as not a deal'), 'Not a deal hides the record');
 
   ok(await page.evaluate(async () => {
     for (const d of GC.inbox.deals.slice()) {
@@ -703,10 +733,8 @@ function ok(cond, msg) { if (cond) { pass++; console.log('  ✓', msg); } else {
     return true;
   }), 'every open deal gets 4 suggestions (no empty state)');
 
-  // Not a deal + the hidden view
-  await page.hover('.row-card[data-id="d15"] .row-card__media'); await page.click('.row-card[data-id="d15"] [data-deal-menu]');
-  await page.click('.deal-menu [data-pick="notdeal"]'); await page.waitForTimeout(100);
-  ok(!(await page.$('.row-card[data-id="d15"]')) && (await txt('.toast-region')).includes('Marked as not a deal'), 'Not a deal hides the record');
+  // Hidden records (pipeline tab → Sort: Merged & not a deal)
+  await page.click('[data-page-tab="pipeline"]'); await page.waitForTimeout(150);
   await page.selectOption('#sort-select', 'hidden'); await page.waitForTimeout(100);
   ok((await page.$$eval('#deal-list .row-card', (e) => e.map((x) => x.dataset.id))).sort().join() === 'd13,d15' && (await txt('.row-card[data-id="d13"] .hidden-chip')).includes('Merged into') && (await txt('.row-card[data-id="d15"] .hidden-chip')) === 'Not a deal', 'hidden view lists merged + not-a-deal records');
   ok(await page.$eval('[data-layout="board"]', (b) => b.disabled), 'hidden view is list-only');
@@ -719,7 +747,8 @@ function ok(cond, msg) { if (cond) { pass++; console.log('  ✓', msg); } else {
   ok((await txt('#dp-title')) === 'Harbourside Retail Park' && (await page.$$('.rcv-table tbody tr')).length === 2, 'banner opens the surviving deal');
   await page.click('[data-dp="close"].ds-btn'); await page.waitForTimeout(400);
   await page.selectOption('#sort-select', 'newest');
-  ok(!!(await page.$('.row-card[data-id="d15"]')), '"It\'s a deal" restores it to the inbox');
+  await page.click('[data-page-tab="inbox"]'); await page.waitForTimeout(150);
+  ok((await tIds()).includes('d15'), '"It\'s a deal" restores it to the Inbox');
 
   console.log('\nconsole errors/warnings:', errors.length ? errors : 'none');
   console.log(`\n${pass} passed, ${fail} failed`);

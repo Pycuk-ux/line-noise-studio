@@ -34,6 +34,7 @@
   GC.inbox.render();
   GC.inbox.bindLinking();
   GC.map.mount(document.getElementById("map-panel"));
+  GC.inbox.setTab("inbox"); // the page opens on the Inbox: incoming deals waiting for a decision
 
   // Map on/off (right switch). The left switch (list / board) is visual only for now.
   document.getElementById("map-switch").addEventListener("click", (e) => {

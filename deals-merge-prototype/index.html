@@ -73,10 +73,14 @@
     <!-- Tabs — DS .ds-tabs -->
     <div class="page-tabs">
       <div class="ds-tabs" role="tablist" aria-label="Deals views">
-        <button class="ds-tab" type="button" data-size="large" role="tab" aria-selected="true">Inbox</button>
-        <button class="ds-tab" type="button" data-size="large" role="tab" aria-selected="false">Analytics</button>
+        <button class="ds-tab" type="button" data-size="large" role="tab" aria-selected="true" data-page-tab="inbox" aria-controls="triage-view">Inbox <span class="ds-tab-chip" id="triage-count"></span></button>
+        <button class="ds-tab" type="button" data-size="large" role="tab" aria-selected="false" data-page-tab="pipeline" aria-controls="content">Pipeline</button>
+        <button class="ds-tab" type="button" data-size="large" role="tab" aria-selected="false" disabled>Analytics</button>
       </div>
     </div>
+
+    <!-- Inbox: incoming deals waiting for a decision (js/triage.js) -->
+    <section class="triage" id="triage-view" aria-label="Inbox: deals to review" data-ds-provisional="triage-list"></section>
 
     <!-- Filters -->
     <div class="filters">
@@ -167,6 +171,7 @@
   <script src="js/deal-modal.js"></script>
   <script src="js/inbox.js"></script>
   <script src="js/merge.js"></script>
+  <script src="js/triage.js"></script>
   <script src="js/map.js"></script>
   <script src="js/deal-panel.js"></script>
   <script src="js/app.js"></script>

@@ -290,7 +290,7 @@ window.GC = window.GC || {};
     view.ty = h < r.height ? (r.height - h) / 2 : Math.min(py, Math.max(r.height - h - py, view.ty));
   }
   function apply() {
-    clampView();
+    if (!anchor) clampView(); // stepping between assets may go past the edge so the next pin lands on the same spot
     world.style.transform = `translate(${view.tx}px, ${view.ty}px) scale(${view.k})`;
     placePins();
   }

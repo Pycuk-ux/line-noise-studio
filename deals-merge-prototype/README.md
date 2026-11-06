@@ -6,6 +6,30 @@ system, mock data only.
 
 ## What this copy adds (merge pointer v0)
 
+- **Inbox and Pipeline tabs.** The page opens on **Inbox**: deals at stage Received, which are incoming emails and
+  uploads waiting for a decision. The tab shows the count. **Pipeline** holds the accepted deals (SCR → CL): list,
+  kanban and map as before, now without a Received group or column. The header counts the pipeline and says how many
+  deals are waiting in the Inbox. Each Inbox card shows:
+  - who sent it (broker, contact), the document type, the sent date, and the received date and time (plus "forwarded
+    by"), and the quoted price;
+  - a **possible duplicate** note when the deal looks like one already in the pipeline or the Inbox, naming that deal,
+    its stage, broker, sent date and owner, and who would be **First received** if they were merged. If the look-alike
+    is closed, the note says "Seen before … an asset that returns after a pass stays a new deal" and merge is blocked.
+  - The decisions, from the proposal:
+    - **Merge** (the main action when a duplicate is found; the dialog opens with the match picked);
+    - **Move to pipeline** (the main action otherwise: stage SCR, status Live, the analyst becomes owner if nobody is;
+      Undo);
+    - **Not a deal** (newsletters, market reports);
+    - ⋯ **Pass** (Outcome Passed with a reason, which moves it to the Archive) and *Open details*.
+  - A deal added by hand at Received lands at the top of the Inbox ("Added by hand by …, broker not set"). Picking
+    *Received* in a pipeline deal's stage menu sends it back to the Inbox.
+  - Mock Inbox scenarios:
+    - *Weserport Logistics Park, Bremen* (Colliers, 4 Nov) duplicates *Weserport* (Savills, 3 Oct, in the pipeline),
+      the example from the proposal;
+    - *Fosie Industrial Estate, revised IM* is the same broker in a new thread;
+    - *Kirseberg Logistics, Malmö* is another broker's copy;
+    - *Lund Science Park Offices* is genuinely new;
+    - *Nordic Logistics Market Report* is not a deal.
 - **Merge into another deal**: in the ⋯ menu on inbox rows and kanban cards, in the drawer's ⋯, and as a button on
   the Received list. A dialog suggests 4 similar deals and searches all deals. Closed deals are listed but can't be picked, because
   an asset that returns after a pass stays a new deal. **Which deal stays?** defaults to the deal furthest along in
@@ -68,7 +92,7 @@ python3 -m http.server 8081
 DS stylesheets and icons load from `gocanopy-design-system.vercel.app`, so the page needs network access.
 No build step.
 
-**Tests (optional):** `bash tests/make-fixtures.sh && BASE_URL=http://localhost:8081/ node tests/e2e.cjs` (274 checks, incl. section 20 for merge) while the server runs. The test
+**Tests (optional):** `bash tests/make-fixtures.sh && BASE_URL=http://localhost:8081/ node tests/e2e.cjs` (283 checks, incl. sections 20-21 for merge and the Inbox) while the server runs. The test
 needs Playwright and serves the Vercel DS from a local clone (`GOCANOPY_DS_ROOT`, default `../../gocanopy-design-system`).
 It makes 123 checks (acceptance checklist, map, multi-asset, draft undo, stage grouping, board, card fields, card menu, details and edit drawers); the latest run passed all 123 with 0 console errors or warnings.
 

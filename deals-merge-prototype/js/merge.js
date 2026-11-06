@@ -222,7 +222,14 @@ window.GC = window.GC || {};
   // ============================================================
   //  "Merge into another deal"
   // ============================================================
-  function openMerge(srcId) {
+  /** Best match for an incoming deal (score ≥ 3 = likely the same asset), or null. Used by the Inbox. */
+  function likelyDuplicate(d) {
+    const pool = GC.inbox.deals.filter((x) => x !== d).concat(GC.inbox.archived);
+    const best = pool.map((x) => ({ d: x, score: likeness(d, x).score })).sort((a, b) => b.score - a.score)[0];
+    return best && best.score >= 3 ? best.d : null;
+  }
+
+  function openMerge(srcId, targetId) {
     const src = GC.inbox.find(srcId);
     if (!src || !GC.inbox.deals.includes(src)) return;
     let target = null, keep = null, q = "";
@@ -315,7 +322,9 @@ window.GC = window.GC || {};
       GC.dealPanel.open(keep.id); // land on the merged deal, wherever the merge started
     });
     drawList();
-    box.querySelector("input[type=search]").focus();
+    // Opened from an Inbox suggestion: the match is already picked.
+    const pre = targetId && listEl.querySelector(`[data-mg-pick="${targetId}"]:not([aria-disabled="true"])`);
+    if (pre) pre.click(); else box.querySelector("input[type=search]").focus();
   }
 
   // ============================================================
@@ -388,5 +397,5 @@ window.GC = window.GC || {};
     if (d) toggleAsset(d, +sw.dataset.assetIncl, sw.checked, sw);
   });
 
-  GC.merge = { submissions, first, brokerLabel, firstDate, survivor, receivedHtml, open: openMerge, form };
+  GC.merge = { likelyDuplicate, submissions, first, brokerLabel, firstDate, survivor, receivedHtml, open: openMerge, form };
 })();

@@ -151,6 +151,38 @@ GC.MOCK = {
       areaSqm: null, rentYearly: null, wault: null, occupancy: null, dealSource: null,
       map: null,
     },
+    // ---- Inbox scenarios from the merge proposal ----
+    // Weserport: Savills sent it first (already in the pipeline); Colliers sends the same asset later.
+    {
+      id: "d17", broker: "Savills", brokerContact: "Anna Weber", sentAt: "2026-10-03", receivedAt: "2026-10-03T11:20", docType: "Teaser",
+      status: "live", name: "Weserport", location: "Bremen, Germany", assets: 1,
+      industry: "Logistics", owner: "SC", stage: "SCR", price: null, dateReceived: "2026-10-03", image: null,
+      areaSqm: 41000, rentYearly: null, wault: null, occupancy: null, dealSource: "Structured Process",
+      map: null,
+    },
+    {
+      id: "d16", broker: "Colliers", brokerContact: "Marc Janssen", sentAt: "2026-11-04", receivedAt: "2026-11-04T10:12", docType: "IM",
+      status: "new", name: "Weserport Logistics Park, Bremen", location: "Bremen, Germany", assets: 1,
+      industry: "Logistics", owner: null, stage: "Received", price: 17900000, dateReceived: "2026-11-04", image: null,
+      areaSqm: 40600, rentYearly: 1080000, wault: 6.2, occupancy: 100, dealSource: "Structured Process",
+      map: null,
+    },
+    // Same broker, new thread: a revised IM for a deal already in DD.
+    {
+      id: "d18", broker: "Newmark", brokerContact: "Lena Berg", sentAt: "2026-11-01", receivedAt: "2026-11-01T15:40", docType: "IM (revised)",
+      status: "new", name: "Fosie Industrial Estate, revised IM", location: "Malmö, Sweden", assets: 1,
+      industry: "Industrial", owner: null, stage: "Received", price: 12100000, dateReceived: "2026-11-01", image: null,
+      areaSqm: 22400, rentYearly: 905000, wault: 5.1, occupancy: 96.0, dealSource: "Structured Process",
+      map: { x: 572, y: 1062 },
+    },
+    // Genuinely new: no match anywhere.
+    {
+      id: "d19", broker: "JLL", brokerContact: "Tom Hughes", sentAt: "2026-11-05", receivedAt: "2026-11-05T08:30", docType: "Teaser",
+      status: "new", name: "Lund Science Park Offices", location: "Lund, Sweden", assets: 2,
+      industry: "Office", owner: null, stage: "Received", price: 38500000, dateReceived: "2026-11-05", image: null,
+      areaSqm: 18200, rentYearly: 2140000, wault: 6.8, occupancy: 93.5, dealSource: "Off-Market",
+      map: null,
+    },
   ],
 
   // Hidden from every list, count and the map: merged into another deal, or marked "Not a deal". Never deleted.
